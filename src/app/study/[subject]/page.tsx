@@ -7,6 +7,12 @@ type Props = {
   params: Promise<{ subject: string }>;
 };
 
+export function generateStaticParams() {
+  return Object.keys(SUBJECTS).map((slug) => ({
+    subject: slug,
+  }));
+}
+
 export default async function StudySubjectPage({ params }: Props) {
   const { subject } = await params;
   const slug = subject as SubjectSlug;

@@ -5,6 +5,9 @@ import { endOfDay, isoDate, parseIsoDateLocal, startOfDay } from "@/lib/dates";
 import { getPlanForDate } from "@/lib/schedule";
 import { SUBJECTS } from "@/lib/subjects";
 
+export const dynamic = "force-static";
+export const revalidate = false;
+
 type TaskStatus = "TODAY" | "PENDING" | "COMPLETED";
 
 type FallbackTask = {

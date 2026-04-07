@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-static";
+export const revalidate = false;
+
 type AiFlashcardType = "basic" | "cloze";
 
 type AiFlashcard = {
