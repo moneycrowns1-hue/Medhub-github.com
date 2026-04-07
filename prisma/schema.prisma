@@ -1,0 +1,60 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum TaskStatus {
+  TODAY
+  PENDING
+  COMPLETED
+}
+
+model Subject {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  uiMode    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks StudyTask[]
+}
+
+model StudyTask {
+  id          String     @id @default(cuid())
+  date        DateTime
+  status      TaskStatus
+  title       String
+  meta        String?
+  sortOrder   Int        @default(0)
+  subjectId   String?
+  subject     Subject?   @relation(fields: [subjectId], references: [id])
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([date, status])
+}
+
+model FocusSession {
+  id            String   @id @default(cuid())
+  date          DateTime
+  phase         String
+  plannedSec    Int
+  startedAt     DateTime
+  endedAt       DateTime?
+  completed     Boolean  @default(false)
+  overlayUsed   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([date])
+}
