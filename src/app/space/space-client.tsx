@@ -12,6 +12,8 @@ type Mood = {
   tone: string;
 };
 
+type RabbitFrame = number[][];
+
 type SpaceSession = {
   id: string;
   title: string;
@@ -68,6 +70,124 @@ const moods: Mood[] = [
 ];
 
 const revealIds = ["hero", "mood", "carousel", "favorites", "upcoming", "mascot", "tip"] as const;
+
+const rabbitFrames: RabbitFrame[] = [
+  [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 2, 2, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 0, 2, 1, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 2, 1, 2, 2, 1, 1, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 2, 2, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 2, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 2, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 2, 2, 2, 1, 2, 1, 1, 1, 2, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0],
+    [0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 2, 2, 0, 0, 0, 2, 2, 1, 1, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 2, 2, 2, 1, 1, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 2, 2, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 2, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 2, 2, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 2, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 2, 0, 0, 0, 0],
+    [0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 0, 0, 0, 0],
+    [0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 2, 2, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 1, 1, 2, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 1, 1, 1, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 2, 2, 1, 1, 2, 2, 1, 1, 2, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 2, 1, 1, 2, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0],
+    [0, 0, 0, 0, 0, 2, 1, 1, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 2, 0, 2, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 1, 1, 1, 2, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 1, 1, 1, 2, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 2, 1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0],
+  ],
+];
+
+function drawRabbitFrame(
+  ctx: CanvasRenderingContext2D,
+  frame: RabbitFrame,
+  direction: 1 | -1,
+  breatheOffsetY: number,
+  pixelSize: number,
+) {
+  const width = frame[0].length * pixelSize;
+  const height = frame.length * pixelSize;
+  ctx.clearRect(0, 0, width, height);
+  ctx.save();
+  if (direction === -1) {
+    ctx.translate(width, 0);
+    ctx.scale(-1, 1);
+  }
+  frame.forEach((row, y) => {
+    row.forEach((cell, x) => {
+      if (cell === 0) return;
+      ctx.fillStyle = cell === 1 ? "#ffffff" : "#000000";
+      ctx.fillRect(x * pixelSize, y * pixelSize + breatheOffsetY, pixelSize, pixelSize);
+    });
+  });
+  ctx.restore();
+}
 
 function loadInitialRevealState() {
   if (typeof window === "undefined") return {} as Record<string, boolean>;
@@ -179,6 +299,9 @@ function loadProgress() {
 
 export function SpaceClient() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const rabbitRef = useRef<HTMLDivElement | null>(null);
+  const rabbitCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rabbitCardCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [selectedMood, setSelectedMood] = useState<string>("all");
   const [activeId, setActiveId] = useState<string>(sessions[0]?.id ?? "");
   const [playing, setPlaying] = useState(false);
@@ -283,6 +406,154 @@ export function SpaceClient() {
 
     return () => {
       observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const rabbit = rabbitRef.current;
+    const canvas = rabbitCanvasRef.current;
+    if (!rabbit || !canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const pixelSize = 4;
+    const cols = rabbitFrames[0][0].length;
+    const rows = rabbitFrames[0].length;
+    canvas.width = cols * pixelSize;
+    canvas.height = rows * pixelSize;
+
+    const shouldReduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (shouldReduceMotion) {
+      rabbit.style.transform = "translate3d(calc(100vw - 84px), calc(100vh - 110px), 0) scaleX(1)";
+      drawRabbitFrame(ctx, rabbitFrames[4], 1, 0, pixelSize);
+      return;
+    }
+
+    type RabbitMode = "IDLE" | "RUN" | "JUMP_BIG";
+
+    let mode: RabbitMode = "IDLE";
+    let modeTick = 0;
+    let modeDuration = 70;
+    let direction = 1;
+    let tick = 0;
+
+    let x = 20;
+    let y = window.innerHeight - 96;
+
+    const spriteWidth = 64;
+    const margin = 10;
+    const groundY = () => window.innerHeight - 96;
+    const maxX = () => Math.max(margin, window.innerWidth - spriteWidth - margin);
+
+    const setMode = (next: RabbitMode) => {
+      mode = next;
+      modeTick = 0;
+      if (next === "IDLE") {
+        modeDuration = 40 + Math.floor(Math.random() * 70);
+      } else if (next === "RUN") {
+        modeDuration = 60 + Math.floor(Math.random() * 90);
+      } else {
+        modeDuration = 26;
+      }
+    };
+
+    setMode("IDLE");
+
+    const intervalId = window.setInterval(() => {
+      tick += 1;
+      modeTick += 1;
+
+      const minX = margin;
+      const clampX = (value: number) => Math.max(minX, Math.min(maxX(), value));
+
+      if (mode === "IDLE") {
+        const breathe = Math.round(Math.sin(tick * 0.14) * 2.5);
+        y = groundY();
+        drawRabbitFrame(ctx, rabbitFrames[4], direction as 1 | -1, breathe, pixelSize);
+        if (modeTick >= modeDuration) {
+          setMode(Math.random() < 0.24 ? "JUMP_BIG" : "RUN");
+        }
+      } else if (mode === "RUN") {
+        const jumpDuration = 16;
+        const jumpTick = modeTick % jumpDuration;
+        const n = jumpTick / jumpDuration;
+        const parabola = 4 * n * (1 - n);
+
+        x += direction * 6;
+        if (x <= minX || x >= maxX()) {
+          direction *= -1;
+          x = clampX(x);
+        }
+
+        y = groundY() - parabola * 24;
+
+        const runFrame = n < 0.25 ? rabbitFrames[0] : n < 0.5 ? rabbitFrames[1] : n < 0.75 ? rabbitFrames[2] : rabbitFrames[3];
+        drawRabbitFrame(ctx, runFrame, direction as 1 | -1, 0, pixelSize);
+
+        if (modeTick >= modeDuration) {
+          setMode("IDLE");
+        }
+      } else {
+        const n = Math.min(1, modeTick / modeDuration);
+        const parabola = 4 * n * (1 - n);
+
+        x += direction * 7;
+        if (x <= minX || x >= maxX()) {
+          direction *= -1;
+          x = clampX(x);
+        }
+
+        y = groundY() - parabola * 56;
+
+        const jumpFrame = n < 0.25 ? rabbitFrames[0] : n < 0.5 ? rabbitFrames[1] : n < 0.75 ? rabbitFrames[2] : rabbitFrames[3];
+        drawRabbitFrame(ctx, jumpFrame, direction as 1 | -1, 0, pixelSize);
+
+        if (n >= 1) {
+          y = groundY();
+          setMode("IDLE");
+        }
+      }
+
+      rabbit.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) scaleX(${direction})`;
+    }, 40);
+
+    const onResize = () => {
+      x = Math.max(margin, Math.min(x, maxX()));
+      y = Math.min(y, groundY());
+    };
+
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const canvas = rabbitCardCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const pixelSize = 3;
+    const cols = rabbitFrames[0][0].length;
+    const rows = rabbitFrames[0].length;
+    canvas.width = cols * pixelSize;
+    canvas.height = rows * pixelSize;
+
+    let tick = 0;
+    const intervalId = window.setInterval(() => {
+      tick += 1;
+      const breathe = Math.round(Math.sin(tick * 0.14) * 1.8);
+      drawRabbitFrame(ctx, rabbitFrames[4], 1, breathe, pixelSize);
+    }, 40);
+
+    return () => {
+      window.clearInterval(intervalId);
     };
   }, []);
 
@@ -483,10 +754,8 @@ export function SpaceClient() {
 
   return (
     <div className={`${outfit.className} relative space-y-10 overflow-x-hidden pb-8 ${modeStyle.pageText}`}>
-      <div className="pointer-events-none fixed left-0 top-0 z-40 h-8 w-8 rabbit-orbit" aria-hidden>
-        <div className="rabbit-hop">
-          <div className="rabbit-pixel" />
-        </div>
+      <div ref={rabbitRef} className="pointer-events-none fixed left-0 top-0 z-40 h-8 w-8" aria-hidden>
+        <canvas ref={rabbitCanvasRef} className="rabbit-canvas" />
       </div>
 
       <div className="fixed left-1/2 top-3 z-30 w-[min(96vw,1200px)] -translate-x-1/2">
@@ -763,9 +1032,7 @@ export function SpaceClient() {
       >
         <div className="grid gap-4 md:grid-cols-[auto_1fr] md:items-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-cyan-100/30 bg-cyan-100/10 shadow-[0_10px_30px_-18px_rgba(155,245,255,0.8)]">
-            <div className="rabbit-hop">
-              <div className="rabbit-pixel scale-[1.45]" />
-            </div>
+            <canvas ref={rabbitCardCanvasRef} className="rabbit-card-canvas" />
           </div>
           <div>
             <h3 className="text-lg font-semibold">Mascota Space: conejito pixel</h3>
@@ -802,125 +1069,17 @@ export function SpaceClient() {
       </section>
 
       <style jsx>{`
-        .rabbit-orbit {
-          animation: rabbitOrbit 34s linear infinite;
-          will-change: transform;
-        }
-
-        .rabbit-hop {
-          animation: rabbitHop 34s linear infinite;
-          transform-origin: center bottom;
-        }
-
-        .rabbit-pixel {
-          width: 6px;
-          height: 6px;
-          background: #ffffff;
+        .rabbit-canvas {
           image-rendering: pixelated;
-          transform: translateZ(0);
-          box-shadow:
-            0 -6px 0 #ffffff,
-            0 -12px 0 #ffffff,
-            6px -12px 0 #ffffff,
-            12px -12px 0 #ffffff,
-            18px -6px 0 #ffffff,
-            24px -6px 0 #ffffff,
-            30px -6px 0 #ffffff,
-            6px 0 0 #ffffff,
-            12px 0 0 #ffffff,
-            18px 0 0 #ffffff,
-            24px 0 0 #ffffff,
-            30px 0 0 #ffffff,
-            36px 0 0 #ffffff,
-            6px 6px 0 #ffffff,
-            12px 6px 0 #0b0f18,
-            18px 6px 0 #0b0f18,
-            24px 6px 0 #ffffff,
-            30px 6px 0 #ffffff,
-            36px 6px 0 #ffffff,
-            0 12px 0 #ffffff,
-            6px 12px 0 #ffffff,
-            12px 12px 0 #ffffff,
-            18px 12px 0 #ffffff,
-            24px 12px 0 #0b0f18,
-            30px 12px 0 #ffffff,
-            36px 12px 0 #ffffff,
-            42px 12px 0 #ffffff,
-            6px 18px 0 #ffffff,
-            12px 18px 0 #ffffff,
-            18px 18px 0 #ffffff,
-            24px 18px 0 #ffffff,
-            30px 18px 0 #ffffff,
-            36px 18px 0 #ffffff,
-            12px 24px 0 #ffffff,
-            18px 24px 0 #ffffff,
-            24px 24px 0 #ffffff;
+          image-rendering: crisp-edges;
+          filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.2));
         }
 
-        @keyframes rabbitHop {
-          0%,
-          10%,
-          26%,
-          38%,
-          54%,
-          66%,
-          82%,
-          100% {
-            transform: translateY(0);
-          }
-          14%,
-          30%,
-          46%,
-          74%,
-          90% {
-            transform: translateY(-10px);
-          }
-          18%,
-          34%,
-          50%,
-          78%,
-          94% {
-            transform: translateY(-4px);
-          }
-        }
-
-        @keyframes rabbitOrbit {
-          0% {
-            transform: translate(4vw, 82vh) scaleX(1);
-          }
-          8% {
-            transform: translate(4vw, 82vh) scaleX(1);
-          }
-          22% {
-            transform: translate(86vw, 82vh) scaleX(1);
-          }
-          28% {
-            transform: translate(86vw, 82vh) scaleX(1);
-          }
-          34% {
-            transform: translate(90vw, 74vh) scaleX(1);
-          }
-          48% {
-            transform: translate(90vw, 14vh) scaleX(-1);
-          }
-          54% {
-            transform: translate(90vw, 14vh) scaleX(-1);
-          }
-          62% {
-            transform: translate(84vw, 8vh) scaleX(-1);
-          }
-          76% {
-            transform: translate(12vw, 8vh) scaleX(-1);
-          }
-          82% {
-            transform: translate(12vw, 8vh) scaleX(-1);
-          }
-          90% {
-            transform: translate(6vw, 14vh) scaleX(1);
-          }
-          100% {
-            transform: translate(4vw, 82vh) scaleX(1);
-          }
+        .rabbit-card-canvas {
+          image-rendering: pixelated;
+          image-rendering: crisp-edges;
+          transform: scale(0.62);
+          filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.2));
         }
       `}</style>
     </div>
