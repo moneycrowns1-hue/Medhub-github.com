@@ -473,6 +473,7 @@ export function SpaceClient() {
   };
 
   const favoriteSessions = sessions.filter((s) => favoriteIds.includes(s.id));
+  const stickyHeaderSolid = parallaxY > 24;
 
   const revealClass = (id: string) => {
     return revealedSections[id]
@@ -482,15 +483,34 @@ export function SpaceClient() {
 
   return (
     <div className={`${outfit.className} relative space-y-10 overflow-x-hidden pb-8 ${modeStyle.pageText}`}>
+      <div className="pointer-events-none fixed left-0 top-0 z-40 h-8 w-8 rabbit-orbit" aria-hidden>
+        <div className="rabbit-hop">
+          <div className="rabbit-pixel" />
+        </div>
+      </div>
 
-      <div
-        className={`pointer-events-none absolute inset-x-0 -top-16 z-0 h-[24rem] transition-transform duration-300 ease-out ${modeStyle.pageGlow}`}
-        style={{ transform: `translate3d(0, ${Math.round(parallaxY * 0.14)}px, 0)` }}
-      />
-      <div
-        className="pointer-events-none absolute inset-x-0 top-56 z-0 h-[18rem] bg-[radial-gradient(circle_at_50%_50%,rgba(176,248,255,0.12),transparent_58%)] blur-2xl"
-        style={{ transform: `translate3d(0, ${Math.round(parallaxY * 0.08)}px, 0)` }}
-      />
+      <div className="fixed left-1/2 top-3 z-30 w-[min(96vw,1200px)] -translate-x-1/2">
+        <div
+          className={`space-y-2 rounded-3xl p-4 transition-all duration-300 ${
+            stickyHeaderSolid
+              ? "border border-white/20 bg-slate-950/70 shadow-[0_14px_40px_-24px_rgba(0,0,0,0.8)] backdrop-blur-xl"
+              : "border border-transparent bg-transparent"
+          }`}
+        >
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-medium text-foreground">
+            <Sparkles className="h-3.5 w-3.5" />
+            Hoy en Space
+          </div>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Sigue al conejo blanco</h1>
+              <p className="text-xs text-foreground/75 sm:text-sm">Respira, entra en foco y reproduce en un toque.</p>
+            </div>
+            <div className={`text-xs ${pixelify.className} text-cyan-100`}>MODO FLOW</div>
+          </div>
+        </div>
+      </div>
+
       <audio ref={audioRef} preload="metadata" className="hidden" src={activeSession ? withBasePath(activeSession.audioSrc) : undefined} />
 
       <section
@@ -508,16 +528,9 @@ export function SpaceClient() {
           <source src={HERO_VIDEO_URL} type="video/mp4" />
         </video>
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(4,11,20,0.12)_0%,rgba(4,11,20,0.55)_62%,rgba(4,11,20,0.8)_100%)]" />
+        <div className="pointer-events-none absolute inset-x-0 -bottom-1 h-28 bg-[linear-gradient(180deg,rgba(5,10,18,0)_0%,rgba(5,10,18,0.58)_52%,rgba(5,10,18,0.98)_100%)]" />
 
-        <div className="relative z-10 mx-auto flex min-h-[460px] w-full max-w-6xl flex-col justify-between gap-6 px-6 pb-8 pt-8 md:min-h-[620px] md:px-10 md:pb-12">
-          <div className="space-y-3 rounded-3xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl md:max-w-md">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-medium text-foreground">
-              <Sparkles className="h-3.5 w-3.5" />
-              Hoy en Space
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">Espacio de calma para estudiar</h1>
-            <p className="text-sm text-foreground/70">Respira, elige una sesión y entra en foco en menos de 1 minuto.</p>
-          </div>
+        <div className="relative z-10 mx-auto flex min-h-[500px] w-full max-w-6xl flex-col justify-end gap-6 px-6 pb-10 pt-24 md:min-h-[680px] md:px-10 md:pb-14 md:pt-28">
 
           <div className="max-w-4xl space-y-2">
             <div className="text-4xl font-extrabold leading-[0.95] tracking-tight sm:text-5xl md:text-6xl">
@@ -529,7 +542,7 @@ export function SpaceClient() {
         </div>
       </section>
 
-      <section className={`relative rounded-3xl border p-5 backdrop-blur-xl ${modeStyle.border} ${modeStyle.surface}`}>
+      <section className={`relative z-20 -mt-8 rounded-3xl border p-5 backdrop-blur-xl ${modeStyle.border} ${modeStyle.surface}`}>
         {playing ? (
           <div key={playPulseToken} className="pointer-events-none absolute inset-0 rounded-3xl border border-cyan-200/35 animate-[ping_850ms_ease-out_1]" />
         ) : null}
@@ -749,8 +762,10 @@ export function SpaceClient() {
         style={{ transitionDelay: "250ms" }}
       >
         <div className="grid gap-4 md:grid-cols-[auto_1fr] md:items-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-cyan-100/30 bg-cyan-100/10 text-4xl shadow-[0_10px_30px_-18px_rgba(155,245,255,0.8)]">
-            🐰
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-cyan-100/30 bg-cyan-100/10 shadow-[0_10px_30px_-18px_rgba(155,245,255,0.8)]">
+            <div className="rabbit-hop">
+              <div className="rabbit-pixel scale-[1.45]" />
+            </div>
           </div>
           <div>
             <h3 className="text-lg font-semibold">Mascota Space: conejito pixel</h3>
@@ -785,6 +800,90 @@ export function SpaceClient() {
           </div>
         </div>
       </section>
+
+      <style jsx>{`
+        .rabbit-orbit {
+          animation: rabbitOrbit 24s linear infinite;
+          will-change: transform;
+        }
+
+        .rabbit-hop {
+          animation: rabbitHop 760ms ease-in-out infinite;
+          transform-origin: center bottom;
+        }
+
+        .rabbit-pixel {
+          width: 4px;
+          height: 4px;
+          background: #ffffff;
+          image-rendering: pixelated;
+          box-shadow:
+            8px 0 0 #ffffff,
+            12px 0 0 #ffffff,
+            4px 4px 0 #ffffff,
+            8px 4px 0 #ffffff,
+            12px 4px 0 #ffffff,
+            16px 4px 0 #ffffff,
+            4px 8px 0 #ffffff,
+            8px 8px 0 #111827,
+            12px 8px 0 #ffffff,
+            16px 8px 0 #ffffff,
+            0 12px 0 #ffffff,
+            4px 12px 0 #ffffff,
+            8px 12px 0 #ffffff,
+            12px 12px 0 #ffffff,
+            16px 12px 0 #ffffff,
+            20px 12px 0 #ffffff,
+            4px 16px 0 #ffffff,
+            8px 16px 0 #ffffff,
+            12px 16px 0 #ffffff,
+            16px 16px 0 #ffffff,
+            8px 20px 0 #ffffff,
+            12px 20px 0 #ffffff,
+            16px 20px 0 #ffffff;
+          filter: drop-shadow(0 2px 6px rgba(120, 235, 255, 0.38));
+        }
+
+        @keyframes rabbitHop {
+          0%,
+          100% {
+            transform: translateY(0);
+          }
+          45% {
+            transform: translateY(-9px);
+          }
+          65% {
+            transform: translateY(-3px);
+          }
+        }
+
+        @keyframes rabbitOrbit {
+          0% {
+            transform: translate(4vw, 82vh) scaleX(1);
+          }
+          23% {
+            transform: translate(86vw, 82vh) scaleX(1);
+          }
+          27% {
+            transform: translate(90vw, 74vh) scaleX(1);
+          }
+          48% {
+            transform: translate(90vw, 14vh) scaleX(-1);
+          }
+          52% {
+            transform: translate(84vw, 8vh) scaleX(-1);
+          }
+          74% {
+            transform: translate(12vw, 8vh) scaleX(-1);
+          }
+          78% {
+            transform: translate(6vw, 14vh) scaleX(1);
+          }
+          100% {
+            transform: translate(4vw, 82vh) scaleX(1);
+          }
+        }
+      `}</style>
     </div>
   );
 }
