@@ -775,7 +775,7 @@ export function SpaceClient() {
                 Bienvenida diaria: &quot;Hola, ¿empezamos con 3 minutos de reset?&quot;
               </div>
               <div className={`rounded-2xl border p-3 text-xs ${modeStyle.border} ${modeStyle.surface}`}>
-                Estado visual: dormido/activo según si estás reproduciendo.
+                Estado visual: idle con descansos + run/jump en recorrido.
               </div>
               <div className={`rounded-2xl border p-3 text-xs ${modeStyle.border} ${modeStyle.surface}`}>
                 Mini retos: racha de días con medalla del conejo.
@@ -803,57 +803,84 @@ export function SpaceClient() {
 
       <style jsx>{`
         .rabbit-orbit {
-          animation: rabbitOrbit 24s linear infinite;
+          animation: rabbitOrbit 34s linear infinite;
           will-change: transform;
         }
 
         .rabbit-hop {
-          animation: rabbitHop 760ms ease-in-out infinite;
+          animation: rabbitHop 34s linear infinite;
           transform-origin: center bottom;
         }
 
         .rabbit-pixel {
-          width: 4px;
-          height: 4px;
+          width: 6px;
+          height: 6px;
           background: #ffffff;
           image-rendering: pixelated;
+          transform: translateZ(0);
           box-shadow:
-            8px 0 0 #ffffff,
+            0 -6px 0 #ffffff,
+            0 -12px 0 #ffffff,
+            6px -12px 0 #ffffff,
+            12px -12px 0 #ffffff,
+            18px -6px 0 #ffffff,
+            24px -6px 0 #ffffff,
+            30px -6px 0 #ffffff,
+            6px 0 0 #ffffff,
             12px 0 0 #ffffff,
-            4px 4px 0 #ffffff,
-            8px 4px 0 #ffffff,
-            12px 4px 0 #ffffff,
-            16px 4px 0 #ffffff,
-            4px 8px 0 #ffffff,
-            8px 8px 0 #111827,
-            12px 8px 0 #ffffff,
-            16px 8px 0 #ffffff,
+            18px 0 0 #ffffff,
+            24px 0 0 #ffffff,
+            30px 0 0 #ffffff,
+            36px 0 0 #ffffff,
+            6px 6px 0 #ffffff,
+            12px 6px 0 #0b0f18,
+            18px 6px 0 #0b0f18,
+            24px 6px 0 #ffffff,
+            30px 6px 0 #ffffff,
+            36px 6px 0 #ffffff,
             0 12px 0 #ffffff,
-            4px 12px 0 #ffffff,
-            8px 12px 0 #ffffff,
+            6px 12px 0 #ffffff,
             12px 12px 0 #ffffff,
-            16px 12px 0 #ffffff,
-            20px 12px 0 #ffffff,
-            4px 16px 0 #ffffff,
-            8px 16px 0 #ffffff,
-            12px 16px 0 #ffffff,
-            16px 16px 0 #ffffff,
-            8px 20px 0 #ffffff,
-            12px 20px 0 #ffffff,
-            16px 20px 0 #ffffff;
-          filter: drop-shadow(0 2px 6px rgba(120, 235, 255, 0.38));
+            18px 12px 0 #ffffff,
+            24px 12px 0 #0b0f18,
+            30px 12px 0 #ffffff,
+            36px 12px 0 #ffffff,
+            42px 12px 0 #ffffff,
+            6px 18px 0 #ffffff,
+            12px 18px 0 #ffffff,
+            18px 18px 0 #ffffff,
+            24px 18px 0 #ffffff,
+            30px 18px 0 #ffffff,
+            36px 18px 0 #ffffff,
+            12px 24px 0 #ffffff,
+            18px 24px 0 #ffffff,
+            24px 24px 0 #ffffff;
         }
 
         @keyframes rabbitHop {
           0%,
+          10%,
+          26%,
+          38%,
+          54%,
+          66%,
+          82%,
           100% {
             transform: translateY(0);
           }
-          45% {
-            transform: translateY(-9px);
+          14%,
+          30%,
+          46%,
+          74%,
+          90% {
+            transform: translateY(-10px);
           }
-          65% {
-            transform: translateY(-3px);
+          18%,
+          34%,
+          50%,
+          78%,
+          94% {
+            transform: translateY(-4px);
           }
         }
 
@@ -861,22 +888,34 @@ export function SpaceClient() {
           0% {
             transform: translate(4vw, 82vh) scaleX(1);
           }
-          23% {
+          8% {
+            transform: translate(4vw, 82vh) scaleX(1);
+          }
+          22% {
             transform: translate(86vw, 82vh) scaleX(1);
           }
-          27% {
+          28% {
+            transform: translate(86vw, 82vh) scaleX(1);
+          }
+          34% {
             transform: translate(90vw, 74vh) scaleX(1);
           }
           48% {
             transform: translate(90vw, 14vh) scaleX(-1);
           }
-          52% {
+          54% {
+            transform: translate(90vw, 14vh) scaleX(-1);
+          }
+          62% {
             transform: translate(84vw, 8vh) scaleX(-1);
           }
-          74% {
+          76% {
             transform: translate(12vw, 8vh) scaleX(-1);
           }
-          78% {
+          82% {
+            transform: translate(12vw, 8vh) scaleX(-1);
+          }
+          90% {
             transform: translate(6vw, 14vh) scaleX(1);
           }
           100% {
