@@ -10,6 +10,7 @@ import {
   CalendarDays,
   LayoutDashboard,
   Menu,
+  MoonStar,
   Settings,
   Zap,
 } from "lucide-react";
@@ -34,6 +35,7 @@ export type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Hoy", icon: <LayoutDashboard className="h-4 w-4" /> },
   { href: "/day", label: "Plan", icon: <CalendarDays className="h-4 w-4" /> },
+  { href: "/space", label: "Space", icon: <MoonStar className="h-4 w-4" /> },
   { href: "/resources", label: "Recursos", icon: <BookOpen className="h-4 w-4" /> },
   { href: "/srs", label: "SRS", icon: <Brain className="h-4 w-4" /> },
   { href: "/stats", label: "Stats", icon: <BarChart3 className="h-4 w-4" /> },
