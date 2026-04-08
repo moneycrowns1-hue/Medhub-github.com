@@ -50,7 +50,7 @@ const spaceAssets: SpaceAsset[] = [
   {
     id: "waterfall-hero",
     label: "Fondo principal cascada",
-    path: "/images/space/waterfall-hero.webp",
+    path: "/images/space/waterfall-hero.png",
     prompt:
       "cinematic waterfall for meditation app hero, deep blue and cyan tones, soft mist, no people, no text, premium wellness style, static camera, high detail",
   },
@@ -131,11 +131,9 @@ function loadVisualMode() {
   }
 }
 
-function getScrollMetrics() {
-  if (typeof window === "undefined") return { progress: 0, y: 0 };
-  const y = window.scrollY || window.pageYOffset || 0;
-  const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-  return { progress: Math.min(100, Math.max(0, Math.round((y / max) * 100))), y };
+function getScrollY() {
+  if (typeof window === "undefined") return 0;
+  return window.scrollY || window.pageYOffset || 0;
 }
 
 const sessions: SpaceSession[] = [
@@ -230,8 +228,7 @@ export function SpaceClient() {
   const [sessionProgress, setSessionProgress] = useState<Record<string, number>>(() => loadProgress());
   const [revealedSections, setRevealedSections] = useState<Record<string, boolean>>(() => loadInitialRevealState());
   const [visualMode, setVisualMode] = useState<VisualModeId>(() => loadVisualMode());
-  const [scrollProgress, setScrollProgress] = useState<number>(() => getScrollMetrics().progress);
-  const [parallaxY, setParallaxY] = useState<number>(() => getScrollMetrics().y);
+  const [parallaxY, setParallaxY] = useState<number>(() => getScrollY());
   const [playPulseToken, setPlayPulseToken] = useState(0);
   const [assetStatus, setAssetStatus] = useState<Record<string, boolean>>({});
 
@@ -369,10 +366,8 @@ export function SpaceClient() {
       if (ticking) return;
       ticking = true;
       window.requestAnimationFrame(() => {
-        const next = getScrollMetrics();
-        setScrollProgress(next.progress);
         if (!shouldReduceMotion) {
-          setParallaxY(next.y);
+          setParallaxY(getScrollY());
         }
         ticking = false;
       });
@@ -552,33 +547,27 @@ export function SpaceClient() {
   };
 
   return (
-    <div className={`relative space-y-10 pb-8 ${modeStyle.pageText}`}>
-      <div className="sticky top-0 z-40 h-1 w-full overflow-hidden rounded-full bg-white/8">
-        <div
-          className="h-full bg-[linear-gradient(90deg,rgba(167,243,255,0.85),rgba(255,255,255,0.95))] transition-[width] duration-150 ease-out"
-          style={{ width: `${scrollProgress}%` }}
-        />
-      </div>
+    <div className={`relative space-y-12 overflow-x-hidden pb-8 ${modeStyle.pageText}`}>
 
       <div
         className={`pointer-events-none absolute inset-x-0 -top-16 z-0 h-[24rem] transition-transform duration-300 ease-out ${modeStyle.pageGlow}`}
         style={{ transform: `translate3d(0, ${Math.round(parallaxY * 0.14)}px, 0)` }}
       />
       <div
-        className="pointer-events-none absolute inset-x-[-20%] top-56 z-0 h-[18rem] bg-[radial-gradient(circle_at_50%_50%,rgba(176,248,255,0.12),transparent_58%)] blur-2xl"
+        className="pointer-events-none absolute inset-x-0 top-56 z-0 h-[18rem] bg-[radial-gradient(circle_at_50%_50%,rgba(176,248,255,0.12),transparent_58%)] blur-2xl"
         style={{ transform: `translate3d(0, ${Math.round(parallaxY * 0.08)}px, 0)` }}
       />
       <audio ref={audioRef} preload="metadata" className="hidden" src={activeSession?.audioSrc} />
 
       <section
         data-reveal-id="hero"
-        className={`relative z-10 overflow-hidden rounded-[2rem] border transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurface} ${modeStyle.heroShadow} ${revealClass("hero")}`}
+        className={`relative left-1/2 z-10 w-screen -translate-x-1/2 overflow-hidden transition-all duration-700 ease-out ${modeStyle.heroShadow} ${revealClass("hero")}`}
       >
         <div
           className="pointer-events-none absolute inset-0 bg-cover bg-center"
           style={{
             backgroundImage: `url('${heroImagePath}')`,
-            transform: `translate3d(0, ${heroImageOffset}px, 0) scale(1.08)`,
+            transform: `translate3d(0, ${heroImageOffset}px, 0) scale(1.06)`,
           }}
         />
         {assetStatus["mist-back"] ? (
@@ -629,16 +618,16 @@ export function SpaceClient() {
         ) : null}
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(4,11,20,0.12)_0%,rgba(4,11,20,0.55)_62%,rgba(4,11,20,0.8)_100%)]" />
 
-        <div className="relative z-10 flex min-h-[380px] flex-col justify-end gap-4 p-6 md:min-h-[480px] md:p-10">
-          <div className="space-y-2">
-            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wider ${modeStyle.border} bg-black/20 ${modeStyle.textMuted}`}>
+        <div className="relative z-10 mx-auto flex min-h-[420px] w-full max-w-6xl flex-col justify-end gap-6 px-6 pb-8 pt-24 md:min-h-[560px] md:px-10 md:pb-12">
+          <div className="max-w-3xl space-y-3">
+            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wider ${modeStyle.border} bg-black/30 ${modeStyle.textMuted}`}>
               <MoonStar className="h-3.5 w-3.5" />
               Cascada Space
             </div>
-            <h1 className="max-w-3xl text-2xl font-semibold leading-tight md:text-4xl">Una vista más relajante para entrar en modo calma antes de estudiar.</h1>
+            <h1 className="text-2xl font-semibold leading-tight md:text-5xl">Una vista más relajante para entrar en modo calma antes de estudiar.</h1>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid max-w-4xl gap-2 sm:grid-cols-3">
             {visualModes.map((mode) => (
               <button
                 key={mode.id}
