@@ -7,9 +7,9 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  // Base path fijo para repositorio /somagnus en GitHub Pages
-  basePath: "/somagnus",
-  assetPrefix: "/somagnus",
+  // Base path fijo para el nombre real del repositorio en GitHub Pages
+  basePath: "/Medhub-github.com",
+  assetPrefix: "/Medhub-github.com",
   // Permitir orígenes de desarrollo
   allowedDevOrigins: ["http://localhost:3000", "http://192.168.100.13:3000"],
 };

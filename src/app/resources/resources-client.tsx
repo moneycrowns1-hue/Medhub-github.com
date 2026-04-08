@@ -186,6 +186,11 @@ export function ResourcesClient() {
     setAiBusy(true);
     setAiError(null);
     try {
+      if (typeof window !== "undefined" && window.location.hostname.endsWith("github.io")) {
+        setAiError("La función de IA no está disponible en GitHub Pages (hosting estático). Para usarla, ejecuta la app en un servidor Next.js.");
+        return;
+      }
+
       const r = await fetch("/api/ai/flashcards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
