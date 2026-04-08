@@ -343,8 +343,6 @@ function loadDailyMascotCheckinDone() {
 
 export function SpaceClient() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const rabbitRef = useRef<HTMLDivElement | null>(null);
-  const rabbitCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const rabbitCardCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [selectedMood, setSelectedMood] = useState<string>("all");
   const [activeId, setActiveId] = useState<string>(sessions[0]?.id ?? "");
@@ -452,155 +450,6 @@ export function SpaceClient() {
 
     return () => {
       observer.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const rabbit = rabbitRef.current;
-    const canvas = rabbitCanvasRef.current;
-    if (!rabbit || !canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const pixelSize = 4;
-    const cols = rabbitFrames[0][0].length;
-    const rows = rabbitFrames[0].length;
-    canvas.width = cols * pixelSize;
-    canvas.height = rows * pixelSize;
-
-    const shouldReduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (shouldReduceMotion) {
-      rabbit.style.transform = "translate3d(calc(100vw - 84px), calc(100vh - 110px), 0)";
-      drawRabbitFrame(ctx, rabbitFrames[4], 1, 0, pixelSize);
-      return;
-    }
-
-    type RabbitMode = "IDLE" | "RUN" | "JUMP_BIG";
-
-    let mode: RabbitMode = "IDLE";
-    let modeTick = 0;
-    let modeDuration = 70;
-    let direction = 1;
-    let tick = 0;
-
-    let x = 20;
-
-    const spriteWidth = 64;
-    const spriteHeight = 64;
-    const margin = 10;
-    const minY = () => Math.max(112, Math.floor(window.innerHeight * 0.34));
-    const maxY = () => Math.max(minY(), window.innerHeight - spriteHeight - margin);
-    const pickLaneY = () => {
-      const from = minY();
-      const to = maxY();
-      if (to <= from) return from;
-      return Math.round(from + Math.random() * (to - from));
-    };
-
-    let laneY = pickLaneY();
-    let baseY = laneY;
-    let renderY = laneY;
-    const maxX = () => Math.max(margin, window.innerWidth - spriteWidth - margin);
-
-    const setMode = (next: RabbitMode) => {
-      mode = next;
-      modeTick = 0;
-      if (next === "IDLE") {
-        modeDuration = 40 + Math.floor(Math.random() * 70);
-      } else if (next === "RUN") {
-        modeDuration = 60 + Math.floor(Math.random() * 90);
-      } else {
-        modeDuration = 26;
-      }
-    };
-
-    setMode("IDLE");
-
-    const intervalId = window.setInterval(() => {
-      tick += 1;
-      modeTick += 1;
-
-      const minX = margin;
-      const clampX = (value: number) => Math.max(minX, Math.min(maxX(), value));
-
-      if (mode === "IDLE") {
-        const breathe = Math.round(Math.sin(tick * 0.14) * 2.5);
-        baseY += (laneY - baseY) * 0.12;
-        renderY = baseY;
-        drawRabbitFrame(ctx, rabbitFrames[4], direction as 1 | -1, breathe, pixelSize);
-        if (modeTick >= modeDuration) {
-          laneY = pickLaneY();
-          setMode(Math.random() < 0.24 ? "JUMP_BIG" : "RUN");
-        }
-      } else if (mode === "RUN") {
-        const jumpDuration = 16;
-        const jumpTick = modeTick % jumpDuration;
-        const n = jumpTick / jumpDuration;
-        const parabola = 4 * n * (1 - n);
-
-        x += direction * 6;
-        if (x <= minX || x >= maxX()) {
-          direction *= -1;
-          x = clampX(x);
-          laneY = pickLaneY();
-        }
-
-        if (modeTick % 35 === 0 && Math.random() < 0.45) {
-          laneY = pickLaneY();
-        }
-        baseY += Math.max(-2.6, Math.min(2.6, laneY - baseY));
-        baseY = Math.max(minY(), Math.min(maxY(), baseY));
-        renderY = baseY - parabola * 24;
-
-        const runFrame = n < 0.25 ? rabbitFrames[0] : n < 0.5 ? rabbitFrames[1] : n < 0.75 ? rabbitFrames[2] : rabbitFrames[3];
-        drawRabbitFrame(ctx, runFrame, direction as 1 | -1, 0, pixelSize);
-
-        if (modeTick >= modeDuration) {
-          setMode("IDLE");
-          laneY = pickLaneY();
-        }
-      } else {
-        const n = Math.min(1, modeTick / modeDuration);
-        const parabola = 4 * n * (1 - n);
-
-        x += direction * 7;
-        if (x <= minX || x >= maxX()) {
-          direction *= -1;
-          x = clampX(x);
-          laneY = pickLaneY();
-        }
-
-        baseY += Math.max(-3.2, Math.min(3.2, laneY - baseY));
-        baseY = Math.max(minY(), Math.min(maxY(), baseY));
-        renderY = baseY - parabola * 56;
-
-        const jumpFrame = n < 0.25 ? rabbitFrames[0] : n < 0.5 ? rabbitFrames[1] : n < 0.75 ? rabbitFrames[2] : rabbitFrames[3];
-        drawRabbitFrame(ctx, jumpFrame, direction as 1 | -1, 0, pixelSize);
-
-        if (n >= 1) {
-          baseY = laneY;
-          renderY = baseY;
-          setMode("IDLE");
-        }
-      }
-
-      rabbit.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(renderY)}px, 0)`;
-    }, 40);
-
-    const onResize = () => {
-      x = Math.max(margin, Math.min(x, maxX()));
-      laneY = Math.max(minY(), Math.min(laneY, maxY()));
-      baseY = Math.max(minY(), Math.min(baseY, maxY()));
-      renderY = baseY;
-    };
-
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener("resize", onResize);
     };
   }, []);
 
@@ -862,10 +711,6 @@ export function SpaceClient() {
 
   return (
     <div className={`${outfit.className} relative space-y-10 overflow-x-hidden pb-8 ${modeStyle.pageText}`}>
-      <div ref={rabbitRef} className="pointer-events-none fixed left-0 top-0 z-40 h-8 w-8" aria-hidden>
-        <canvas ref={rabbitCanvasRef} className="rabbit-canvas" />
-      </div>
-
       <div className="fixed left-1/2 top-3 z-30 w-[min(96vw,1200px)] -translate-x-1/2">
         <div
           className={`space-y-2 rounded-3xl p-4 transition-all duration-300 ${
@@ -919,7 +764,7 @@ export function SpaceClient() {
         </div>
       </section>
 
-      <section className={`relative z-20 -mt-8 rounded-3xl border p-5 backdrop-blur-xl ${modeStyle.border} ${modeStyle.surface}`}>
+      <section className={`relative z-20 -mt-8 rounded-[28px] border p-6 backdrop-blur-xl shadow-[0_24px_60px_-38px_rgba(0,0,0,0.85)] ${modeStyle.border} ${modeStyle.surface}`}>
         {playing ? (
           <div key={playPulseToken} className="pointer-events-none absolute inset-0 rounded-3xl border border-cyan-200/35 animate-[ping_850ms_ease-out_1]" />
         ) : null}
@@ -1025,51 +870,60 @@ export function SpaceClient() {
           <Headphones className="h-3.5 w-3.5" />
           Sesiones disponibles
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-3">
           {filteredSessions.map((session) => {
             const isFav = favoriteIds.includes(session.id);
             const isActive = activeSession?.id === session.id;
             return (
               <article
                 key={session.id}
-                className={`rounded-3xl border p-5 backdrop-blur-xl transition ${
+                className={`rounded-2xl border px-4 py-4 backdrop-blur-xl transition ${
                   isActive ? `${modeStyle.borderStrong} ${modeStyle.softSurfaceAlt}` : `${modeStyle.border} ${modeStyle.softSurface}`
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-base font-semibold">{session.title}</div>
-                    <div className={`text-xs ${modeStyle.textSoft}`}>{session.type} · {fmt(session.approxLengthSec)}</div>
+                    <div className="text-sm font-semibold sm:text-base">{session.title}</div>
+                    <div className={`text-xs ${modeStyle.textSoft}`}>{session.type} · {fmt(session.approxLengthSec)} · {session.moodId}</div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => toggleFavorite(session.id)}
-                    className={`rounded-full border p-2 transition ${
-                      isFav ? "border-rose-300/60 bg-rose-300/20 text-rose-100" : `${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`
-                    }`}
-                    aria-label="Favorito"
-                  >
-                    <Heart className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleFavorite(session.id)}
+                      className={`rounded-full border p-2 transition ${
+                        isFav ? "border-rose-300/60 bg-rose-300/20 text-rose-100" : `${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`
+                      }`}
+                      aria-label="Favorito"
+                    >
+                      <Heart className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        startSession(session.id, { autoplay: true });
+                      }}
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${modeStyle.primaryButton}`}
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                      Play
+                    </button>
+                  </div>
                 </div>
-                <p className={`mt-3 text-sm ${modeStyle.textSoft}`}>{session.desc}</p>
-                <div className="mt-4 flex gap-2">
+                <p className={`mt-2 text-sm ${modeStyle.textSoft}`}>{session.desc}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => startSession(session.id)}
                     className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${modeStyle.primaryButton}`}
                   >
-                    <Play className="h-3.5 w-3.5" />
                     Seleccionar
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      startSession(session.id, { autoplay: true });
-                    }}
+                    onClick={() => toggleFavorite(session.id)}
                     className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition ${modeStyle.secondaryButton}`}
                   >
-                    Reproducir
+                    {isFav ? "Quitar favorito" : "Guardar favorito"}
                   </button>
                 </div>
               </article>
@@ -1078,10 +932,10 @@ export function SpaceClient() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+      <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <article
           data-reveal-id="favorites"
-          className={`rounded-3xl border p-6 backdrop-blur-xl transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurface} ${revealClass("favorites")}`}
+          className={`rounded-3xl border p-5 backdrop-blur-xl transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${revealClass("favorites")}`}
           style={{ transitionDelay: "160ms" }}
         >
           <div className={`text-xs uppercase tracking-widest ${modeStyle.textSoft}`}>Tus favoritos</div>
@@ -1096,7 +950,7 @@ export function SpaceClient() {
                   key={session.id}
                   type="button"
                   onClick={() => startSession(session.id)}
-                  className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${modeStyle.border} ${modeStyle.surface}`}
+                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${modeStyle.border} ${modeStyle.surface}`}
                 >
                   <div>
                     <div className="text-sm font-semibold">{session.title}</div>
@@ -1111,7 +965,7 @@ export function SpaceClient() {
 
         <article
           data-reveal-id="upcoming"
-          className={`relative overflow-hidden rounded-3xl border p-6 backdrop-blur-xl transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.heroBg} ${revealClass("upcoming")}`}
+          className={`relative overflow-hidden rounded-3xl border p-5 backdrop-blur-xl transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${revealClass("upcoming")}`}
           style={{ transitionDelay: "220ms" }}
         >
           <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full bg-cyan-200/20 blur-2xl" />
@@ -1120,14 +974,14 @@ export function SpaceClient() {
               <Waves className="h-3.5 w-3.5" />
               Próximamente
             </div>
-            <h3 className="text-xl font-semibold">Biblioteca de audios personalizados</h3>
+            <h3 className="text-xl font-semibold">Biblioteca de audios personalizada</h3>
             <p className={`text-sm ${modeStyle.textSoft}`}>
               El reproductor ya está conectado a archivos reales. Solo coloca tus audios en <code>public/audio/space</code> con estos nombres:
               <br />
               <span className={modeStyle.textMuted}>reset-express.mp3, foco-profundo.mp3, dormir-mejor.mp3, aterriza-mente.mp3, modo-examen.mp3</span>
             </p>
-            <div className={`rounded-2xl border border-dashed p-4 text-xs ${modeStyle.border} ${modeStyle.softSurface} ${modeStyle.textSoft}`}>
-              Siguiente paso técnico: si quieres, agrego volumen, velocidad y auto-advance de playlist al terminar cada sesión.
+            <div className={`rounded-2xl border border-dashed p-4 text-xs ${modeStyle.border} ${modeStyle.surface} ${modeStyle.textSoft}`}>
+              Próximo ajuste recomendado: volumen, velocidad y auto-avance para hacerlo aún más simple de usar.
             </div>
           </div>
         </article>
@@ -1200,12 +1054,6 @@ export function SpaceClient() {
       </section>
 
       <style jsx>{`
-        .rabbit-canvas {
-          image-rendering: pixelated;
-          image-rendering: crisp-edges;
-          filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.2));
-        }
-
         .rabbit-card-canvas {
           image-rendering: pixelated;
           image-rendering: crisp-edges;
