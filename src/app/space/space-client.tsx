@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Headphones, Heart, MoonStar, Pause, Play, Sparkles, Waves } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Headphones, Heart, MoonStar, Pause, Play, SkipBack, SkipForward, Sparkles, Waves } from "lucide-react";
 
 type Mood = {
   id: string;
@@ -15,12 +15,14 @@ type SpaceSession = {
   id: string;
   title: string;
   type: string;
-  lengthSec: number;
+  approxLengthSec: number;
   desc: string;
   moodId: string;
+  audioSrc: string;
 };
 
-const STORAGE_KEY = "somagnus:space:favorites:v1";
+const FAVORITES_STORAGE_KEY = "somagnus:space:favorites:v1";
+const PROGRESS_STORAGE_KEY = "somagnus:space:progress:v1";
 
 const moods: Mood[] = [
   {
@@ -48,41 +50,46 @@ const sessions: SpaceSession[] = [
     id: "reset-express",
     title: "Reset express",
     type: "Micro pausa",
-    lengthSec: 180,
+    approxLengthSec: 180,
     desc: "Baja tensión y arranca con claridad.",
     moodId: "respira",
+    audioSrc: "/audio/space/reset-express.mp3",
   },
   {
     id: "foco-profundo",
     title: "Foco profundo",
     type: "Preparación",
-    lengthSec: 480,
+    approxLengthSec: 480,
     desc: "Ritual mental antes de un bloque largo.",
     moodId: "enfocate",
+    audioSrc: "/audio/space/foco-profundo.mp3",
   },
   {
     id: "dormir-mejor",
     title: "Dormir mejor",
     type: "Noche",
-    lengthSec: 600,
+    approxLengthSec: 600,
     desc: "Transición suave para descansar de verdad.",
     moodId: "descarga",
+    audioSrc: "/audio/space/dormir-mejor.mp3",
   },
   {
     id: "aterriza-mente",
     title: "Aterriza tu mente",
     type: "Ansiedad",
-    lengthSec: 300,
+    approxLengthSec: 300,
     desc: "Respiración guiada para recuperar presencia.",
     moodId: "respira",
+    audioSrc: "/audio/space/aterriza-mente.mp3",
   },
   {
     id: "modo-examen",
     title: "Modo examen",
     type: "Pre estudio",
-    lengthSec: 420,
+    approxLengthSec: 420,
     desc: "Enfoca tu energía antes de una sesión intensa.",
     moodId: "enfocate",
+    audioSrc: "/audio/space/modo-examen.mp3",
   },
 ];
 
@@ -95,7 +102,7 @@ function fmt(sec: number) {
 function loadFavorites() {
   if (typeof window === "undefined") return [] as string[];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(FAVORITES_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as string[];
     return Array.isArray(parsed) ? parsed : [];
@@ -104,12 +111,30 @@ function loadFavorites() {
   }
 }
 
+function loadProgress() {
+  if (typeof window === "undefined") return {} as Record<string, number>;
+  try {
+    const raw = window.localStorage.getItem(PROGRESS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
 export function SpaceClient() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [selectedMood, setSelectedMood] = useState<string>("all");
   const [activeId, setActiveId] = useState<string>(sessions[0]?.id ?? "");
   const [playing, setPlaying] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [durationSec, setDurationSec] = useState(sessions[0]?.approxLengthSec ?? 0);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [autoplayRequested, setAutoplayRequested] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => loadFavorites());
+  const [sessionProgress, setSessionProgress] = useState<Record<string, number>>(() => loadProgress());
 
   const filteredSessions = useMemo(() => {
     return selectedMood === "all" ? sessions : sessions.filter((s) => s.moodId === selectedMood);
@@ -119,44 +144,156 @@ export function SpaceClient() {
     return sessions.find((s) => s.id === activeId) ?? filteredSessions[0] ?? sessions[0];
   }, [activeId, filteredSessions]);
 
+  const playlist = useMemo(() => {
+    if (filteredSessions.length === 0) return sessions;
+    return filteredSessions;
+  }, [filteredSessions]);
+
+  const activeIndex = useMemo(() => {
+    return playlist.findIndex((s) => s.id === activeSession?.id);
+  }, [playlist, activeSession?.id]);
+
   useEffect(() => {
-    if (!activeSession || !playing) return;
-    const id = window.setInterval(() => {
-      setElapsedSec((prev) => {
-        if (prev + 1 >= activeSession.lengthSec) {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const onLoadedMetadata = () => {
+      const mediaDuration = Number.isFinite(audio.duration) ? Math.floor(audio.duration) : 0;
+      setDurationSec(mediaDuration > 0 ? mediaDuration : activeSession?.approxLengthSec ?? 0);
+      const saved = activeSession ? sessionProgress[activeSession.id] ?? 0 : 0;
+      if (saved > 0 && saved < audio.duration) {
+        audio.currentTime = saved;
+      }
+      if (autoplayRequested) {
+        void audio.play().then(() => {
+          setPlaying(true);
+          setAutoplayRequested(false);
+        }).catch(() => {
           setPlaying(false);
-          return activeSession.lengthSec;
-        }
-        return prev + 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [playing, activeSession]);
+          setAutoplayRequested(false);
+          setPlaybackError("No se pudo iniciar el audio automáticamente. Presiona reproducir manualmente.");
+        });
+      }
+    };
+
+    const onTimeUpdate = () => {
+      const nextElapsed = Math.floor(audio.currentTime);
+      setElapsedSec(nextElapsed);
+      if (activeSession) {
+        setSessionProgress((prev) => {
+          if (prev[activeSession.id] === nextElapsed) return prev;
+          return { ...prev, [activeSession.id]: nextElapsed };
+        });
+      }
+    };
+
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+
+    const onEnded = () => {
+      setPlaying(false);
+      if (activeSession) {
+        setSessionProgress((prev) => ({ ...prev, [activeSession.id]: 0 }));
+      }
+    };
+
+    const onError = () => {
+      setPlaying(false);
+      setPlaybackError(
+        "No se encontró el archivo de audio para esta sesión. Sube el archivo en public/audio/space con el nombre esperado.",
+      );
+    };
+
+    audio.addEventListener("loadedmetadata", onLoadedMetadata);
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
+
+    return () => {
+      audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onError);
+    };
+  }, [activeSession, autoplayRequested, sessionProgress]);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(favoriteIds));
+      window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favoriteIds));
     } catch {
       return;
     }
   }, [favoriteIds]);
 
-  const progress = activeSession ? Math.min(100, Math.round((elapsedSec / activeSession.lengthSec) * 100)) : 0;
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(sessionProgress));
+    } catch {
+      return;
+    }
+  }, [sessionProgress]);
+
+  const progress = durationSec > 0 ? Math.min(100, Math.round((elapsedSec / durationSec) * 100)) : 0;
 
   const toggleFavorite = (id: string) => {
     setFavoriteIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
-  const startSession = (sessionId: string) => {
+  const startSession = (sessionId: string, options?: { autoplay?: boolean }) => {
+    const shouldAutoplay = options?.autoplay ?? false;
+    const audio = audioRef.current;
+    audio?.pause();
+    const next = sessions.find((s) => s.id === sessionId);
     setActiveId(sessionId);
-    setElapsedSec(0);
-    setPlaying(false);
+    setElapsedSec(sessionProgress[sessionId] ?? 0);
+    setDurationSec(next?.approxLengthSec ?? 0);
+    setPlaybackError(null);
+    setAutoplayRequested(shouldAutoplay);
+    if (!shouldAutoplay) setPlaying(false);
+  };
+
+  const togglePlayback = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    setPlaybackError(null);
+    if (playing) {
+      audio.pause();
+      return;
+    }
+    try {
+      await audio.play();
+      setPlaying(true);
+    } catch {
+      setPlaying(false);
+      setPlaybackError("No se pudo reproducir este audio. Verifica que el archivo exista y el navegador lo soporte.");
+    }
+  };
+
+  const playPrev = () => {
+    if (activeIndex <= 0) return;
+    const prev = playlist[activeIndex - 1];
+    if (!prev) return;
+    startSession(prev.id, { autoplay: true });
+  };
+
+  const playNext = () => {
+    if (activeIndex < 0 || activeIndex >= playlist.length - 1) return;
+    const next = playlist[activeIndex + 1];
+    if (!next) return;
+    startSession(next.id, { autoplay: true });
   };
 
   const favoriteSessions = sessions.filter((s) => favoriteIds.includes(s.id));
 
   return (
     <div className="space-y-8 pb-6 text-white">
+      <audio ref={audioRef} preload="metadata" className="hidden" src={activeSession?.audioSrc} />
+
       <section className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-[linear-gradient(160deg,#1b4f63_0%,#222252_58%,#18172a_100%)] p-6 shadow-[0_30px_80px_-40px_rgba(117,208,255,0.55)] md:p-10">
         <div className="pointer-events-none absolute -top-24 right-[-30px] h-64 w-64 rounded-full bg-cyan-200/20 blur-3xl" />
         <div className="pointer-events-none absolute bottom-[-55px] left-[-30px] h-52 w-52 rounded-full bg-indigo-300/20 blur-3xl" />
@@ -174,7 +311,7 @@ export function SpaceClient() {
             <div className="flex flex-wrap gap-3 pt-1">
               <button
                 type="button"
-                onClick={() => setPlaying((prev) => !prev)}
+                onClick={togglePlayback}
                 className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90"
               >
                 {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -199,8 +336,29 @@ export function SpaceClient() {
             </div>
             <div className="mt-2 flex items-center justify-between text-xs text-white/70">
               <span>{fmt(elapsedSec)}</span>
-              <span>{fmt(activeSession?.lengthSec ?? 0)}</span>
+              <span>{fmt(durationSec)}</span>
             </div>
+            <div className="mt-4 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={playPrev}
+                disabled={activeIndex <= 0}
+                className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs text-white/85 transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <SkipBack className="h-3.5 w-3.5" />
+                Anterior
+              </button>
+              <button
+                type="button"
+                onClick={playNext}
+                disabled={activeIndex < 0 || activeIndex >= playlist.length - 1}
+                className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs text-white/85 transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Siguiente
+                <SkipForward className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            {playbackError ? <div className="mt-3 text-xs text-amber-200/90">{playbackError}</div> : null}
           </article>
         </div>
       </section>
@@ -259,7 +417,7 @@ export function SpaceClient() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="text-base font-semibold">{session.title}</div>
-                    <div className="text-xs text-white/65">{session.type} · {fmt(session.lengthSec)}</div>
+                    <div className="text-xs text-white/65">{session.type} · {fmt(session.approxLengthSec)}</div>
                   </div>
                   <button
                     type="button"
@@ -285,8 +443,7 @@ export function SpaceClient() {
                   <button
                     type="button"
                     onClick={() => {
-                      startSession(session.id);
-                      setPlaying(true);
+                      startSession(session.id, { autoplay: true });
                     }}
                     className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-medium text-white/85 transition hover:bg-white/15"
                   >
@@ -319,7 +476,7 @@ export function SpaceClient() {
                     <div className="text-sm font-semibold">{session.title}</div>
                     <div className="text-xs text-white/65">{session.type}</div>
                   </div>
-                  <span className="text-xs text-white/75">{fmt(session.lengthSec)}</span>
+                  <span className="text-xs text-white/75">{fmt(session.approxLengthSec)}</span>
                 </button>
               ))}
             </div>
@@ -335,13 +492,24 @@ export function SpaceClient() {
             </div>
             <h3 className="text-xl font-semibold">Biblioteca de audios personalizados</h3>
             <p className="text-sm text-white/75">
-              Cuando subas tus audios, conectamos esta misma UI al reproductor real. La experiencia de navegación, favoritos y sesiones ya está lista.
+              El reproductor ya está conectado a archivos reales. Solo coloca tus audios en <code>public/audio/space</code> con estos nombres:
+              <br />
+              <span className="text-white/90">reset-express.mp3, foco-profundo.mp3, dormir-mejor.mp3, aterriza-mente.mp3, modo-examen.mp3</span>
             </p>
             <div className="rounded-2xl border border-dashed border-white/30 bg-white/5 p-4 text-xs text-white/70">
-              Siguiente paso técnico: mapear archivos de audio por sesión y persistir progreso de escucha por día.
+              Siguiente paso técnico: si quieres, agrego volumen, velocidad y auto-advance de playlist al terminar cada sesión.
             </div>
           </div>
         </article>
+      </section>
+
+      <section className="rounded-2xl border border-white/20 bg-white/5 p-4 text-xs text-white/70 backdrop-blur-xl">
+        <div className="flex items-start gap-2">
+          <ArrowLeft className="mt-0.5 h-3.5 w-3.5 rotate-180" />
+          <div>
+            Tip: si acabas de subir audios y no reproducen en Pages, haz recarga fuerte (<code>Ctrl+F5</code>) para limpiar caché del navegador.
+          </div>
+        </div>
       </section>
     </div>
   );
