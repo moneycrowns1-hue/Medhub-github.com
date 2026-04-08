@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Headphones, Heart, MoonStar, Pause, Play, SkipBack, SkipForward, Sparkles, Waves } from "lucide-react";
+import { Outfit, Pixelify_Sans } from "next/font/google";
+import { ArrowLeft, ArrowRight, Headphones, Heart, Pause, Play, SkipBack, SkipForward, Sparkles, Waves } from "lucide-react";
 
 type Mood = {
   id: string;
@@ -33,63 +34,17 @@ type VisualMode = {
   desc: string;
 };
 
-type SpaceAsset = {
-  id: string;
-  label: string;
-  path: string;
-  prompt: string;
-};
-
 const visualModes: VisualMode[] = [
   { id: "aurora", label: "Aurora minimal", desc: "Limpio + menos saturación" },
   { id: "deep-night", label: "Deep night", desc: "Oscuro inmersivo + brillo sutil" },
   { id: "soft-glass", label: "Soft glass", desc: "Translúcido premium bienestar" },
 ];
 
-const spaceAssets: SpaceAsset[] = [
-  {
-    id: "waterfall-hero",
-    label: "Fondo principal cascada",
-    path: "/images/space/waterfall-hero.png",
-    prompt:
-      "cinematic waterfall for meditation app hero, deep blue and cyan tones, soft mist, no people, no text, premium wellness style, static camera, high detail",
-  },
-  {
-    id: "mist-front",
-    label: "Niebla frontal capa 1",
-    path: "/images/space/mist-front.png",
-    prompt:
-      "soft waterfall mist cloud, transparent background, subtle edges, realistic, cool blue tint, premium wellness mood, PNG alpha",
-  },
-  {
-    id: "mist-back",
-    label: "Niebla posterior capa 2",
-    path: "/images/space/mist-back.png",
-    prompt:
-      "light atmospheric mist layer for waterfall, transparent background, very subtle, cinematic softness, PNG alpha",
-  },
-  {
-    id: "light-rays",
-    label: "Rayos de luz",
-    path: "/images/space/light-rays.png",
-    prompt:
-      "volumetric light rays crossing waterfall scene, transparent background, gentle cyan highlights, no hard beams, PNG alpha",
-  },
-  {
-    id: "foreground-rocks",
-    label: "Primer plano rocas",
-    path: "/images/space/foreground-rocks.png",
-    prompt:
-      "foreground dark river rocks silhouette framing lower scene, transparent background, cinematic depth, soft edges, PNG alpha",
-  },
-  {
-    id: "water-particles",
-    label: "Textura partículas de agua",
-    path: "/images/space/water-particles.png",
-    prompt:
-      "fine water droplets and mist texture, subtle and elegant, transparent background, seamless quality, cool cyan monochrome, PNG alpha",
-  },
-];
+const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
+const pixelify = Pixelify_Sans({ subsets: ["latin"], weight: ["500", "700"] });
+
+const HERO_VIDEO_URL =
+  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260325_120549_0cd82c36-56b3-4dd9-b190-069cfc3a623f.mp4";
 
 const moods: Mood[] = [
   {
@@ -112,7 +67,7 @@ const moods: Mood[] = [
   },
 ];
 
-const revealIds = ["hero", "mood", "carousel", "favorites", "upcoming", "assets", "tip"] as const;
+const revealIds = ["hero", "mood", "carousel", "favorites", "upcoming", "mascot", "tip"] as const;
 
 function loadInitialRevealState() {
   if (typeof window === "undefined") return {} as Record<string, boolean>;
@@ -134,6 +89,13 @@ function loadVisualMode() {
 function getScrollY() {
   if (typeof window === "undefined") return 0;
   return window.scrollY || window.pageYOffset || 0;
+}
+
+function withBasePath(path: string) {
+  if (!path) return path;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const basePath = process.env.NODE_ENV === "production" ? "/Medhub-github.com" : "";
+  return `${basePath}${path}`;
 }
 
 const sessions: SpaceSession[] = [
@@ -227,10 +189,9 @@ export function SpaceClient() {
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => loadFavorites());
   const [sessionProgress, setSessionProgress] = useState<Record<string, number>>(() => loadProgress());
   const [revealedSections, setRevealedSections] = useState<Record<string, boolean>>(() => loadInitialRevealState());
-  const [visualMode, setVisualMode] = useState<VisualModeId>(() => loadVisualMode());
+  const [visualMode] = useState<VisualModeId>(() => loadVisualMode());
   const [parallaxY, setParallaxY] = useState<number>(() => getScrollY());
   const [playPulseToken, setPlayPulseToken] = useState(0);
-  const [assetStatus, setAssetStatus] = useState<Record<string, boolean>>({});
 
   const modeStyle = useMemo(() => {
     if (visualMode === "deep-night") {
@@ -322,29 +283,6 @@ export function SpaceClient() {
 
     return () => {
       observer.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    let alive = true;
-
-    spaceAssets.forEach((asset) => {
-      const probe = new window.Image();
-      probe.onload = () => {
-        if (!alive) return;
-        setAssetStatus((prev) => ({ ...prev, [asset.id]: true }));
-      };
-      probe.onerror = () => {
-        if (!alive) return;
-        setAssetStatus((prev) => ({ ...prev, [asset.id]: false }));
-      };
-      probe.src = asset.path;
-    });
-
-    return () => {
-      alive = false;
     };
   }, []);
 
@@ -535,10 +473,6 @@ export function SpaceClient() {
   };
 
   const favoriteSessions = sessions.filter((s) => favoriteIds.includes(s.id));
-  const heroImageOffset = Math.round(parallaxY * 0.22);
-  const heroImagePath = assetStatus["waterfall-hero"]
-    ? "/images/space/waterfall-hero.webp"
-    : "https://i.ibb.co/J4yR0rT/Gemini-Generated-Image-ommstuommstuomms.png";
 
   const revealClass = (id: string) => {
     return revealedSections[id]
@@ -547,7 +481,7 @@ export function SpaceClient() {
   };
 
   return (
-    <div className={`relative space-y-12 overflow-x-hidden pb-8 ${modeStyle.pageText}`}>
+    <div className={`${outfit.className} relative space-y-10 overflow-x-hidden pb-8 ${modeStyle.pageText}`}>
 
       <div
         className={`pointer-events-none absolute inset-x-0 -top-16 z-0 h-[24rem] transition-transform duration-300 ease-out ${modeStyle.pageGlow}`}
@@ -557,90 +491,40 @@ export function SpaceClient() {
         className="pointer-events-none absolute inset-x-0 top-56 z-0 h-[18rem] bg-[radial-gradient(circle_at_50%_50%,rgba(176,248,255,0.12),transparent_58%)] blur-2xl"
         style={{ transform: `translate3d(0, ${Math.round(parallaxY * 0.08)}px, 0)` }}
       />
-      <audio ref={audioRef} preload="metadata" className="hidden" src={activeSession?.audioSrc} />
+      <audio ref={audioRef} preload="metadata" className="hidden" src={activeSession ? withBasePath(activeSession.audioSrc) : undefined} />
 
       <section
         data-reveal-id="hero"
         className={`relative left-1/2 z-10 w-screen -translate-x-1/2 overflow-hidden transition-all duration-700 ease-out ${modeStyle.heroShadow} ${revealClass("hero")}`}
       >
-        <div
-          className="pointer-events-none absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: `url('${heroImagePath}')`,
-            transform: `translate3d(0, ${heroImageOffset}px, 0) scale(1.06)`,
-          }}
-        />
-        {assetStatus["mist-back"] ? (
-          <div
-            className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-45 mix-blend-screen"
-            style={{
-              backgroundImage: "url('/images/space/mist-back.png')",
-              transform: `translate3d(0, ${Math.round(parallaxY * 0.16)}px, 0) scale(1.06)`,
-            }}
-          />
-        ) : null}
-        {assetStatus["light-rays"] ? (
-          <div
-            className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-40 mix-blend-screen"
-            style={{
-              backgroundImage: "url('/images/space/light-rays.png')",
-              transform: `translate3d(0, ${Math.round(parallaxY * 0.1)}px, 0) scale(1.04)`,
-            }}
-          />
-        ) : null}
-        {assetStatus["water-particles"] ? (
-          <div
-            className="pointer-events-none absolute inset-0 bg-repeat opacity-25"
-            style={{
-              backgroundImage: "url('/images/space/water-particles.png')",
-              backgroundSize: "640px 640px",
-              transform: `translate3d(0, ${Math.round(parallaxY * 0.08)}px, 0)`,
-            }}
-          />
-        ) : null}
-        {assetStatus["mist-front"] ? (
-          <div
-            className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-55"
-            style={{
-              backgroundImage: "url('/images/space/mist-front.png')",
-              transform: `translate3d(0, ${Math.round(parallaxY * -0.07)}px, 0) scale(1.03)`,
-            }}
-          />
-        ) : null}
-        {assetStatus["foreground-rocks"] ? (
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-cover bg-bottom opacity-90"
-            style={{
-              backgroundImage: "url('/images/space/foreground-rocks.png')",
-              transform: `translate3d(0, ${Math.round(parallaxY * -0.03)}px, 0)`,
-            }}
-          />
-        ) : null}
+        <video
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+        >
+          <source src={HERO_VIDEO_URL} type="video/mp4" />
+        </video>
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(4,11,20,0.12)_0%,rgba(4,11,20,0.55)_62%,rgba(4,11,20,0.8)_100%)]" />
 
-        <div className="relative z-10 mx-auto flex min-h-[420px] w-full max-w-6xl flex-col justify-end gap-6 px-6 pb-8 pt-24 md:min-h-[560px] md:px-10 md:pb-12">
-          <div className="max-w-3xl space-y-3">
-            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wider ${modeStyle.border} bg-black/30 ${modeStyle.textMuted}`}>
-              <MoonStar className="h-3.5 w-3.5" />
-              Cascada Space
+        <div className="relative z-10 mx-auto flex min-h-[460px] w-full max-w-6xl flex-col justify-between gap-6 px-6 pb-8 pt-8 md:min-h-[620px] md:px-10 md:pb-12">
+          <div className="space-y-3 rounded-3xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl md:max-w-md">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-medium text-foreground">
+              <Sparkles className="h-3.5 w-3.5" />
+              Hoy en Space
             </div>
-            <h1 className="text-2xl font-semibold leading-tight md:text-5xl">Una vista más relajante para entrar en modo calma antes de estudiar.</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Espacio de calma para estudiar</h1>
+            <p className="text-sm text-foreground/70">Respira, elige una sesión y entra en foco en menos de 1 minuto.</p>
           </div>
 
-          <div className="grid max-w-4xl gap-2 sm:grid-cols-3">
-            {visualModes.map((mode) => (
-              <button
-                key={mode.id}
-                type="button"
-                onClick={() => setVisualMode(mode.id)}
-                className={`rounded-2xl border px-3 py-2 text-left backdrop-blur-sm transition ${
-                  visualMode === mode.id ? `${modeStyle.borderStrong} bg-black/35` : `${modeStyle.border} bg-black/20`
-                }`}
-              >
-                <div className="text-xs font-semibold uppercase tracking-wider">{mode.label}</div>
-                <div className={`mt-1 text-[11px] ${modeStyle.textSoft}`}>{mode.desc}</div>
-              </button>
-            ))}
+          <div className="max-w-4xl space-y-2">
+            <div className="text-4xl font-extrabold leading-[0.95] tracking-tight sm:text-5xl md:text-6xl">
+              Entra en
+              <span className={`${pixelify.className} ml-3 text-cyan-100`}>MODO FLOW</span>
+            </div>
+            <p className="max-w-2xl text-sm text-cyan-50/85 md:text-base">Video ambiente + audio guiado para arrancar estudio sin saturarte.</p>
           </div>
         </div>
       </section>
@@ -749,16 +633,16 @@ export function SpaceClient() {
       >
         <div className={`mb-1 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
           <Headphones className="h-3.5 w-3.5" />
-          Carrusel de sesiones
+          Sesiones disponibles
         </div>
-        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filteredSessions.map((session) => {
             const isFav = favoriteIds.includes(session.id);
             const isActive = activeSession?.id === session.id;
             return (
               <article
                 key={session.id}
-                className={`min-w-[260px] snap-start rounded-3xl border p-5 backdrop-blur-xl transition md:min-w-[300px] ${
+                className={`rounded-3xl border p-5 backdrop-blur-xl transition ${
                   isActive ? `${modeStyle.borderStrong} ${modeStyle.softSurfaceAlt}` : `${modeStyle.border} ${modeStyle.softSurface}`
                 }`}
               >
@@ -860,38 +744,32 @@ export function SpaceClient() {
       </section>
 
       <section
-        data-reveal-id="assets"
-        className={`rounded-3xl border p-5 backdrop-blur-xl transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurface} ${revealClass("assets")}`}
+        data-reveal-id="mascot"
+        className={`rounded-3xl border p-5 backdrop-blur-xl transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurface} ${revealClass("mascot")}`}
         style={{ transitionDelay: "250ms" }}
       >
-        <div className="flex items-center justify-between gap-3">
+        <div className="grid gap-4 md:grid-cols-[auto_1fr] md:items-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-cyan-100/30 bg-cyan-100/10 text-4xl shadow-[0_10px_30px_-18px_rgba(155,245,255,0.8)]">
+            🐰
+          </div>
           <div>
-            <h3 className="text-base font-semibold">Checklist de imágenes para la cascada</h3>
-            <p className={`mt-1 text-xs ${modeStyle.textSoft}`}>Súbelas a <code>public/images/space</code>. Al detectarlas, se activan automáticamente.</p>
+            <h3 className="text-lg font-semibold">Mascota Space: conejito pixel</h3>
+            <p className={`mt-1 text-sm ${modeStyle.textSoft}`}>Podemos usarlo como guía rápida para que la sección sea más clara y entretenida.</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div className={`rounded-2xl border p-3 text-xs ${modeStyle.border} ${modeStyle.surface}`}>
+                Bienvenida diaria: &quot;Hola, ¿empezamos con 3 minutos de reset?&quot;
+              </div>
+              <div className={`rounded-2xl border p-3 text-xs ${modeStyle.border} ${modeStyle.surface}`}>
+                Estado visual: dormido/activo según si estás reproduciendo.
+              </div>
+              <div className={`rounded-2xl border p-3 text-xs ${modeStyle.border} ${modeStyle.surface}`}>
+                Mini retos: racha de días con medalla del conejo.
+              </div>
+              <div className={`rounded-2xl border p-3 text-xs ${modeStyle.border} ${modeStyle.surface}`}>
+                Tip contextual: respiración o foco según el mood elegido.
+              </div>
+            </div>
           </div>
-          <div className={`rounded-full border px-3 py-1 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
-            {spaceAssets.filter((asset) => assetStatus[asset.id]).length}/{spaceAssets.length} listas
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {spaceAssets.map((asset) => {
-            const isReady = assetStatus[asset.id] === true;
-            return (
-              <article key={asset.id} className={`rounded-2xl border p-3 ${modeStyle.border} ${modeStyle.surface}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-medium">{asset.label}</div>
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] ${isReady ? "bg-emerald-400/20 text-emerald-200" : "bg-amber-400/20 text-amber-200"}`}>
-                    {isReady ? "listo" : "faltante"}
-                  </span>
-                </div>
-                <div className={`mt-1 text-[11px] ${modeStyle.textSoft}`}>{asset.path}</div>
-                <div className={`mt-2 rounded-xl border p-2 text-[11px] leading-relaxed ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
-                  Prompt: {asset.prompt}
-                </div>
-              </article>
-            );
-          })}
         </div>
       </section>
 
@@ -903,7 +781,7 @@ export function SpaceClient() {
         <div className="flex items-start gap-2">
           <ArrowLeft className="mt-0.5 h-3.5 w-3.5 rotate-180" />
           <div>
-            Tip: si acabas de subir audios y no reproducen en Pages, haz recarga fuerte (<code>Ctrl+F5</code>) para limpiar caché del navegador.
+            Tip: el video principal está optimizado para reproducirse en silencio de fondo. Si no carga por red lenta, espera unos segundos y vuelve a entrar a la sección.
           </div>
         </div>
       </section>
