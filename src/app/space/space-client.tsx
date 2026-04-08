@@ -27,6 +27,7 @@ type SpaceSession = {
 const FAVORITES_STORAGE_KEY = "somagnus:space:favorites:v1";
 const PROGRESS_STORAGE_KEY = "somagnus:space:progress:v1";
 const VISUAL_MODE_STORAGE_KEY = "somagnus:space:visual-mode:v1";
+const DAILY_MASCOT_GUIDE_STORAGE_KEY = "somagnus:space:mascot-daily-checkin:v1";
 
 type VisualModeId = "aurora" | "deep-night" | "soft-glass";
 
@@ -164,6 +165,35 @@ const rabbitFrames: RabbitFrame[] = [
   ],
 ];
 
+const mascotGuideSteps = [
+  {
+    id: "start",
+    title: "Inicio rápido",
+    text: "El conejo te sugiere 3 min de reset para entrar suave al estudio.",
+    cta: "Pulsa Reproducir en el player principal.",
+  },
+  {
+    id: "mood",
+    title: "Foco por mood",
+    text: "Si eliges un mood, el conejo te recuerda una sesión ideal para ese estado.",
+    cta: "Prueba Respira o Enfócate en los chips.",
+  },
+  {
+    id: "streak",
+    title: "Mini reto",
+    text: "Haz 1 sesión diaria y desbloquea una racha simbólica de la mascota.",
+    cta: "Empieza con una sesión corta hoy.",
+  },
+  {
+    id: "close",
+    title: "Cierre tranquilo",
+    text: "Al terminar, te invita a una pausa breve para bajar revoluciones.",
+    cta: "Cierra con Dormir mejor o Descarga.",
+  },
+] as const;
+
+type MascotGuideStepId = (typeof mascotGuideSteps)[number]["id"];
+
 function drawRabbitFrame(
   ctx: CanvasRenderingContext2D,
   frame: RabbitFrame,
@@ -297,6 +327,20 @@ function loadProgress() {
   }
 }
 
+function getTodayStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function loadDailyMascotCheckinDone() {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = window.localStorage.getItem(DAILY_MASCOT_GUIDE_STORAGE_KEY);
+    return raw === getTodayStamp();
+  } catch {
+    return false;
+  }
+}
+
 export function SpaceClient() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rabbitRef = useRef<HTMLDivElement | null>(null);
@@ -315,6 +359,8 @@ export function SpaceClient() {
   const [visualMode] = useState<VisualModeId>(() => loadVisualMode());
   const [parallaxY, setParallaxY] = useState<number>(() => getScrollY());
   const [playPulseToken, setPlayPulseToken] = useState(0);
+  const [guideStep, setGuideStep] = useState(0);
+  const [dailyMascotCheckinDone, setDailyMascotCheckinDone] = useState<boolean>(() => loadDailyMascotCheckinDone());
 
   const modeStyle = useMemo(() => {
     if (visualMode === "deep-night") {
@@ -426,7 +472,7 @@ export function SpaceClient() {
 
     const shouldReduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (shouldReduceMotion) {
-      rabbit.style.transform = "translate3d(calc(100vw - 84px), calc(100vh - 110px), 0) scaleX(1)";
+      rabbit.style.transform = "translate3d(calc(100vw - 84px), calc(100vh - 110px), 0)";
       drawRabbitFrame(ctx, rabbitFrames[4], 1, 0, pixelSize);
       return;
     }
@@ -440,11 +486,22 @@ export function SpaceClient() {
     let tick = 0;
 
     let x = 20;
-    let y = window.innerHeight - 96;
 
     const spriteWidth = 64;
+    const spriteHeight = 64;
     const margin = 10;
-    const groundY = () => window.innerHeight - 96;
+    const minY = () => Math.max(112, Math.floor(window.innerHeight * 0.34));
+    const maxY = () => Math.max(minY(), window.innerHeight - spriteHeight - margin);
+    const pickLaneY = () => {
+      const from = minY();
+      const to = maxY();
+      if (to <= from) return from;
+      return Math.round(from + Math.random() * (to - from));
+    };
+
+    let laneY = pickLaneY();
+    let baseY = laneY;
+    let renderY = laneY;
     const maxX = () => Math.max(margin, window.innerWidth - spriteWidth - margin);
 
     const setMode = (next: RabbitMode) => {
@@ -470,9 +527,11 @@ export function SpaceClient() {
 
       if (mode === "IDLE") {
         const breathe = Math.round(Math.sin(tick * 0.14) * 2.5);
-        y = groundY();
+        baseY += (laneY - baseY) * 0.12;
+        renderY = baseY;
         drawRabbitFrame(ctx, rabbitFrames[4], direction as 1 | -1, breathe, pixelSize);
         if (modeTick >= modeDuration) {
+          laneY = pickLaneY();
           setMode(Math.random() < 0.24 ? "JUMP_BIG" : "RUN");
         }
       } else if (mode === "RUN") {
@@ -485,15 +544,22 @@ export function SpaceClient() {
         if (x <= minX || x >= maxX()) {
           direction *= -1;
           x = clampX(x);
+          laneY = pickLaneY();
         }
 
-        y = groundY() - parabola * 24;
+        if (modeTick % 35 === 0 && Math.random() < 0.45) {
+          laneY = pickLaneY();
+        }
+        baseY += Math.max(-2.6, Math.min(2.6, laneY - baseY));
+        baseY = Math.max(minY(), Math.min(maxY(), baseY));
+        renderY = baseY - parabola * 24;
 
         const runFrame = n < 0.25 ? rabbitFrames[0] : n < 0.5 ? rabbitFrames[1] : n < 0.75 ? rabbitFrames[2] : rabbitFrames[3];
         drawRabbitFrame(ctx, runFrame, direction as 1 | -1, 0, pixelSize);
 
         if (modeTick >= modeDuration) {
           setMode("IDLE");
+          laneY = pickLaneY();
         }
       } else {
         const n = Math.min(1, modeTick / modeDuration);
@@ -503,25 +569,31 @@ export function SpaceClient() {
         if (x <= minX || x >= maxX()) {
           direction *= -1;
           x = clampX(x);
+          laneY = pickLaneY();
         }
 
-        y = groundY() - parabola * 56;
+        baseY += Math.max(-3.2, Math.min(3.2, laneY - baseY));
+        baseY = Math.max(minY(), Math.min(maxY(), baseY));
+        renderY = baseY - parabola * 56;
 
         const jumpFrame = n < 0.25 ? rabbitFrames[0] : n < 0.5 ? rabbitFrames[1] : n < 0.75 ? rabbitFrames[2] : rabbitFrames[3];
         drawRabbitFrame(ctx, jumpFrame, direction as 1 | -1, 0, pixelSize);
 
         if (n >= 1) {
-          y = groundY();
+          baseY = laneY;
+          renderY = baseY;
           setMode("IDLE");
         }
       }
 
-      rabbit.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) scaleX(${direction})`;
+      rabbit.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(renderY)}px, 0)`;
     }, 40);
 
     const onResize = () => {
       x = Math.max(margin, Math.min(x, maxX()));
-      y = Math.min(y, groundY());
+      laneY = Math.max(minY(), Math.min(laneY, maxY()));
+      baseY = Math.max(minY(), Math.min(baseY, maxY()));
+      renderY = baseY;
     };
 
     window.addEventListener("resize", onResize);
@@ -605,6 +677,32 @@ export function SpaceClient() {
     return playlist.findIndex((s) => s.id === activeSession?.id);
   }, [playlist, activeSession?.id]);
 
+  const guideProgress = useMemo<Record<MascotGuideStepId, boolean>>(() => {
+    const closeProgress = activeSession ? sessionProgress[activeSession.id] ?? 0 : 0;
+    return {
+      start: playing || elapsedSec > 0,
+      mood: selectedMood !== "all",
+      streak: dailyMascotCheckinDone,
+      close: activeSession?.moodId === "descarga" && closeProgress > 0,
+    };
+  }, [activeSession, dailyMascotCheckinDone, elapsedSec, playing, selectedMood, sessionProgress]);
+
+  const mascotContextMessage = useMemo(() => {
+    if (playing && activeSession) {
+      return `Buenísimo. Mantén el ritmo con \"${activeSession.title}\".`;
+    }
+    if (selectedMood === "respira") {
+      return "Mood Respira activo: ideal para aterrizar antes de estudiar.";
+    }
+    if (selectedMood === "enfocate") {
+      return "Mood Enfócate activo: usa una sesión corta y entra en flow.";
+    }
+    if (selectedMood === "descarga") {
+      return "Mood Descarga activo: perfecto para cerrar el día con calma.";
+    }
+    return "Tip del conejo: elige un mood y pulsa reproducir para completar la guía rápida.";
+  }, [activeSession, playing, selectedMood]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -642,6 +740,14 @@ export function SpaceClient() {
     const onPlay = () => {
       setPlaying(true);
       setPlayPulseToken((prev) => prev + 1);
+      if (!dailyMascotCheckinDone) {
+        setDailyMascotCheckinDone(true);
+        try {
+          window.localStorage.setItem(DAILY_MASCOT_GUIDE_STORAGE_KEY, getTodayStamp());
+        } catch {
+          return;
+        }
+      }
     };
     const onPause = () => setPlaying(false);
 
@@ -674,7 +780,7 @@ export function SpaceClient() {
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
     };
-  }, [activeSession, autoplayRequested, sessionProgress]);
+  }, [activeSession, autoplayRequested, dailyMascotCheckinDone, sessionProgress]);
 
   useEffect(() => {
     try {
@@ -745,6 +851,8 @@ export function SpaceClient() {
 
   const favoriteSessions = sessions.filter((s) => favoriteIds.includes(s.id));
   const stickyHeaderSolid = parallaxY > 24;
+  const currentGuide = mascotGuideSteps[guideStep];
+  const currentGuideDone = guideProgress[currentGuide.id];
 
   const revealClass = (id: string) => {
     return revealedSections[id]
@@ -1037,18 +1145,41 @@ export function SpaceClient() {
           <div>
             <h3 className="text-lg font-semibold">Mascota Space: conejito pixel</h3>
             <p className={`mt-1 text-sm ${modeStyle.textSoft}`}>Podemos usarlo como guía rápida para que la sección sea más clara y entretenida.</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <div className={`rounded-2xl border p-3 text-xs ${modeStyle.border} ${modeStyle.surface}`}>
-                Bienvenida diaria: &quot;Hola, ¿empezamos con 3 minutos de reset?&quot;
+            <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+              {mascotContextMessage}
+            </div>
+            <div className={`mt-3 rounded-2xl border p-4 ${modeStyle.border} ${modeStyle.surface}`}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs font-semibold uppercase tracking-widest text-cyan-100/90">Guía rápida</div>
+                <div className={`text-xs ${modeStyle.textSoft}`}>
+                  Paso {guideStep + 1}/{mascotGuideSteps.length}
+                </div>
               </div>
-              <div className={`rounded-2xl border p-3 text-xs ${modeStyle.border} ${modeStyle.surface}`}>
-                Estado visual: idle con descansos + run/jump en recorrido.
+              <h4 className="mt-2 text-sm font-semibold">{currentGuide.title}</h4>
+              <p className={`mt-1 text-xs ${modeStyle.textSoft}`}>{currentGuide.text}</p>
+              <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+                {currentGuide.cta}
               </div>
-              <div className={`rounded-2xl border p-3 text-xs ${modeStyle.border} ${modeStyle.surface}`}>
-                Mini retos: racha de días con medalla del conejo.
+              <div className={`mt-2 text-xs font-medium ${currentGuideDone ? "text-emerald-200" : modeStyle.textSoft}`}>
+                {currentGuideDone ? "Completado automáticamente" : "Pendiente"}
               </div>
-              <div className={`rounded-2xl border p-3 text-xs ${modeStyle.border} ${modeStyle.surface}`}>
-                Tip contextual: respiración o foco según el mood elegido.
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setGuideStep((prev) => (prev === 0 ? mascotGuideSteps.length - 1 : prev - 1))}
+                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition ${modeStyle.secondaryButton}`}
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Anterior
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGuideStep((prev) => (prev + 1) % mascotGuideSteps.length)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition ${modeStyle.primaryButton}`}
+                >
+                  Siguiente
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           </div>
