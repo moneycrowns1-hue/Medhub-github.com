@@ -33,10 +33,62 @@ type VisualMode = {
   desc: string;
 };
 
+type SpaceAsset = {
+  id: string;
+  label: string;
+  path: string;
+  prompt: string;
+};
+
 const visualModes: VisualMode[] = [
   { id: "aurora", label: "Aurora minimal", desc: "Limpio + menos saturación" },
   { id: "deep-night", label: "Deep night", desc: "Oscuro inmersivo + brillo sutil" },
   { id: "soft-glass", label: "Soft glass", desc: "Translúcido premium bienestar" },
+];
+
+const spaceAssets: SpaceAsset[] = [
+  {
+    id: "waterfall-hero",
+    label: "Fondo principal cascada",
+    path: "/images/space/waterfall-hero.webp",
+    prompt:
+      "cinematic waterfall for meditation app hero, deep blue and cyan tones, soft mist, no people, no text, premium wellness style, static camera, high detail",
+  },
+  {
+    id: "mist-front",
+    label: "Niebla frontal capa 1",
+    path: "/images/space/mist-front.png",
+    prompt:
+      "soft waterfall mist cloud, transparent background, subtle edges, realistic, cool blue tint, premium wellness mood, PNG alpha",
+  },
+  {
+    id: "mist-back",
+    label: "Niebla posterior capa 2",
+    path: "/images/space/mist-back.png",
+    prompt:
+      "light atmospheric mist layer for waterfall, transparent background, very subtle, cinematic softness, PNG alpha",
+  },
+  {
+    id: "light-rays",
+    label: "Rayos de luz",
+    path: "/images/space/light-rays.png",
+    prompt:
+      "volumetric light rays crossing waterfall scene, transparent background, gentle cyan highlights, no hard beams, PNG alpha",
+  },
+  {
+    id: "foreground-rocks",
+    label: "Primer plano rocas",
+    path: "/images/space/foreground-rocks.png",
+    prompt:
+      "foreground dark river rocks silhouette framing lower scene, transparent background, cinematic depth, soft edges, PNG alpha",
+  },
+  {
+    id: "water-particles",
+    label: "Textura partículas de agua",
+    path: "/images/space/water-particles.png",
+    prompt:
+      "fine water droplets and mist texture, subtle and elegant, transparent background, seamless quality, cool cyan monochrome, PNG alpha",
+  },
 ];
 
 const moods: Mood[] = [
@@ -60,7 +112,7 @@ const moods: Mood[] = [
   },
 ];
 
-const revealIds = ["hero", "mood", "carousel", "favorites", "upcoming", "tip"] as const;
+const revealIds = ["hero", "mood", "carousel", "favorites", "upcoming", "assets", "tip"] as const;
 
 function loadInitialRevealState() {
   if (typeof window === "undefined") return {} as Record<string, boolean>;
@@ -181,6 +233,7 @@ export function SpaceClient() {
   const [scrollProgress, setScrollProgress] = useState<number>(() => getScrollMetrics().progress);
   const [parallaxY, setParallaxY] = useState<number>(() => getScrollMetrics().y);
   const [playPulseToken, setPlayPulseToken] = useState(0);
+  const [assetStatus, setAssetStatus] = useState<Record<string, boolean>>({});
 
   const modeStyle = useMemo(() => {
     if (visualMode === "deep-night") {
@@ -272,6 +325,29 @@ export function SpaceClient() {
 
     return () => {
       observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let alive = true;
+
+    spaceAssets.forEach((asset) => {
+      const probe = new window.Image();
+      probe.onload = () => {
+        if (!alive) return;
+        setAssetStatus((prev) => ({ ...prev, [asset.id]: true }));
+      };
+      probe.onerror = () => {
+        if (!alive) return;
+        setAssetStatus((prev) => ({ ...prev, [asset.id]: false }));
+      };
+      probe.src = asset.path;
+    });
+
+    return () => {
+      alive = false;
     };
   }, []);
 
@@ -464,6 +540,10 @@ export function SpaceClient() {
   };
 
   const favoriteSessions = sessions.filter((s) => favoriteIds.includes(s.id));
+  const heroImageOffset = Math.round(parallaxY * 0.22);
+  const heroImagePath = assetStatus["waterfall-hero"]
+    ? "/images/space/waterfall-hero.webp"
+    : "https://i.ibb.co/J4yR0rT/Gemini-Generated-Image-ommstuommstuomms.png";
 
   const revealClass = (id: string) => {
     return revealedSections[id]
@@ -492,108 +572,146 @@ export function SpaceClient() {
 
       <section
         data-reveal-id="hero"
-        className={`relative z-10 overflow-hidden rounded-[2rem] border p-6 transition-all duration-700 ease-out md:p-10 ${modeStyle.border} ${modeStyle.heroBg} ${modeStyle.heroShadow} ${revealClass("hero")}`}
+        className={`relative z-10 overflow-hidden rounded-[2rem] border transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurface} ${modeStyle.heroShadow} ${revealClass("hero")}`}
       >
-        <video
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-15 mix-blend-screen"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="none"
-          src="/video/space/cascade-loop.mp4"
-        />
         <div
-          className="pointer-events-none absolute -top-24 right-[-30px] h-64 w-64 rounded-full bg-cyan-200/20 blur-3xl"
-          style={{ transform: `translate3d(0, ${Math.round(parallaxY * 0.1)}px, 0)` }}
+          className="pointer-events-none absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: `url('${heroImagePath}')`,
+            transform: `translate3d(0, ${heroImageOffset}px, 0) scale(1.08)`,
+          }}
         />
-        <div
-          className="pointer-events-none absolute bottom-[-55px] left-[-30px] h-52 w-52 rounded-full bg-sky-200/15 blur-3xl"
-          style={{ transform: `translate3d(0, ${Math.round(parallaxY * -0.06)}px, 0)` }}
-        />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_10%,rgba(255,255,255,0.2),transparent_45%)]" />
+        {assetStatus["mist-back"] ? (
+          <div
+            className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-45 mix-blend-screen"
+            style={{
+              backgroundImage: "url('/images/space/mist-back.png')",
+              transform: `translate3d(0, ${Math.round(parallaxY * 0.16)}px, 0) scale(1.06)`,
+            }}
+          />
+        ) : null}
+        {assetStatus["light-rays"] ? (
+          <div
+            className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-40 mix-blend-screen"
+            style={{
+              backgroundImage: "url('/images/space/light-rays.png')",
+              transform: `translate3d(0, ${Math.round(parallaxY * 0.1)}px, 0) scale(1.04)`,
+            }}
+          />
+        ) : null}
+        {assetStatus["water-particles"] ? (
+          <div
+            className="pointer-events-none absolute inset-0 bg-repeat opacity-25"
+            style={{
+              backgroundImage: "url('/images/space/water-particles.png')",
+              backgroundSize: "640px 640px",
+              transform: `translate3d(0, ${Math.round(parallaxY * 0.08)}px, 0)`,
+            }}
+          />
+        ) : null}
+        {assetStatus["mist-front"] ? (
+          <div
+            className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-55"
+            style={{
+              backgroundImage: "url('/images/space/mist-front.png')",
+              transform: `translate3d(0, ${Math.round(parallaxY * -0.07)}px, 0) scale(1.03)`,
+            }}
+          />
+        ) : null}
+        {assetStatus["foreground-rocks"] ? (
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-cover bg-bottom opacity-90"
+            style={{
+              backgroundImage: "url('/images/space/foreground-rocks.png')",
+              transform: `translate3d(0, ${Math.round(parallaxY * -0.03)}px, 0)`,
+            }}
+          />
+        ) : null}
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(4,11,20,0.12)_0%,rgba(4,11,20,0.55)_62%,rgba(4,11,20,0.8)_100%)]" />
 
-        <div className="relative z-10 grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
-          <div className="space-y-5">
-            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wider ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
+        <div className="relative z-10 flex min-h-[380px] flex-col justify-end gap-4 p-6 md:min-h-[480px] md:p-10">
+          <div className="space-y-2">
+            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wider ${modeStyle.border} bg-black/20 ${modeStyle.textMuted}`}>
               <MoonStar className="h-3.5 w-3.5" />
-              Space
+              Cascada Space
             </div>
-            <h1 className="text-3xl font-semibold leading-tight md:text-5xl">Tu espacio mental para estudiar con más calma.</h1>
-            <p className={`text-sm md:text-base ${modeStyle.textSoft}`}>
-              Respiración, foco y descanso en una sola vista. Navega suave, guarda tus favoritas y vuelve a tu ritmo cuando quieras.
-            </p>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {visualModes.map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  onClick={() => setVisualMode(mode.id)}
-                  className={`rounded-2xl border px-3 py-2 text-left transition ${
-                    visualMode === mode.id ? `${modeStyle.borderStrong} ${modeStyle.softSurfaceAlt}` : `${modeStyle.border} ${modeStyle.softSurface}`
-                  }`}
-                >
-                  <div className="text-xs font-semibold uppercase tracking-wider">{mode.label}</div>
-                  <div className={`mt-1 text-[11px] ${modeStyle.textSoft}`}>{mode.desc}</div>
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-3 pt-1">
-              <button
-                type="button"
-                onClick={togglePlayback}
-                className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition ${modeStyle.primaryButton}`}
-              >
-                {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {playing ? "Pausar sesión" : "Empezar sesión"}
-              </button>
-              <Link
-                href="/day"
-                className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition ${modeStyle.secondaryButton}`}
-              >
-                Conectar con mi plan
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
+            <h1 className="max-w-3xl text-2xl font-semibold leading-tight md:text-4xl">Una vista más relajante para entrar en modo calma antes de estudiar.</h1>
           </div>
 
-          <article className={`relative rounded-3xl border p-5 backdrop-blur-xl ${modeStyle.border} ${modeStyle.surface}`}>
-            {playing ? (
-              <div key={playPulseToken} className="pointer-events-none absolute inset-0 rounded-3xl border border-cyan-200/35 animate-[ping_850ms_ease-out_1]" />
-            ) : null}
-            <div className={`text-xs uppercase tracking-widest ${modeStyle.textSoft}`}>Reproduciendo</div>
-            <div className="mt-2 text-lg font-semibold">{activeSession?.title ?? "Sin sesión"}</div>
-            <div className={`text-xs ${modeStyle.textSoft}`}>{activeSession?.type}</div>
-            <div className={`mt-4 h-2 overflow-hidden rounded-full ${modeStyle.progressTrack}`}>
-              <div className={`h-full rounded-full transition-all ${modeStyle.progressFill}`} style={{ width: `${progress}%` }} />
-            </div>
-            <div className={`mt-2 flex items-center justify-between text-xs ${modeStyle.textSoft}`}>
-              <span>{fmt(elapsedSec)}</span>
-              <span>{fmt(durationSec)}</span>
-            </div>
-            <div className="mt-4 flex items-center gap-2">
+          <div className="grid gap-2 sm:grid-cols-3">
+            {visualModes.map((mode) => (
               <button
+                key={mode.id}
                 type="button"
-                onClick={playPrev}
-                disabled={activeIndex <= 0}
-                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
+                onClick={() => setVisualMode(mode.id)}
+                className={`rounded-2xl border px-3 py-2 text-left backdrop-blur-sm transition ${
+                  visualMode === mode.id ? `${modeStyle.borderStrong} bg-black/35` : `${modeStyle.border} bg-black/20`
+                }`}
               >
-                <SkipBack className="h-3.5 w-3.5" />
-                Anterior
+                <div className="text-xs font-semibold uppercase tracking-wider">{mode.label}</div>
+                <div className={`mt-1 text-[11px] ${modeStyle.textSoft}`}>{mode.desc}</div>
               </button>
-              <button
-                type="button"
-                onClick={playNext}
-                disabled={activeIndex < 0 || activeIndex >= playlist.length - 1}
-                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
-              >
-                Siguiente
-                <SkipForward className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            {playbackError ? <div className="mt-3 text-xs text-amber-200/90">{playbackError}</div> : null}
-          </article>
+            ))}
+          </div>
         </div>
+      </section>
+
+      <section className={`relative rounded-3xl border p-5 backdrop-blur-xl ${modeStyle.border} ${modeStyle.surface}`}>
+        {playing ? (
+          <div key={playPulseToken} className="pointer-events-none absolute inset-0 rounded-3xl border border-cyan-200/35 animate-[ping_850ms_ease-out_1]" />
+        ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className={`text-xs uppercase tracking-widest ${modeStyle.textSoft}`}>Reproduciendo</div>
+            <div className="mt-1 text-lg font-semibold">{activeSession?.title ?? "Sin sesión"}</div>
+            <div className={`text-xs ${modeStyle.textSoft}`}>{activeSession?.type}</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={togglePlayback}
+              className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition ${modeStyle.primaryButton}`}
+            >
+              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {playing ? "Pausar" : "Reproducir"}
+            </button>
+            <Link
+              href="/day"
+              className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition ${modeStyle.secondaryButton}`}
+            >
+              Conectar con mi plan
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+        <div className={`mt-4 h-2 overflow-hidden rounded-full ${modeStyle.progressTrack}`}>
+          <div className={`h-full rounded-full transition-all ${modeStyle.progressFill}`} style={{ width: `${progress}%` }} />
+        </div>
+        <div className={`mt-2 flex items-center justify-between text-xs ${modeStyle.textSoft}`}>
+          <span>{fmt(elapsedSec)}</span>
+          <span>{fmt(durationSec)}</span>
+        </div>
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={playPrev}
+            disabled={activeIndex <= 0}
+            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
+          >
+            <SkipBack className="h-3.5 w-3.5" />
+            Anterior
+          </button>
+          <button
+            type="button"
+            onClick={playNext}
+            disabled={activeIndex < 0 || activeIndex >= playlist.length - 1}
+            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
+          >
+            Siguiente
+            <SkipForward className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        {playbackError ? <div className="mt-3 text-xs text-amber-200/90">{playbackError}</div> : null}
       </section>
 
       <section
@@ -750,6 +868,42 @@ export function SpaceClient() {
             </div>
           </div>
         </article>
+      </section>
+
+      <section
+        data-reveal-id="assets"
+        className={`rounded-3xl border p-5 backdrop-blur-xl transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurface} ${revealClass("assets")}`}
+        style={{ transitionDelay: "250ms" }}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold">Checklist de imágenes para la cascada</h3>
+            <p className={`mt-1 text-xs ${modeStyle.textSoft}`}>Súbelas a <code>public/images/space</code>. Al detectarlas, se activan automáticamente.</p>
+          </div>
+          <div className={`rounded-full border px-3 py-1 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+            {spaceAssets.filter((asset) => assetStatus[asset.id]).length}/{spaceAssets.length} listas
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {spaceAssets.map((asset) => {
+            const isReady = assetStatus[asset.id] === true;
+            return (
+              <article key={asset.id} className={`rounded-2xl border p-3 ${modeStyle.border} ${modeStyle.surface}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-medium">{asset.label}</div>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] ${isReady ? "bg-emerald-400/20 text-emerald-200" : "bg-amber-400/20 text-amber-200"}`}>
+                    {isReady ? "listo" : "faltante"}
+                  </span>
+                </div>
+                <div className={`mt-1 text-[11px] ${modeStyle.textSoft}`}>{asset.path}</div>
+                <div className={`mt-2 rounded-xl border p-2 text-[11px] leading-relaxed ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+                  Prompt: {asset.prompt}
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </section>
 
       <section
