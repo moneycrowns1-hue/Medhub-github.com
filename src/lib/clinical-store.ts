@@ -4,6 +4,7 @@
  */
 
 const STORAGE_KEY = "somagnus:clinical-tasks:v1";
+export const CLINICAL_TASKS_UPDATED_EVENT = "somagnus:clinical-tasks:updated";
 
 export type TaskStatus = "TODAY" | "PENDING" | "COMPLETED";
 
@@ -35,6 +36,7 @@ function loadAll(): ClinicalTaskItem[] {
 function saveAll(tasks: ClinicalTaskItem[]) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    window.dispatchEvent(new Event(CLINICAL_TASKS_UPDATED_EVENT));
   } catch {
     // quota exceeded
   }

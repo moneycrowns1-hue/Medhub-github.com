@@ -19,6 +19,9 @@ export type RabbitAssistantContext = {
   todayStats: DailyStats;
   srsDueToday: number;
   srsDueForGuidedSubject: number;
+  clinicalTodayTasks: number;
+  clinicalPendingTasks: number;
+  clinicalReminderTick: number;
   personality: RabbitPersonality;
 };
 
@@ -74,7 +77,18 @@ const ROUTINE_PHASE_LABELS: Record<RabbitGuideState["routinePhase"], string> = {
 };
 
 function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
-  const { guideState: state, pathname, pomodoroState, todayStats, srsDueToday, srsDueForGuidedSubject, personality } = ctx;
+  const {
+    guideState: state,
+    pathname,
+    pomodoroState,
+    todayStats,
+    srsDueToday,
+    srsDueForGuidedSubject,
+    clinicalTodayTasks,
+    clinicalPendingTasks,
+    clinicalReminderTick,
+    personality,
+  } = ctx;
   const todayPlan = getPlanForDate(new Date());
   const tomorrowPlan = getPlanForDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
   const primary = SUBJECTS[todayPlan.primary];
@@ -88,8 +102,9 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   const resumePdfLabel = state.lastPdfTitle ? `${state.lastPdfTitle}${state.lastPdfPage ? ` · p. ${state.lastPdfPage}` : ""}` : null;
   const resumeDeckLabel = state.lastSrsDeckName ?? null;
   const dayStamp = new Date().toISOString().slice(0, 10);
-  const baseSeed = [dayStamp, pathname, state.routinePhase, pomodoroState.phase, String(todayStats.blocksCompleted)].join("|");
+  const baseSeed = [dayStamp, pathname, state.routinePhase, pomodoroState.phase, String(todayStats.blocksCompleted), String(clinicalReminderTick)].join("|");
   const phaseStatus = `Fase: ${ROUTINE_PHASE_LABELS[state.routinePhase]}`;
+  const hasClinicalTasks = clinicalTodayTasks + clinicalPendingTasks > 0;
 
   if (todayStats.routineCompleted) {
     const summary = [
@@ -115,6 +130,29 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
       actions: [
         { href: "/stats", label: "Ver resumen", primary: true },
         { href: "/day", label: "Preparar mañana" },
+      ],
+    };
+  }
+
+  if (pathname.startsWith("/day") && hasClinicalTasks) {
+    const taskStatus = `Hoy: ${clinicalTodayTasks} · Pendientes: ${clinicalPendingTasks}`;
+    return {
+      title: "Recordatorio del tablero clínico",
+      message: pickVariant(
+        byPersonality(personality, {
+          balanced: [
+            `Te quedan ${clinicalTodayTasks} tareas en Hoy y ${clinicalPendingTasks} en Pendiente. Avancemos una ahora para mantener ritmo.`,
+            `Revisión rápida: ${clinicalTodayTasks} tareas en Hoy y ${clinicalPendingTasks} pendientes. ¿Completamos una en este bloque?`,
+          ],
+          calm: [`A tu ritmo: tienes ${clinicalTodayTasks} en Hoy y ${clinicalPendingTasks} en Pendiente. Una tarea ahora ya suma.`],
+          active: [`Vamos con impulso: ${clinicalTodayTasks} en Hoy y ${clinicalPendingTasks} pendientes. Cierra una ya.`],
+        }),
+        `${baseSeed}|clinical-reminder|${clinicalTodayTasks}|${clinicalPendingTasks}`,
+      ),
+      status: `${pomodoroText} · ${phaseStatus} · ${taskStatus}`,
+      actions: [
+        { href: "/day", label: "Abrir tablero", primary: true },
+        { href: "/day", label: "Marcar avance" },
       ],
     };
   }

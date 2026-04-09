@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { getPlanForDate } from "@/lib/schedule";
 import { deriveRabbitAssistantOutput } from "@/lib/rabbit-assistant-engine";
+import { CLINICAL_TASKS_UPDATED_EVENT, getTasksForDate } from "@/lib/clinical-store";
 import { algoStats } from "@/lib/srs-algo";
 import { loadSrsLibrary, SRS_UPDATED_EVENT } from "@/lib/srs-storage";
 import {
@@ -43,6 +44,10 @@ function parseStudySubjectFromPath(pathname: string): SubjectSlug | null {
   return null;
 }
 
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function RabbitGuidePanel() {
   const pathname = usePathname();
   const isDev = process.env.NODE_ENV !== "production";
@@ -51,6 +56,9 @@ export function RabbitGuidePanel() {
   const [todayStats, setTodayStats] = useState<DailyStats>(() => getTodayStats());
   const [srsDueToday, setSrsDueToday] = useState(0);
   const [srsDueForGuidedSubject, setSrsDueForGuidedSubject] = useState(0);
+  const [clinicalTodayTasks, setClinicalTodayTasks] = useState(0);
+  const [clinicalPendingTasks, setClinicalPendingTasks] = useState(0);
+  const [clinicalReminderTick, setClinicalReminderTick] = useState(0);
   const [personality, setPersonality] = useState<RabbitPersonality>(() => loadRabbitPersonality());
   const [showDebug, setShowDebug] = useState(false);
   const [replayIndex, setReplayIndex] = useState(0);
@@ -111,8 +119,11 @@ export function RabbitGuidePanel() {
       const todayPlan = getPlanForDate(new Date());
       const guidedSubjectSlug = nextGuide.activeSubjectSlug ?? nextGuide.lastStudySubjectSlug ?? todayPlan.primary;
       const srs = loadSrsLibrary();
+      const clinicalTasks = getTasksForDate(todayIsoDate());
       setSrsDueToday(algoStats(srs.cards).dueToday);
       setSrsDueForGuidedSubject(algoStats(srs.cards.filter((card) => card.subjectSlug === guidedSubjectSlug)).dueToday);
+      setClinicalTodayTasks(clinicalTasks.filter((task) => task.status === "TODAY").length);
+      setClinicalPendingTasks(clinicalTasks.filter((task) => task.status === "PENDING").length);
     };
 
     syncAll();
@@ -121,6 +132,7 @@ export function RabbitGuidePanel() {
     window.addEventListener(POMODORO_STATE_UPDATED_EVENT, syncAll);
     window.addEventListener(STATS_UPDATED_EVENT, syncAll);
     window.addEventListener(SRS_UPDATED_EVENT, syncAll);
+    window.addEventListener(CLINICAL_TASKS_UPDATED_EVENT, syncAll);
     window.addEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, syncAll);
 
     return () => {
@@ -129,9 +141,21 @@ export function RabbitGuidePanel() {
       window.removeEventListener(POMODORO_STATE_UPDATED_EVENT, syncAll);
       window.removeEventListener(STATS_UPDATED_EVENT, syncAll);
       window.removeEventListener(SRS_UPDATED_EVENT, syncAll);
+      window.removeEventListener(CLINICAL_TASKS_UPDATED_EVENT, syncAll);
       window.removeEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, syncAll);
     };
   }, []);
+
+  useEffect(() => {
+    if (!pathname.startsWith("/day")) return;
+    if (clinicalTodayTasks + clinicalPendingTasks <= 0) return;
+
+    const id = window.setInterval(() => {
+      setClinicalReminderTick((prev) => prev + 1);
+    }, 130_000);
+
+    return () => window.clearInterval(id);
+  }, [pathname, clinicalTodayTasks, clinicalPendingTasks]);
 
   useEffect(() => {
     if (lastPathnameRef.current === pathname) return;
@@ -179,9 +203,23 @@ export function RabbitGuidePanel() {
         todayStats,
         srsDueToday,
         srsDueForGuidedSubject,
+        clinicalTodayTasks,
+        clinicalPendingTasks,
+        clinicalReminderTick,
         personality,
       }),
-    [state, pathname, pomodoroState, todayStats, srsDueToday, srsDueForGuidedSubject, personality],
+    [
+      state,
+      pathname,
+      pomodoroState,
+      todayStats,
+      srsDueToday,
+      srsDueForGuidedSubject,
+      clinicalTodayTasks,
+      clinicalPendingTasks,
+      clinicalReminderTick,
+      personality,
+    ],
   );
 
   useEffect(() => {
@@ -251,6 +289,8 @@ export function RabbitGuidePanel() {
           <div>Pomodoro: <span className="text-white">{pomodoroState.phase}</span></div>
           <div>Bloques: <span className="text-white">{todayStats.blocksCompleted}</span></div>
           <div>Tarjetas due: <span className="text-white">{srsDueToday}</span></div>
+          <div>Tareas hoy: <span className="text-white">{clinicalTodayTasks}</span></div>
+          <div>Pendientes: <span className="text-white">{clinicalPendingTasks}</span></div>
           <div>Transiciones: <span className="text-white">{state.transitionHistory.length}</span></div>
 
           <div className="mt-2 border-t border-white/15 pt-2">
