@@ -5,7 +5,6 @@ import Link from "next/link";
 import confetti from "canvas-confetti";
 import {
   ArrowRight,
-  BellRing,
   BookOpen,
   Brain,
   Check,
@@ -30,6 +29,7 @@ import type { DayPlan } from "@/lib/schedule";
 import { formatPlanSummary } from "@/lib/schedule";
 import { updateTodayStats } from "@/lib/stats-store";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
+import { RABBIT_GUIDE_SPEAK_EVENT, type RabbitGuideSpeechPayload } from "@/lib/rabbit-guide";
 
 const STEP_ICONS: Record<string, React.ReactNode> = {
   srs: <Brain className="h-4 w-4" />,
@@ -64,12 +64,6 @@ function fireConfetti() {
   requestAnimationFrame(frame);
 }
 
-type InAppNotice = {
-  id: string;
-  title: string;
-  body: string;
-};
-
 type Props = {
   plan: DayPlan;
 };
@@ -82,14 +76,16 @@ export function DayClient({ plan }: Props) {
   });
   const [celebrated, setCelebrated] = useState(false);
   const [activeDayKey, setActiveDayKey] = useState(() => isoDate(new Date()));
-  const [notices, setNotices] = useState<InAppNotice[]>([]);
 
-  const pushNotice = useCallback((title: string, body: string) => {
-    const id = `notice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    setNotices((prev) => [...prev, { id, title, body }]);
-    window.setTimeout(() => {
-      setNotices((prev) => prev.filter((n) => n.id !== id));
-    }, 4200);
+  const speakRabbit = useCallback((title: string, message: string) => {
+    const payload: RabbitGuideSpeechPayload = {
+      title,
+      message,
+      status: "Plan del día · Rutina",
+      actions: [{ href: "/day", label: "Ver checklist", primary: true }],
+      durationMs: 5400,
+    };
+    window.dispatchEvent(new CustomEvent(RABBIT_GUIDE_SPEAK_EVENT, { detail: payload }));
   }, []);
 
   useEffect(() => {
@@ -114,12 +110,12 @@ export function DayClient({ plan }: Props) {
       if (nextAllDone && !celebrated) {
         setCelebrated(true);
         fireConfetti();
-        pushNotice("¡Día completado!", "Completaste toda la rutina de hoy. ¡Excelente disciplina!");
+        speakRabbit("¡Día completado!", "Completaste toda la rutina de hoy. ¡Excelente disciplina!");
       } else if (!nextAllDone && celebrated) {
         setCelebrated(false);
       }
     },
-    [celebrated, pushNotice],
+    [celebrated, speakRabbit],
   );
 
   const progress = routineProgress(checked);
@@ -321,25 +317,7 @@ export function DayClient({ plan }: Props) {
           })}
         </div>
 
-        <div className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-xs text-foreground/70">
-          <BellRing className="h-4 w-4" />
-          Las notificaciones de rutina ahora son dentro de la app.
-        </div>
       </section>
-
-      {notices.length > 0 ? (
-        <div className="pointer-events-none fixed bottom-5 right-5 z-[120] flex w-[min(92vw,360px)] flex-col gap-2">
-          {notices.map((notice) => (
-            <div
-              key={notice.id}
-              className="rounded-2xl border border-white/25 bg-background/85 p-4 shadow-[0_14px_32px_-18px_rgba(0,0,0,0.65)] backdrop-blur-xl"
-            >
-              <div className="text-sm font-semibold">{notice.title}</div>
-              <div className="mt-1 text-xs text-foreground/70">{notice.body}</div>
-            </div>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }
