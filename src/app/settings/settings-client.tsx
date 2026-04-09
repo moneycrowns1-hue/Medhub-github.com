@@ -205,6 +205,35 @@ export function SettingsClient() {
           </div>
         </div>
       </section>
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <div className="text-xs font-medium uppercase tracking-widest text-foreground/70">QA Manual</div>
+          <h2 className="text-xl font-bold tracking-tight">Checklist del conejo asistente</h2>
+        </div>
+
+        <div className="space-y-3 rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
+          <div className="text-sm text-foreground/80">
+            Prueba recomendada (dev): abre el botón <span className="font-semibold">FSM</span>, usa <span className="font-semibold">Reset</span>,
+            luego <span className="font-semibold">Play</span> para recorrer todas las fases.
+          </div>
+
+          <ol className="list-decimal space-y-2 pl-5 text-sm text-foreground/80">
+            <li>El replay completa la secuencia de fases sin saltos ni bloqueos.</li>
+            <li>El conejo mantiene patrulla por los 4 bordes (sin salirse del viewport).</li>
+            <li>En esquinas, el giro no flota y los pies siguen apoyados en el borde.</li>
+            <li>En borde superior, la orientación se ve natural (sin apoyar orejas/cabeza).</li>
+            <li>La burbuja se reubica automáticamente: arriba/abajo/izquierda/derecha según posición.</li>
+            <li>La burbuja nunca se corta ni sale de pantalla, incluso en móvil.</li>
+            <li>La flecha/cola de pensamiento apunta al conejo desde el lado correcto.</li>
+            <li>En pausas y cambios de modo, el movimiento y animación siguen coherentes.</li>
+          </ol>
+
+          <div className="rounded-xl border border-white/15 bg-white/5 p-3 text-xs text-foreground/70">
+            Si detectas un caso raro, anota: ruta, fase FSM, lado del conejo y resolución de pantalla.
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

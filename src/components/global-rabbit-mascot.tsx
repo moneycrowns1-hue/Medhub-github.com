@@ -146,6 +146,15 @@ type SpeechBubbleState = {
   actions?: { href: string; label: string; primary?: boolean }[];
 };
 
+type BubbleSide = "top" | "right" | "bottom" | "left";
+
+type BubbleLayout = {
+  left: number;
+  top: number;
+  side: BubbleSide;
+  arrowOffset: number;
+};
+
 function isBehaviorMode(value: unknown): value is RabbitBehaviorMode {
   return value === "patrol" || value === "guide" || value === "waiting" || value === "resting" || value === "summary";
 }
@@ -158,7 +167,14 @@ export function GlobalRabbitMascot() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const spriteRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const speechRef = useRef<HTMLDivElement | null>(null);
   const [speech, setSpeech] = useState<SpeechBubbleState | null>(null);
+  const [bubbleLayout, setBubbleLayout] = useState<BubbleLayout>({
+    left: 20,
+    top: 20,
+    side: "top",
+    arrowOffset: 28,
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -176,6 +192,7 @@ export function GlobalRabbitMascot() {
     const rows = rabbitFrames[0].length;
     const spriteWidth = cols * pixelSize;
     const spriteHeight = rows * pixelSize;
+    const footAnchor = { x: spriteWidth / 2, y: spriteHeight };
 
     canvas.width = spriteWidth;
     canvas.height = spriteHeight;
@@ -261,15 +278,106 @@ export function GlobalRabbitMascot() {
     let behaviorMode: RabbitBehaviorMode = "patrol";
     let commandedVisualState: RabbitVisualState | null = null;
     let controlPauseUntilTs = 0;
+    let lastBubbleLayout: BubbleLayout | null = null;
 
     if (shouldReduceMotion) {
       drawRabbitFrame(ctx, rabbitFrames[Math.max(0, rabbitFrames.length - 1)], 1, pixelSize, 0);
-      root.style.transform = `translate3d(${Math.round(current.x)}px, ${Math.round(current.y - spriteHeight)}px, 0)`;
+      root.style.transform = `translate3d(${Math.round(current.x - footAnchor.x)}px, ${Math.round(current.y - footAnchor.y)}px, 0)`;
       return;
     }
 
+    sprite.style.transformOrigin = `${footAnchor.x}px ${footAnchor.y}px`;
+
+    const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+    const normalForEdge = (edgeValue: Edge): Point => {
+      if (edgeValue === "top") return { x: 0, y: 1 };
+      if (edgeValue === "right") return { x: -1, y: 0 };
+      if (edgeValue === "bottom") return { x: 0, y: -1 };
+      return { x: 1, y: 0 };
+    };
+
+    const bubblePriorityForAnchor = (anchorX: number, anchorY: number): BubbleSide[] => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let preferred: BubbleSide = "top";
+
+      if (anchorY < vh * 0.24) preferred = "bottom";
+      else if (anchorY > vh * 0.76) preferred = "top";
+      else if (anchorX < vw * 0.28) preferred = "right";
+      else if (anchorX > vw * 0.72) preferred = "left";
+
+      const order: BubbleSide[] = [preferred, "top", "bottom", "right", "left"];
+      return order.filter((value, index) => order.indexOf(value) === index);
+    };
+
+    const updateSpeechBubbleLayout = (anchorX: number, anchorY: number) => {
+      if (!speechVisible) return;
+      const bubbleEl = speechRef.current;
+      if (!bubbleEl) return;
+
+      const rect = bubbleEl.getBoundingClientRect();
+      const bubbleWidth = Math.max(220, rect.width || 320);
+      const bubbleHeight = Math.max(120, rect.height || 160);
+      const gap = 14;
+      const pad = 10;
+
+      const candidates = bubblePriorityForAnchor(anchorX, anchorY).map((side) => {
+        let baseLeft = anchorX - bubbleWidth / 2;
+        let baseTop = anchorY - bubbleHeight - gap;
+
+        if (side === "bottom") {
+          baseTop = anchorY + gap;
+        } else if (side === "left") {
+          baseLeft = anchorX - bubbleWidth - gap;
+          baseTop = anchorY - bubbleHeight / 2;
+        } else if (side === "right") {
+          baseLeft = anchorX + gap;
+          baseTop = anchorY - bubbleHeight / 2;
+        }
+
+        const overflow =
+          Math.max(0, pad - baseLeft) +
+          Math.max(0, pad - baseTop) +
+          Math.max(0, baseLeft + bubbleWidth + pad - window.innerWidth) +
+          Math.max(0, baseTop + bubbleHeight + pad - window.innerHeight);
+
+        const left = clamp(baseLeft, pad, Math.max(pad, window.innerWidth - bubbleWidth - pad));
+        const top = clamp(baseTop, pad, Math.max(pad, window.innerHeight - bubbleHeight - pad));
+
+        const arrowOffset =
+          side === "top" || side === "bottom"
+            ? clamp(anchorX - left, 18, Math.max(18, bubbleWidth - 18))
+            : clamp(anchorY - top, 18, Math.max(18, bubbleHeight - 18));
+
+        return { side, left, top, overflow, arrowOffset };
+      });
+
+      const best = candidates.sort((a, b) => a.overflow - b.overflow)[0];
+      if (!best) return;
+
+      const nextLayout: BubbleLayout = {
+        left: best.left,
+        top: best.top,
+        side: best.side,
+        arrowOffset: best.arrowOffset,
+      };
+
+      const prev = lastBubbleLayout;
+      const unchanged =
+        prev &&
+        prev.side === nextLayout.side &&
+        Math.abs(prev.left - nextLayout.left) < 1 &&
+        Math.abs(prev.top - nextLayout.top) < 1 &&
+        Math.abs(prev.arrowOffset - nextLayout.arrowOffset) < 1;
+
+      if (unchanged) return;
+      lastBubbleLayout = nextLayout;
+      setBubbleLayout(nextLayout);
+    };
+
     const orientationForEdge = (edgeValue: Edge): { direction: 1 | -1; angle: number } => {
-      if (edgeValue === "top") return { direction: 1, angle: 0 };
+      if (edgeValue === "top") return { direction: -1, angle: 180 };
       if (edgeValue === "right") return { direction: 1, angle: 90 };
       if (edgeValue === "bottom") return { direction: -1, angle: 0 };
       return { direction: 1, angle: -90 };
@@ -381,8 +489,12 @@ export function GlobalRabbitMascot() {
       const frameIndex = mode === "RUN" ? runFrameIndex : mode === "JUMP" ? jumpFrameIndex : idleFrameIndex;
 
       drawRabbitFrame(ctx, rabbitFrames[frameIndex], direction, pixelSize, breatheY);
-      root.style.transform = `translate3d(${Math.round(current.x)}px, ${Math.round(current.y - spriteHeight - jumpLift)}px, 0)`;
+      const normal = normalForEdge(edge);
+      const footX = current.x + normal.x * jumpLift;
+      const footY = current.y + normal.y * jumpLift;
+      root.style.transform = `translate3d(${Math.round(footX - footAnchor.x)}px, ${Math.round(footY - footAnchor.y)}px, 0)`;
       sprite.style.transform = `rotate(${angle.toFixed(1)}deg)`;
+      updateSpeechBubbleLayout(footX, footY);
 
       if (ts - lastPersistTs > 220) {
         lastPersistTs = ts;
@@ -399,6 +511,7 @@ export function GlobalRabbitMascot() {
       current = snappedResize.point;
       edge = snappedResize.edge;
       updateOrientation();
+      updateSpeechBubbleLayout(current.x, current.y);
     };
 
     const onPersonalityChange = () => {
@@ -439,6 +552,7 @@ export function GlobalRabbitMascot() {
         status: detail.status,
         actions: detail.actions,
       });
+      updateSpeechBubbleLayout(current.x, current.y);
       speakUntilTs = performance.now() + Math.max(1400, detail.durationMs ?? 4800);
     };
 
@@ -461,36 +575,42 @@ export function GlobalRabbitMascot() {
   }, []);
 
   return (
-    <div
-      ref={rootRef}
-      className="fixed left-0 top-0 z-50"
-      style={{ willChange: "transform" }}
-    >
-      <div ref={spriteRef} className="pointer-events-none" style={{ transformOrigin: "center bottom" }}>
-        <canvas
-          ref={canvasRef}
-          style={{
-            imageRendering: "pixelated",
-            filter: "drop-shadow(0 0 8px rgba(255,255,255,0.22))",
-          }}
-        />
+    <>
+      <div
+        ref={rootRef}
+        className="fixed left-0 top-0 z-50"
+        style={{ willChange: "transform" }}
+      >
+        <div ref={spriteRef} className="pointer-events-none">
+          <canvas
+            ref={canvasRef}
+            style={{
+              imageRendering: "pixelated",
+              filter: "drop-shadow(0 0 8px rgba(255,255,255,0.22))",
+            }}
+          />
+        </div>
       </div>
 
       {speech ? (
-        <div className="pointer-events-auto absolute bottom-[calc(100%+8px)] left-1/2 w-[min(280px,78vw)] -translate-x-1/2 rounded-xl border border-white/30 bg-slate-950/92 px-3 py-2 text-white shadow-xl backdrop-blur">
-          <div className="text-[11px] leading-tight [font-family:var(--font-heading)]">{speech.title}</div>
-          <p className="mt-1 text-[11px] leading-relaxed text-white/85">{speech.message}</p>
-          {speech.status ? <div className="mt-1 text-[10px] text-white/60">{speech.status}</div> : null}
+        <div
+          ref={speechRef}
+          className="pointer-events-auto fixed z-[55] w-[min(360px,88vw)] rounded-[26px] border border-white/25 bg-slate-950/95 px-4 py-3 text-white shadow-2xl backdrop-blur-xl"
+          style={{ left: bubbleLayout.left, top: bubbleLayout.top }}
+        >
+          <div className="text-sm leading-tight [font-family:var(--font-heading)]">{speech.title}</div>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-white/85">{speech.message}</p>
+          {speech.status ? <div className="mt-1.5 text-[11px] text-white/65">{speech.status}</div> : null}
           {speech.actions?.length ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
               {speech.actions.slice(0, 2).map((action) => (
                 <a
                   key={action.href + action.label}
                   href={action.href}
                   className={
                     action.primary
-                      ? "rounded-md border border-white/30 bg-white px-2 py-1 text-[10px] font-semibold text-black"
-                      : "rounded-md border border-white/25 bg-white/10 px-2 py-1 text-[10px] text-white"
+                      ? "rounded-lg border border-white/30 bg-white px-2.5 py-1 text-[11px] font-semibold text-black"
+                      : "rounded-lg border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] text-white"
                   }
                 >
                   {action.label}
@@ -498,8 +618,33 @@ export function GlobalRabbitMascot() {
               ))}
             </div>
           ) : null}
+
+          <div
+            className="absolute h-3 w-3 rotate-45 border border-white/25 bg-slate-950/95"
+            style={
+              bubbleLayout.side === "top"
+                ? { left: bubbleLayout.arrowOffset - 6, bottom: -6, borderLeftWidth: 0, borderTopWidth: 0 }
+                : bubbleLayout.side === "bottom"
+                  ? { left: bubbleLayout.arrowOffset - 6, top: -6, borderRightWidth: 0, borderBottomWidth: 0 }
+                  : bubbleLayout.side === "left"
+                    ? { right: -6, top: bubbleLayout.arrowOffset - 6, borderLeftWidth: 0, borderBottomWidth: 0 }
+                    : { left: -6, top: bubbleLayout.arrowOffset - 6, borderTopWidth: 0, borderRightWidth: 0 }
+            }
+          />
+          <div
+            className="absolute h-2.5 w-2.5 rounded-full bg-slate-900/95"
+            style={
+              bubbleLayout.side === "top"
+                ? { left: bubbleLayout.arrowOffset - 4, bottom: -15 }
+                : bubbleLayout.side === "bottom"
+                  ? { left: bubbleLayout.arrowOffset - 4, top: -15 }
+                  : bubbleLayout.side === "left"
+                    ? { right: -15, top: bubbleLayout.arrowOffset - 4 }
+                    : { left: -15, top: bubbleLayout.arrowOffset - 4 }
+            }
+          />
         </div>
       ) : null}
-    </div>
+    </>
   );
 }
