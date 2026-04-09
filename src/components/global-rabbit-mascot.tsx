@@ -214,7 +214,7 @@ export function GlobalRabbitMascot() {
     const headerLineY = 64;
 
     const minX = () => margin;
-    const maxX = () => Math.max(minX(), window.innerWidth - spriteWidth - margin);
+    const maxX = () => Math.max(minX(), window.innerWidth - margin);
     const minY = () => Math.max(headerLineY, margin);
     const maxY = () => Math.max(minY(), window.innerHeight - margin);
 
