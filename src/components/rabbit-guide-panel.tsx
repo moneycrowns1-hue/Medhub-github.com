@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { getPlanForDate } from "@/lib/schedule";
@@ -19,6 +19,7 @@ import {
   loadRabbitGuideState,
   markPlanChecked,
   markStudyVisited,
+  RABBIT_GUIDE_PROMPT_EVENT,
   RABBIT_GUIDE_UPDATED_EVENT,
   type RabbitGuideState,
 } from "@/lib/rabbit-guide";
@@ -91,6 +92,7 @@ function buildGuide(
   const guidedSubjectSlug = state.activeSubjectSlug ?? state.lastStudySubjectSlug ?? todayPlan.primary;
   const active = guidedSubjectSlug ? SUBJECTS[guidedSubjectSlug] : null;
   const resume = state.lastStudySubjectSlug ? SUBJECTS[state.lastStudySubjectSlug] : null;
+  const isStudyRoute = pathname.startsWith("/study/");
   const pomodoroText = `Pomodoro: ${phaseLabel(pomodoroState.phase)}`;
   const resumePdfLabel = state.lastPdfTitle ? `${state.lastPdfTitle}${state.lastPdfPage ? ` · p. ${state.lastPdfPage}` : ""}` : null;
   const resumeDeckLabel = state.lastSrsDeckName ?? null;
@@ -130,6 +132,20 @@ function buildGuide(
         { href: "/stats", label: "Ver resumen", primary: true },
         { href: "/day", label: "Preparar mañana" },
         { href: `/study/${tomorrowPlan.primary}`, label: `Tema de mañana: ${SUBJECTS[tomorrowPlan.primary].name}` },
+      ],
+    };
+  }
+
+  if (isStudyRoute && pomodoroState.phase === "idle") {
+    return {
+      title: "Primero Pomodoro",
+      message: active
+        ? `Antes de seguir con ${active.name}, activa Pomodoro para que el bloque quede guiado.`
+        : "Antes de continuar, activa Pomodoro para iniciar la sesión guiada.",
+      status: `${pomodoroText} · Paso 1`,
+      actions: [
+        { href: "/#pomodoro", label: "Ir a Pomodoro", primary: true },
+        { href: "/day", label: "Ver plan" },
       ],
     };
   }
@@ -508,6 +524,8 @@ export function RabbitGuidePanel() {
   const [srsDueToday, setSrsDueToday] = useState(0);
   const [srsDueForGuidedSubject, setSrsDueForGuidedSubject] = useState(0);
   const [personality, setPersonality] = useState<RabbitPersonality>(() => loadRabbitPersonality());
+  const [collapsed, setCollapsed] = useState(false);
+  const lastGuideSignatureRef = useRef("");
 
   useEffect(() => {
     const syncAll = () => {
@@ -558,27 +576,53 @@ export function RabbitGuidePanel() {
     [state, pathname, pomodoroState, todayStats, srsDueToday, srsDueForGuidedSubject, personality],
   );
 
+  useEffect(() => {
+    const signature = `${guide.title}|${guide.message}|${guide.status}`;
+    if (lastGuideSignatureRef.current === signature) return;
+    lastGuideSignatureRef.current = signature;
+    window.dispatchEvent(new Event(RABBIT_GUIDE_PROMPT_EVENT));
+  }, [guide]);
+
   return (
-    <aside className="fixed bottom-4 right-4 z-40 w-[min(340px,calc(100vw-2rem))] rounded-2xl border border-white/20 bg-slate-900/75 p-4 text-white shadow-[0_20px_60px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl">
-      <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/60">Conejo guía</div>
-      <h3 className="mt-1 text-sm font-semibold">{guide.title}</h3>
-      <p className="mt-1 text-xs leading-relaxed text-white/75">{guide.message}</p>
-      <div className="mt-2 text-[11px] font-medium text-white/55">{guide.status}</div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {guide.actions.map((action) => (
-          <Link
-            key={action.href + action.label}
-            href={action.href}
-            className={
-              action.primary
-                ? "inline-flex items-center rounded-lg border border-white/35 bg-white px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-white/90"
-                : "inline-flex items-center rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/15"
-            }
-          >
-            {action.label}
-          </Link>
-        ))}
+    <aside
+      className={`font-general-sans fixed bottom-4 right-4 z-40 rounded-2xl border border-white/20 bg-slate-900/70 text-white shadow-[0_20px_60px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl transition-all duration-300 ${
+        collapsed ? "w-[220px] p-3" : "w-[min(320px,calc(100vw-2rem))] p-4"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/60">Conejo guía</div>
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          className="rounded-md border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/80 transition-colors hover:bg-white/15"
+        >
+          {collapsed ? "Abrir" : "Min"}
+        </button>
       </div>
+
+      <h3 className="mt-1 text-sm font-semibold [font-family:var(--font-heading)]">{guide.title}</h3>
+      {!collapsed ? <p className="mt-1 text-xs leading-relaxed text-white/75">{guide.message}</p> : null}
+      {!collapsed ? <div className="mt-2 text-[11px] font-medium text-white/55">{guide.status}</div> : null}
+
+      {!collapsed ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {guide.actions.map((action) => (
+            <Link
+              key={action.href + action.label}
+              href={action.href}
+              className={
+                action.primary
+                  ? "inline-flex items-center rounded-lg border border-white/35 bg-white px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-white/90"
+                  : "inline-flex items-center rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/15"
+              }
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-2 text-xs text-white/70">{guide.status}</div>
+      )}
     </aside>
   );
 }

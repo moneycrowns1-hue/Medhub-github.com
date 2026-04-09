@@ -6,6 +6,7 @@ import {
   RABBIT_PERSONALITY_UPDATED_EVENT,
   type RabbitPersonality,
 } from "@/lib/rabbit-personality";
+import { RABBIT_GUIDE_PROMPT_EVENT } from "@/lib/rabbit-guide";
 
 type RabbitFrame = number[][];
 
@@ -115,6 +116,10 @@ type PersonalityProfile = {
   fromIdleJumpChance: number;
   fromRunIdleChance: number;
   fromJumpRunChance: number;
+  edgePauseMinMs: number;
+  edgePauseRangeMs: number;
+  topBottomPauseMinMs: number;
+  topBottomPauseRangeMs: number;
 };
 
 const personalityProfiles: Record<RabbitPersonality, PersonalityProfile> = {
@@ -134,6 +139,10 @@ const personalityProfiles: Record<RabbitPersonality, PersonalityProfile> = {
     fromIdleJumpChance: 0.22,
     fromRunIdleChance: 0.42,
     fromJumpRunChance: 0.55,
+    edgePauseMinMs: 1100,
+    edgePauseRangeMs: 900,
+    topBottomPauseMinMs: 900,
+    topBottomPauseRangeMs: 700,
   },
   calm: {
     idleMinMs: 1500,
@@ -151,6 +160,10 @@ const personalityProfiles: Record<RabbitPersonality, PersonalityProfile> = {
     fromIdleJumpChance: 0.12,
     fromRunIdleChance: 0.58,
     fromJumpRunChance: 0.45,
+    edgePauseMinMs: 1600,
+    edgePauseRangeMs: 1200,
+    topBottomPauseMinMs: 1300,
+    topBottomPauseRangeMs: 900,
   },
   active: {
     idleMinMs: 500,
@@ -168,6 +181,10 @@ const personalityProfiles: Record<RabbitPersonality, PersonalityProfile> = {
     fromIdleJumpChance: 0.35,
     fromRunIdleChance: 0.26,
     fromJumpRunChance: 0.72,
+    edgePauseMinMs: 700,
+    edgePauseRangeMs: 600,
+    topBottomPauseMinMs: 600,
+    topBottomPauseRangeMs: 500,
   },
 };
 
@@ -221,6 +238,23 @@ export function GlobalRabbitMascot() {
       const w = Math.max(1, maxX() - minX());
       const h = Math.max(1, maxY() - minY());
       return 2 * (w + h);
+    };
+
+    const normalizeEdgeS = (edgeSValue: number) => {
+      const p = perimeter();
+      let s = edgeSValue % p;
+      if (s < 0) s += p;
+      return s;
+    };
+
+    const edgeNameFromS = (edgeSValue: number): "top" | "right" | "bottom" | "left" => {
+      const w = Math.max(1, maxX() - minX());
+      const h = Math.max(1, maxY() - minY());
+      const s = normalizeEdgeS(edgeSValue);
+      if (s <= w) return "top";
+      if (s <= w + h) return "right";
+      if (s <= 2 * w + h) return "bottom";
+      return "left";
     };
 
     const pointOnEdge = (edgeS: number): Point => {
@@ -296,6 +330,7 @@ export function GlobalRabbitMascot() {
           y: parsed.y,
           angle: parsed.angle,
           direction: parsed.direction === -1 ? -1 : 1,
+          edgeS: typeof parsed.edgeS === "number" ? parsed.edgeS : undefined,
         };
       } catch {
         return null;
@@ -312,7 +347,7 @@ export function GlobalRabbitMascot() {
 
     const initialSaved = loadState();
     let personality = loadRabbitPersonality();
-    let direction: 1 | -1 = initialSaved?.direction ?? (Math.random() < 0.5 ? -1 : 1);
+    let direction: 1 | -1 = 1;
     let edgeS = initialSaved?.edgeS ?? nearestEdgeS(initialSaved ? { x: initialSaved.x, y: initialSaved.y } : randomEdgePoint());
     let current = pointOnEdge(edgeS);
     let angle = initialSaved?.angle ?? 0;
@@ -327,6 +362,26 @@ export function GlobalRabbitMascot() {
     let frameTick = 0;
     let lastTs = performance.now();
     let lastPersistTs = 0;
+    let edgePauseRemainingMs = 0;
+    let allowGuideDetourUntil = 0;
+
+    const setFacingFromVelocity = (vx: number) => {
+      if (Math.abs(vx) > 0.0001) {
+        direction = vx > 0 ? 1 : -1;
+      }
+    };
+
+    const maybePauseOnEdge = (edgeSValue: number) => {
+      const profile = personalityProfiles[personality];
+      const edge = edgeNameFromS(edgeSValue);
+      if (edge === "left" || edge === "right") {
+        edgePauseRemainingMs = profile.edgePauseMinMs + Math.random() * profile.edgePauseRangeMs;
+      } else {
+        edgePauseRemainingMs = profile.topBottomPauseMinMs + Math.random() * profile.topBottomPauseRangeMs;
+      }
+    };
+
+    let prevEdge = edgeNameFromS(edgeS);
 
     if (shouldReduceMotion) {
       drawRabbitFrame(ctx, rabbitFrames[0], direction, pixelSize, 0);
@@ -373,6 +428,10 @@ export function GlobalRabbitMascot() {
       const dt = Math.min(0.05, (ts - lastTs) / 1000);
       lastTs = ts;
 
+      if (edgePauseRemainingMs > 0) {
+        edgePauseRemainingMs = Math.max(0, edgePauseRemainingMs - dt * 1000);
+      }
+
       modeElapsed += dt * 1000;
 
       if (modeElapsed >= modeDuration) {
@@ -393,8 +452,10 @@ export function GlobalRabbitMascot() {
         const profile = personalityProfiles[personality];
         const speed = mode === "JUMP" ? profile.jumpSpeed : profile.runSpeed;
 
-        if (!detourActive && detourCooldown <= 0 && mode === "RUN" && Math.random() < profile.detourChance) {
+        const shouldGuideDetour = ts < allowGuideDetourUntil;
+        if (shouldGuideDetour && !detourActive && mode === "RUN") {
           pickCenterDetour();
+          allowGuideDetourUntil = 0;
         }
 
         if (detourActive && detourTarget) {
@@ -408,6 +469,7 @@ export function GlobalRabbitMascot() {
           } else {
             vx = dx / Math.max(0.001, dist);
             vy = dy / Math.max(0.001, dist);
+            setFacingFromVelocity(vx);
             current = clampPoint({
               x: current.x + vx * speed * dt,
               y: current.y + vy * speed * dt,
@@ -416,14 +478,24 @@ export function GlobalRabbitMascot() {
         }
 
         if (!detourActive) {
-          edgeS += direction * speed * dt;
+          if (edgePauseRemainingMs <= 0) {
+            edgeS += direction * speed * dt;
+          }
           current = pointOnEdge(edgeS);
           const tangent = tangentOnEdge(edgeS, direction);
           vx = tangent.tx;
           vy = tangent.ty;
-          if (Math.abs(vx) > 0.05) {
-            direction = vx > 0 ? 1 : -1;
+
+          const nowEdge = edgeNameFromS(edgeS);
+          if (nowEdge !== prevEdge) {
+            prevEdge = nowEdge;
+            maybePauseOnEdge(edgeS);
+            if (nowEdge === "bottom") {
+              direction = direction === 1 ? -1 : 1;
+            }
           }
+
+          setFacingFromVelocity(vx);
         }
 
         if (detourCooldown > 0 && modeElapsed > modeDuration * 0.8) {
@@ -449,7 +521,10 @@ export function GlobalRabbitMascot() {
       frameTick += dt * (mode === "RUN" ? 7.2 : 4.2);
 
       const breatheY = Math.round(Math.sin(breathingTick) * (mode === "IDLE" ? 2.2 : 1.1));
-      const frameIndex = mode === "IDLE" ? 0 : mode === "JUMP" ? 2 : Math.floor(frameTick) % rabbitFrames.length;
+      const idleFrameIndex = Math.max(0, rabbitFrames.length - 1);
+      const jumpFrameIndex = Math.min(2, Math.max(0, rabbitFrames.length - 1));
+      const runFrameIndex = rabbitFrames.length > 1 ? Math.floor(frameTick) % (rabbitFrames.length - 1) : 0;
+      const frameIndex = mode === "IDLE" ? idleFrameIndex : mode === "JUMP" ? jumpFrameIndex : runFrameIndex;
 
       drawRabbitFrame(ctx, rabbitFrames[frameIndex], direction, pixelSize, breatheY);
       root.style.transform = `translate3d(${Math.round(current.x)}px, ${Math.round(current.y - jumpLift)}px, 0) rotate(${angle.toFixed(1)}deg)`;
@@ -477,15 +552,21 @@ export function GlobalRabbitMascot() {
       setMode("IDLE");
     };
 
+    const onGuidePrompt = () => {
+      allowGuideDetourUntil = performance.now() + 5000;
+    };
+
     window.addEventListener("resize", onResize);
     window.addEventListener("storage", onPersonalityChange);
     window.addEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, onPersonalityChange);
+    window.addEventListener(RABBIT_GUIDE_PROMPT_EVENT, onGuidePrompt);
 
     return () => {
       window.cancelAnimationFrame(rafId);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("storage", onPersonalityChange);
       window.removeEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, onPersonalityChange);
+      window.removeEventListener(RABBIT_GUIDE_PROMPT_EVENT, onGuidePrompt);
     };
   }, []);
 
