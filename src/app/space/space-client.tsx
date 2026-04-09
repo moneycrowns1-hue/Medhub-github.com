@@ -28,9 +28,9 @@ const FAVORITES_STORAGE_KEY = "somagnus:space:favorites:v1";
 const PROGRESS_STORAGE_KEY = "somagnus:space:progress:v1";
 const VISUAL_MODE_STORAGE_KEY = "somagnus:space:visual-mode:v1";
 const DAILY_MASCOT_GUIDE_STORAGE_KEY = "somagnus:space:mascot-daily-checkin:v1";
-const SPACE_IFRAME_SESSION_ID = "dormir-mejor";
-const SPACE_IFRAME_SRC = "https://archive.org/embed/entregate-al-sueno?playlist=1";
-const SPACE_IFRAME_EXTERNAL_URL = "https://archive.org/details/entregate-al-sueno";
+const SPACE_ARCHIVE_SESSION_ID = "dormir-mejor";
+const SPACE_ARCHIVE_STREAM_URL = "https://archive.org/download/entregate-al-sueno/Entregate%20al%20sue%C3%B1o.mp3";
+const SPACE_ARCHIVE_EXTERNAL_URL = "https://archive.org/details/entregate-al-sueno";
 
 type VisualModeId = "aurora" | "deep-night" | "soft-glass";
 
@@ -277,7 +277,7 @@ const sessions: SpaceSession[] = [
     approxLengthSec: 600,
     desc: "Transición suave para descansar de verdad.",
     moodId: "descarga",
-    audioSrc: "/audio/space/dormir-mejor.mp3",
+    audioSrc: SPACE_ARCHIVE_STREAM_URL,
   },
   {
     id: "aterriza-mente",
@@ -519,7 +519,7 @@ export function SpaceClient() {
   const activeSession = useMemo(() => {
     return sessions.find((s) => s.id === activeId) ?? filteredSessions[0] ?? sessions[0];
   }, [activeId, filteredSessions]);
-  const activeUsesIframe = activeSession?.id === SPACE_IFRAME_SESSION_ID;
+  const activeUsesArchiveSource = activeSession?.id === SPACE_ARCHIVE_SESSION_ID;
 
   const playlist = useMemo(() => {
     if (filteredSessions.length === 0) return sessions;
@@ -614,7 +614,9 @@ export function SpaceClient() {
     const onError = () => {
       setPlaying(false);
       setPlaybackError(
-        "No se encontró el archivo de audio para esta sesión. Sube el archivo en public/audio/space con el nombre esperado.",
+        activeUsesArchiveSource
+          ? "No se pudo cargar el streaming externo de Archive. Usa el botón 'Abrir fuente' o inténtalo de nuevo."
+          : "No se encontró el archivo de audio para esta sesión. Sube el archivo en public/audio/space con el nombre esperado.",
       );
     };
 
@@ -633,7 +635,7 @@ export function SpaceClient() {
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
     };
-  }, [activeSession, autoplayRequested, dailyMascotCheckinDone, sessionProgress]);
+  }, [activeSession, activeUsesArchiveSource, autoplayRequested, dailyMascotCheckinDone, sessionProgress]);
 
   useEffect(() => {
     try {
@@ -662,21 +664,15 @@ export function SpaceClient() {
     const audio = audioRef.current;
     audio?.pause();
     const next = sessions.find((s) => s.id === sessionId);
-    const nextUsesIframe = next?.id === SPACE_IFRAME_SESSION_ID;
     setActiveId(sessionId);
-    setElapsedSec(nextUsesIframe ? 0 : (sessionProgress[sessionId] ?? 0));
+    setElapsedSec(sessionProgress[sessionId] ?? 0);
     setDurationSec(next?.approxLengthSec ?? 0);
     setPlaybackError(null);
-    setAutoplayRequested(nextUsesIframe ? false : shouldAutoplay);
-    if (!shouldAutoplay || nextUsesIframe) setPlaying(false);
+    setAutoplayRequested(shouldAutoplay);
+    if (!shouldAutoplay) setPlaying(false);
   };
 
   const togglePlayback = async () => {
-    if (activeUsesIframe) {
-      setPlaybackError("Para esta sesión, pulsa Play dentro del reproductor integrado de abajo.");
-      return;
-    }
-
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -690,7 +686,11 @@ export function SpaceClient() {
       setPlaying(true);
     } catch {
       setPlaying(false);
-      setPlaybackError("No se pudo reproducir este audio. Verifica que el archivo exista y el navegador lo soporte.");
+      setPlaybackError(
+        activeUsesArchiveSource
+          ? "No se pudo reproducir el streaming de Archive en el player integrado. Usa 'Abrir fuente' como respaldo."
+          : "No se pudo reproducir este audio. Verifica que el archivo exista y el navegador lo soporte.",
+      );
     }
   };
 
@@ -743,12 +743,7 @@ export function SpaceClient() {
         </div>
       </div>
 
-      <audio
-        ref={audioRef}
-        preload="metadata"
-        className="hidden"
-        src={activeUsesIframe ? undefined : (activeSession ? withBasePath(activeSession.audioSrc) : undefined)}
-      />
+      <audio ref={audioRef} preload="metadata" className="hidden" src={activeSession ? withBasePath(activeSession.audioSrc) : undefined} />
 
       <section
         data-reveal-id="hero"
@@ -790,33 +785,31 @@ export function SpaceClient() {
             <div className={`text-xs ${modeStyle.textSoft}`}>{activeSession?.type}</div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {activeUsesIframe ? (
+            <button
+              type="button"
+              onClick={togglePlayback}
+              className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition ${modeStyle.primaryButton}`}
+            >
+              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {playing ? "Pausar" : "Reproducir"}
+            </button>
+            {activeUsesArchiveSource ? (
               <>
                 <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
                   <Headphones className="h-3.5 w-3.5" />
-                  Player integrado
+                  Fuente: Archive
                 </span>
                 <button
                   type="button"
                   onClick={() => {
-                    window.open(SPACE_IFRAME_EXTERNAL_URL, "_blank", "noopener,noreferrer");
+                    window.open(SPACE_ARCHIVE_EXTERNAL_URL, "_blank", "noopener,noreferrer");
                   }}
-                  className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition ${modeStyle.primaryButton}`}
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${modeStyle.secondaryButton}`}
                 >
-                  <Play className="h-4 w-4" />
-                  Abrir en Archive
+                  Abrir fuente
                 </button>
               </>
-            ) : (
-              <button
-                type="button"
-                onClick={togglePlayback}
-                className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition ${modeStyle.primaryButton}`}
-              >
-                {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {playing ? "Pausar" : "Reproducir"}
-              </button>
-            )}
+            ) : null}
             <Link
               href="/day"
               className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition ${modeStyle.secondaryButton}`}
@@ -826,33 +819,15 @@ export function SpaceClient() {
             </Link>
           </div>
         </div>
-        {activeUsesIframe ? (
-          <div className={`mt-4 rounded-2xl border p-3 ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
-            <div className={`mb-2 text-[11px] ${modeStyle.textSoft}`}>
-              Reproductor en streaming (sin guardar audio en tu app). Presiona play dentro del player.
-            </div>
-            <div className="overflow-hidden rounded-xl border border-white/15 bg-black/25">
-              <iframe
-                src={SPACE_IFRAME_SRC}
-                width="100%"
-                height="96"
-                frameBorder="0"
-                allow="autoplay; encrypted-media"
-                title="Reproductor Entregate Al Sueño"
-              />
-            </div>
+        <>
+          <div className={`mt-4 h-2 overflow-hidden rounded-full ${modeStyle.progressTrack}`}>
+            <div className={`h-full rounded-full transition-all ${modeStyle.progressFill}`} style={{ width: `${progress}%` }} />
           </div>
-        ) : (
-          <>
-            <div className={`mt-4 h-2 overflow-hidden rounded-full ${modeStyle.progressTrack}`}>
-              <div className={`h-full rounded-full transition-all ${modeStyle.progressFill}`} style={{ width: `${progress}%` }} />
-            </div>
-            <div className={`mt-2 flex items-center justify-between text-xs ${modeStyle.textSoft}`}>
-              <span>{fmt(elapsedSec)}</span>
-              <span>{fmt(durationSec)}</span>
-            </div>
-          </>
-        )}
+          <div className={`mt-2 flex items-center justify-between text-xs ${modeStyle.textSoft}`}>
+            <span>{fmt(elapsedSec)}</span>
+            <span>{fmt(durationSec)}</span>
+          </div>
+        </>
         <div className="mt-4 flex items-center gap-2">
           <button
             type="button"
@@ -873,7 +848,22 @@ export function SpaceClient() {
             <SkipForward className="h-3.5 w-3.5" />
           </button>
         </div>
-        {playbackError ? <div className="mt-3 text-xs text-amber-200/90">{playbackError}</div> : null}
+        {playbackError ? (
+          <div className="mt-3 space-y-2">
+            <div className="text-xs text-amber-200/90">{playbackError}</div>
+            {activeUsesArchiveSource ? (
+              <button
+                type="button"
+                onClick={() => {
+                  window.open(SPACE_ARCHIVE_EXTERNAL_URL, "_blank", "noopener,noreferrer");
+                }}
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${modeStyle.secondaryButton}`}
+              >
+                Abrir fuente en Archive
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       <section
