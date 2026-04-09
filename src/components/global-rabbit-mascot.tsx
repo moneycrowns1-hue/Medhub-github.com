@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   loadRabbitPersonality,
   RABBIT_PERSONALITY_UPDATED_EVENT,
   type RabbitPersonality,
 } from "@/lib/rabbit-personality";
-import { RABBIT_GUIDE_PROMPT_EVENT } from "@/lib/rabbit-guide";
+import {
+  RABBIT_GUIDE_PROMPT_EVENT,
+  RABBIT_GUIDE_SPEAK_EVENT,
+  type RabbitGuideSpeechPayload,
+} from "@/lib/rabbit-guide";
 
 type RabbitFrame = number[][];
 
@@ -93,111 +97,64 @@ type Point = { x: number; y: number };
 type PersistedState = {
   x: number;
   y: number;
-  angle: number;
-  direction: 1 | -1;
-  edgeS?: number;
+  edge: Edge;
 };
 
+type Edge = "top" | "right" | "bottom" | "left";
 type RabbitMode = "IDLE" | "RUN" | "JUMP";
 
 type PersonalityProfile = {
-  idleMinMs: number;
-  idleRangeMs: number;
-  runMinMs: number;
-  runRangeMs: number;
-  jumpMinMs: number;
-  jumpRangeMs: number;
   runSpeed: number;
-  jumpSpeed: number;
   jumpLift: number;
-  detourChance: number;
-  detourCooldownMin: number;
-  detourCooldownRange: number;
-  fromIdleJumpChance: number;
-  fromRunIdleChance: number;
-  fromJumpRunChance: number;
-  edgePauseMinMs: number;
-  edgePauseRangeMs: number;
-  topBottomPauseMinMs: number;
-  topBottomPauseRangeMs: number;
+  cornerPauseMs: number;
+  jumpDurationMs: number;
+  jumpChancePerSecond: number;
 };
 
 const personalityProfiles: Record<RabbitPersonality, PersonalityProfile> = {
   balanced: {
-    idleMinMs: 900,
-    idleRangeMs: 1700,
-    runMinMs: 1800,
-    runRangeMs: 2600,
-    jumpMinMs: 700,
-    jumpRangeMs: 450,
     runSpeed: 56,
-    jumpSpeed: 72,
     jumpLift: 16,
-    detourChance: 0.0022,
-    detourCooldownMin: 5,
-    detourCooldownRange: 4,
-    fromIdleJumpChance: 0.22,
-    fromRunIdleChance: 0.42,
-    fromJumpRunChance: 0.55,
-    edgePauseMinMs: 1100,
-    edgePauseRangeMs: 900,
-    topBottomPauseMinMs: 900,
-    topBottomPauseRangeMs: 700,
+    cornerPauseMs: 900,
+    jumpDurationMs: 520,
+    jumpChancePerSecond: 0.28,
   },
   calm: {
-    idleMinMs: 1500,
-    idleRangeMs: 2400,
-    runMinMs: 1300,
-    runRangeMs: 1800,
-    jumpMinMs: 560,
-    jumpRangeMs: 260,
     runSpeed: 42,
-    jumpSpeed: 58,
     jumpLift: 12,
-    detourChance: 0.0009,
-    detourCooldownMin: 7,
-    detourCooldownRange: 5,
-    fromIdleJumpChance: 0.12,
-    fromRunIdleChance: 0.58,
-    fromJumpRunChance: 0.45,
-    edgePauseMinMs: 1600,
-    edgePauseRangeMs: 1200,
-    topBottomPauseMinMs: 1300,
-    topBottomPauseRangeMs: 900,
+    cornerPauseMs: 1200,
+    jumpDurationMs: 560,
+    jumpChancePerSecond: 0.18,
   },
   active: {
-    idleMinMs: 500,
-    idleRangeMs: 700,
-    runMinMs: 2200,
-    runRangeMs: 3000,
-    jumpMinMs: 820,
-    jumpRangeMs: 400,
     runSpeed: 70,
-    jumpSpeed: 92,
     jumpLift: 20,
-    detourChance: 0.0034,
-    detourCooldownMin: 3,
-    detourCooldownRange: 3,
-    fromIdleJumpChance: 0.35,
-    fromRunIdleChance: 0.26,
-    fromJumpRunChance: 0.72,
-    edgePauseMinMs: 700,
-    edgePauseRangeMs: 600,
-    topBottomPauseMinMs: 600,
-    topBottomPauseRangeMs: 500,
+    cornerPauseMs: 650,
+    jumpDurationMs: 460,
+    jumpChancePerSecond: 0.38,
   },
+};
+
+type SpeechBubbleState = {
+  title: string;
+  message: string;
+  status?: string;
+  actions?: { href: string; label: string; primary?: boolean }[];
 };
 
 export function GlobalRabbitMascot() {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const spriteRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [speech, setSpeech] = useState<SpeechBubbleState | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const root = rootRef.current;
+    const sprite = spriteRef.current;
     const canvas = canvasRef.current;
-    if (!root || !canvas) return;
+    if (!root || !sprite || !canvas) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -214,108 +171,35 @@ export function GlobalRabbitMascot() {
     const shouldReduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const margin = 10;
-    const headerSafeY = 72;
+    const headerLineY = 64;
 
     const minX = () => margin;
     const maxX = () => Math.max(minX(), window.innerWidth - spriteWidth - margin);
-    const minY = () => Math.max(headerSafeY, margin);
-    const maxY = () => Math.max(minY(), window.innerHeight - spriteHeight - margin);
+    const minY = () => Math.max(headerLineY, margin);
+    const maxY = () => Math.max(minY(), window.innerHeight - margin);
 
-    const clampPoint = (p: Point): Point => ({
+    const clampFeetPoint = (p: Point): Point => ({
       x: Math.max(minX(), Math.min(maxX(), p.x)),
       y: Math.max(minY(), Math.min(maxY(), p.y)),
     });
 
-    const randomEdgePoint = (): Point => {
-      const edge = ["left", "right", "top", "bottom", "left", "right", "top", "bottom"][Math.floor(Math.random() * 8)];
-      if (edge === "left") return { x: minX(), y: minY() + Math.random() * Math.max(1, maxY() - minY()) };
-      if (edge === "right") return { x: maxX(), y: minY() + Math.random() * Math.max(1, maxY() - minY()) };
-      if (edge === "top") return { x: minX() + Math.random() * Math.max(1, maxX() - minX()), y: minY() };
-      return { x: minX() + Math.random() * Math.max(1, maxX() - minX()), y: maxY() };
-    };
+    const snapToNearestEdge = (p: Point): { edge: Edge; point: Point } => {
+      const clamped = clampFeetPoint(p);
+      const dTop = Math.abs(clamped.y - minY());
+      const dRight = Math.abs(clamped.x - maxX());
+      const dBottom = Math.abs(clamped.y - maxY());
+      const dLeft = Math.abs(clamped.x - minX());
+      const nearest = [
+        { edge: "top" as const, d: dTop },
+        { edge: "right" as const, d: dRight },
+        { edge: "bottom" as const, d: dBottom },
+        { edge: "left" as const, d: dLeft },
+      ].sort((a, b) => a.d - b.d)[0]?.edge;
 
-    const perimeter = () => {
-      const w = Math.max(1, maxX() - minX());
-      const h = Math.max(1, maxY() - minY());
-      return 2 * (w + h);
-    };
-
-    const normalizeEdgeS = (edgeSValue: number) => {
-      const p = perimeter();
-      let s = edgeSValue % p;
-      if (s < 0) s += p;
-      return s;
-    };
-
-    const edgeNameFromS = (edgeSValue: number): "top" | "right" | "bottom" | "left" => {
-      const w = Math.max(1, maxX() - minX());
-      const h = Math.max(1, maxY() - minY());
-      const s = normalizeEdgeS(edgeSValue);
-      if (s <= w) return "top";
-      if (s <= w + h) return "right";
-      if (s <= 2 * w + h) return "bottom";
-      return "left";
-    };
-
-    const pointOnEdge = (edgeS: number): Point => {
-      const w = Math.max(1, maxX() - minX());
-      const h = Math.max(1, maxY() - minY());
-      const p = perimeter();
-      let s = edgeS % p;
-      if (s < 0) s += p;
-
-      if (s <= w) {
-        return { x: minX() + s, y: minY() };
-      }
-      if (s <= w + h) {
-        return { x: maxX(), y: minY() + (s - w) };
-      }
-      if (s <= 2 * w + h) {
-        return { x: maxX() - (s - (w + h)), y: maxY() };
-      }
-      return { x: minX(), y: maxY() - (s - (2 * w + h)) };
-    };
-
-    const tangentOnEdge = (edgeS: number, sign: 1 | -1) => {
-      const w = Math.max(1, maxX() - minX());
-      const h = Math.max(1, maxY() - minY());
-      const p = perimeter();
-      let s = edgeS % p;
-      if (s < 0) s += p;
-
-      let tx = 1;
-      let ty = 0;
-      if (s > w && s <= w + h) {
-        tx = 0;
-        ty = 1;
-      } else if (s > w + h && s <= 2 * w + h) {
-        tx = -1;
-        ty = 0;
-      } else if (s > 2 * w + h) {
-        tx = 0;
-        ty = -1;
-      }
-
-      return { tx: tx * sign, ty: ty * sign };
-    };
-
-    const nearestEdgeS = (p: Point) => {
-      const w = Math.max(1, maxX() - minX());
-      const h = Math.max(1, maxY() - minY());
-      const topX = Math.max(minX(), Math.min(maxX(), p.x));
-      const rightY = Math.max(minY(), Math.min(maxY(), p.y));
-      const bottomX = Math.max(minX(), Math.min(maxX(), p.x));
-      const leftY = Math.max(minY(), Math.min(maxY(), p.y));
-
-      const candidates = [
-        { s: topX - minX(), d: Math.hypot(p.x - topX, p.y - minY()) },
-        { s: w + (rightY - minY()), d: Math.hypot(p.x - maxX(), p.y - rightY) },
-        { s: w + h + (maxX() - bottomX), d: Math.hypot(p.x - bottomX, p.y - maxY()) },
-        { s: 2 * w + h + (maxY() - leftY), d: Math.hypot(p.x - minX(), p.y - leftY) },
-      ];
-
-      candidates.sort((a, b) => a.d - b.d);
-      return candidates[0]?.s ?? 0;
+      if (nearest === "top") return { edge: "top", point: { x: clamped.x, y: minY() } };
+      if (nearest === "right") return { edge: "right", point: { x: maxX(), y: clamped.y } };
+      if (nearest === "bottom") return { edge: "bottom", point: { x: clamped.x, y: maxY() } };
+      return { edge: "left", point: { x: minX(), y: clamped.y } };
     };
 
     const loadState = (): PersistedState | null => {
@@ -324,13 +208,12 @@ export function GlobalRabbitMascot() {
         if (!raw) return null;
         const parsed = JSON.parse(raw) as PersistedState;
         if (!parsed || typeof parsed !== "object") return null;
-        if (typeof parsed.x !== "number" || typeof parsed.y !== "number" || typeof parsed.angle !== "number") return null;
+        if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return null;
+        if (parsed.edge !== "top" && parsed.edge !== "right" && parsed.edge !== "bottom" && parsed.edge !== "left") return null;
         return {
           x: parsed.x,
           y: parsed.y,
-          angle: parsed.angle,
-          direction: parsed.direction === -1 ? -1 : 1,
-          edgeS: typeof parsed.edgeS === "number" ? parsed.edgeS : undefined,
+          edge: parsed.edge,
         };
       } catch {
         return null;
@@ -347,172 +230,118 @@ export function GlobalRabbitMascot() {
 
     const initialSaved = loadState();
     let personality = loadRabbitPersonality();
+    const seeded = initialSaved ?? { x: minX(), y: minY(), edge: "top" as Edge };
+    const snapped = snapToNearestEdge({ x: seeded.x, y: seeded.y });
+    let current = snapped.point;
+    let edge: Edge = initialSaved?.edge ?? snapped.edge;
     let direction: 1 | -1 = 1;
-    let edgeS = initialSaved?.edgeS ?? nearestEdgeS(initialSaved ? { x: initialSaved.x, y: initialSaved.y } : randomEdgePoint());
-    let current = pointOnEdge(edgeS);
-    let angle = initialSaved?.angle ?? 0;
-    let mode: RabbitMode = "IDLE";
-    let modeDuration = 1200;
-    let modeElapsed = 0;
+    let angle = 0;
+    let mode: RabbitMode = "RUN";
     let jumpLift = 0;
-    let detourActive = false;
-    let detourTarget: Point | null = null;
-    let detourCooldown = 0;
+    let jumpRemainingMs = 0;
     let breathingTick = 0;
     let frameTick = 0;
     let lastTs = performance.now();
     let lastPersistTs = 0;
-    let edgePauseRemainingMs = 0;
-    let allowGuideDetourUntil = 0;
-
-    const setFacingFromVelocity = (vx: number) => {
-      if (Math.abs(vx) > 0.0001) {
-        direction = vx > 0 ? 1 : -1;
-      }
-    };
-
-    const maybePauseOnEdge = (edgeSValue: number) => {
-      const profile = personalityProfiles[personality];
-      const edge = edgeNameFromS(edgeSValue);
-      if (edge === "left" || edge === "right") {
-        edgePauseRemainingMs = profile.edgePauseMinMs + Math.random() * profile.edgePauseRangeMs;
-      } else {
-        edgePauseRemainingMs = profile.topBottomPauseMinMs + Math.random() * profile.topBottomPauseRangeMs;
-      }
-    };
-
-    let prevEdge = edgeNameFromS(edgeS);
+    let cornerPauseRemainingMs = 0;
+    let speakUntilTs = 0;
+    let speechVisible = false;
 
     if (shouldReduceMotion) {
-      drawRabbitFrame(ctx, rabbitFrames[0], direction, pixelSize, 0);
-      root.style.transform = `translate3d(${Math.round(current.x)}px, ${Math.round(current.y)}px, 0)`;
+      drawRabbitFrame(ctx, rabbitFrames[Math.max(0, rabbitFrames.length - 1)], 1, pixelSize, 0);
+      root.style.transform = `translate3d(${Math.round(current.x)}px, ${Math.round(current.y - spriteHeight)}px, 0)`;
       return;
     }
 
-    const pickCenterDetour = () => {
-      const profile = personalityProfiles[personality];
-      const padX = (maxX() - minX()) * 0.22;
-      const padY = (maxY() - minY()) * 0.24;
-      detourTarget = {
-        x: minX() + padX + Math.random() * Math.max(1, maxX() - minX() - padX * 2),
-        y: minY() + padY + Math.random() * Math.max(1, maxY() - minY() - padY * 2),
-      };
-      detourActive = true;
-      detourCooldown = profile.detourCooldownMin + Math.floor(Math.random() * profile.detourCooldownRange);
+    const orientationForEdge = (edgeValue: Edge): { direction: 1 | -1; angle: number } => {
+      if (edgeValue === "top") return { direction: 1, angle: 0 };
+      if (edgeValue === "right") return { direction: 1, angle: 90 };
+      if (edgeValue === "bottom") return { direction: -1, angle: 0 };
+      return { direction: 1, angle: -90 };
     };
 
-    const setMode = (next: RabbitMode) => {
-      const profile = personalityProfiles[personality];
-      mode = next;
-      modeElapsed = 0;
-      if (next === "IDLE") {
-        modeDuration = profile.idleMinMs + Math.random() * profile.idleRangeMs;
-      } else if (next === "RUN") {
-        modeDuration = profile.runMinMs + Math.random() * profile.runRangeMs;
+    const updateOrientation = () => {
+      const o = orientationForEdge(edge);
+      direction = o.direction;
+      angle = o.angle;
+    };
+
+    const goNextEdge = () => {
+      if (edge === "top") {
+        current.x = maxX();
+        current.y = minY();
+        edge = "right";
+      } else if (edge === "right") {
+        current.x = maxX();
+        current.y = maxY();
+        edge = "bottom";
+      } else if (edge === "bottom") {
+        current.x = minX();
+        current.y = maxY();
+        edge = "left";
       } else {
-        modeDuration = profile.jumpMinMs + Math.random() * profile.jumpRangeMs;
+        current.x = minX();
+        current.y = minY();
+        edge = "top";
       }
+      cornerPauseRemainingMs = personalityProfiles[personality].cornerPauseMs;
+      updateOrientation();
     };
 
-    const smoothAngle = (from: number, to: number, factor: number) => {
-      let delta = to - from;
-      while (delta > 180) delta -= 360;
-      while (delta < -180) delta += 360;
-      return from + delta * factor;
-    };
-
-    setMode("IDLE");
+    updateOrientation();
 
     let rafId = 0;
     const step = (ts: number) => {
       const dt = Math.min(0.05, (ts - lastTs) / 1000);
       lastTs = ts;
 
-      if (edgePauseRemainingMs > 0) {
-        edgePauseRemainingMs = Math.max(0, edgePauseRemainingMs - dt * 1000);
+      const profile = personalityProfiles[personality];
+      const isSpeaking = ts < speakUntilTs;
+      const isPausedOnCorner = cornerPauseRemainingMs > 0;
+
+      if (!isSpeaking && speechVisible) {
+        speechVisible = false;
+        setSpeech(null);
       }
 
-      modeElapsed += dt * 1000;
+      if (isPausedOnCorner) {
+        cornerPauseRemainingMs = Math.max(0, cornerPauseRemainingMs - dt * 1000);
+      }
 
-      if (modeElapsed >= modeDuration) {
-        const profile = personalityProfiles[personality];
-        if (mode === "IDLE") {
-          setMode(Math.random() < profile.fromIdleJumpChance ? "JUMP" : "RUN");
-        } else if (mode === "RUN") {
-          setMode(Math.random() < profile.fromRunIdleChance ? "IDLE" : "JUMP");
+      if (!isSpeaking && cornerPauseRemainingMs <= 0) {
+        const distance = profile.runSpeed * dt;
+        if (edge === "top") {
+          current.x += distance;
+          if (current.x >= maxX()) goNextEdge();
+        } else if (edge === "right") {
+          current.y += distance;
+          if (current.y >= maxY()) goNextEdge();
+        } else if (edge === "bottom") {
+          current.x -= distance;
+          if (current.x <= minX()) goNextEdge();
         } else {
-          setMode(Math.random() < profile.fromJumpRunChance ? "RUN" : "IDLE");
+          current.y -= distance;
+          if (current.y <= minY()) goNextEdge();
         }
       }
 
-      let vx = 0;
-      let vy = 0;
-
-      if (mode !== "IDLE") {
-        const profile = personalityProfiles[personality];
-        const speed = mode === "JUMP" ? profile.jumpSpeed : profile.runSpeed;
-
-        const shouldGuideDetour = ts < allowGuideDetourUntil;
-        if (shouldGuideDetour && !detourActive && mode === "RUN") {
-          pickCenterDetour();
-          allowGuideDetourUntil = 0;
-        }
-
-        if (detourActive && detourTarget) {
-          const dx = detourTarget.x - current.x;
-          const dy = detourTarget.y - current.y;
-          const dist = Math.hypot(dx, dy);
-          if (dist < 10) {
-            detourActive = false;
-            detourTarget = null;
-            edgeS = nearestEdgeS(current);
-          } else {
-            vx = dx / Math.max(0.001, dist);
-            vy = dy / Math.max(0.001, dist);
-            setFacingFromVelocity(vx);
-            current = clampPoint({
-              x: current.x + vx * speed * dt,
-              y: current.y + vy * speed * dt,
-            });
-          }
-        }
-
-        if (!detourActive) {
-          if (edgePauseRemainingMs <= 0) {
-            edgeS += direction * speed * dt;
-          }
-          current = pointOnEdge(edgeS);
-          const tangent = tangentOnEdge(edgeS, direction);
-          vx = tangent.tx;
-          vy = tangent.ty;
-
-          const nowEdge = edgeNameFromS(edgeS);
-          if (nowEdge !== prevEdge) {
-            prevEdge = nowEdge;
-            maybePauseOnEdge(edgeS);
-            if (nowEdge === "bottom") {
-              direction = direction === 1 ? -1 : 1;
-            }
-          }
-
-          setFacingFromVelocity(vx);
-        }
-
-        if (detourCooldown > 0 && modeElapsed > modeDuration * 0.8) {
-          detourCooldown -= 1;
+      if (isSpeaking || cornerPauseRemainingMs > 0) {
+        mode = "IDLE";
+        jumpRemainingMs = 0;
+      } else if (jumpRemainingMs > 0) {
+        mode = "JUMP";
+        jumpRemainingMs = Math.max(0, jumpRemainingMs - dt * 1000);
+      } else {
+        mode = "RUN";
+        if (Math.random() < profile.jumpChancePerSecond * dt) {
+          jumpRemainingMs = profile.jumpDurationMs;
+          mode = "JUMP";
         }
       }
-
-      const targetAngle =
-        Math.abs(vx) > 0.001 || Math.abs(vy) > 0.001
-          ? (Math.atan2(vy, vx) * 180) / Math.PI
-          : angle;
-      angle = smoothAngle(angle, targetAngle, 0.14);
 
       if (mode === "JUMP") {
-        const profile = personalityProfiles[personality];
-        const jumpN = Math.min(1, modeElapsed / Math.max(1, modeDuration));
-        jumpLift = Math.sin(jumpN * Math.PI) * profile.jumpLift;
+        const jumpN = 1 - jumpRemainingMs / Math.max(1, profile.jumpDurationMs);
+        jumpLift = Math.sin(Math.max(0, Math.min(1, jumpN)) * Math.PI) * profile.jumpLift;
       } else {
         jumpLift = 0;
       }
@@ -527,11 +356,12 @@ export function GlobalRabbitMascot() {
       const frameIndex = mode === "IDLE" ? idleFrameIndex : mode === "JUMP" ? jumpFrameIndex : runFrameIndex;
 
       drawRabbitFrame(ctx, rabbitFrames[frameIndex], direction, pixelSize, breatheY);
-      root.style.transform = `translate3d(${Math.round(current.x)}px, ${Math.round(current.y - jumpLift)}px, 0) rotate(${angle.toFixed(1)}deg)`;
+      root.style.transform = `translate3d(${Math.round(current.x)}px, ${Math.round(current.y - spriteHeight - jumpLift)}px, 0)`;
+      sprite.style.transform = `rotate(${angle.toFixed(1)}deg)`;
 
       if (ts - lastPersistTs > 220) {
         lastPersistTs = ts;
-        saveState({ x: current.x, y: current.y, angle, direction, edgeS });
+        saveState({ x: current.x, y: current.y, edge });
       }
 
       rafId = window.requestAnimationFrame(step);
@@ -540,26 +370,41 @@ export function GlobalRabbitMascot() {
     rafId = window.requestAnimationFrame(step);
 
     const onResize = () => {
-      current = clampPoint(current);
-      edgeS = nearestEdgeS(current);
-      if (detourTarget) {
-        detourTarget = clampPoint(detourTarget);
-      }
+      const snappedResize = snapToNearestEdge(current);
+      current = snappedResize.point;
+      edge = snappedResize.edge;
+      updateOrientation();
     };
 
     const onPersonalityChange = () => {
       personality = loadRabbitPersonality();
-      setMode("IDLE");
+      cornerPauseRemainingMs = personalityProfiles[personality].cornerPauseMs;
     };
 
     const onGuidePrompt = () => {
-      allowGuideDetourUntil = performance.now() + 5000;
+      cornerPauseRemainingMs = Math.max(cornerPauseRemainingMs, 420);
+    };
+
+    const onGuideSpeak = (event: Event) => {
+      const custom = event as CustomEvent<RabbitGuideSpeechPayload>;
+      const detail = custom.detail;
+      if (!detail || typeof detail !== "object") return;
+
+      speechVisible = true;
+      setSpeech({
+        title: detail.title,
+        message: detail.message,
+        status: detail.status,
+        actions: detail.actions,
+      });
+      speakUntilTs = performance.now() + Math.max(1400, detail.durationMs ?? 4800);
     };
 
     window.addEventListener("resize", onResize);
     window.addEventListener("storage", onPersonalityChange);
     window.addEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, onPersonalityChange);
     window.addEventListener(RABBIT_GUIDE_PROMPT_EVENT, onGuidePrompt);
+    window.addEventListener(RABBIT_GUIDE_SPEAK_EVENT, onGuideSpeak as EventListener);
 
     return () => {
       window.cancelAnimationFrame(rafId);
@@ -567,23 +412,50 @@ export function GlobalRabbitMascot() {
       window.removeEventListener("storage", onPersonalityChange);
       window.removeEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, onPersonalityChange);
       window.removeEventListener(RABBIT_GUIDE_PROMPT_EVENT, onGuidePrompt);
+      window.removeEventListener(RABBIT_GUIDE_SPEAK_EVENT, onGuideSpeak as EventListener);
     };
   }, []);
 
   return (
     <div
       ref={rootRef}
-      aria-hidden
-      className="pointer-events-none fixed left-0 top-0 z-50"
+      className="fixed left-0 top-0 z-50"
       style={{ willChange: "transform" }}
     >
-      <canvas
-        ref={canvasRef}
-        style={{
-          imageRendering: "pixelated",
-          filter: "drop-shadow(0 0 8px rgba(255,255,255,0.22))",
-        }}
-      />
+      <div ref={spriteRef} className="pointer-events-none" style={{ transformOrigin: "center bottom" }}>
+        <canvas
+          ref={canvasRef}
+          style={{
+            imageRendering: "pixelated",
+            filter: "drop-shadow(0 0 8px rgba(255,255,255,0.22))",
+          }}
+        />
+      </div>
+
+      {speech ? (
+        <div className="pointer-events-auto absolute bottom-[calc(100%+8px)] left-1/2 w-[min(280px,78vw)] -translate-x-1/2 rounded-xl border border-white/30 bg-slate-950/92 px-3 py-2 text-white shadow-xl backdrop-blur">
+          <div className="text-[11px] leading-tight [font-family:var(--font-heading)]">{speech.title}</div>
+          <p className="mt-1 text-[11px] leading-relaxed text-white/85">{speech.message}</p>
+          {speech.status ? <div className="mt-1 text-[10px] text-white/60">{speech.status}</div> : null}
+          {speech.actions?.length ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {speech.actions.slice(0, 2).map((action) => (
+                <a
+                  key={action.href + action.label}
+                  href={action.href}
+                  className={
+                    action.primary
+                      ? "rounded-md border border-white/30 bg-white px-2 py-1 text-[10px] font-semibold text-black"
+                      : "rounded-md border border-white/25 bg-white/10 px-2 py-1 text-[10px] text-white"
+                  }
+                >
+                  {action.label}
+                </a>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

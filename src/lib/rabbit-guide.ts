@@ -3,6 +3,21 @@ import type { SubjectSlug } from "@/lib/subjects";
 const RABBIT_GUIDE_STATE_KEY = "somagnus:rabbit_guide:phase1:v1";
 export const RABBIT_GUIDE_UPDATED_EVENT = "somagnus:rabbit_guide:updated";
 export const RABBIT_GUIDE_PROMPT_EVENT = "somagnus:rabbit_guide:prompt";
+export const RABBIT_GUIDE_SPEAK_EVENT = "somagnus:rabbit_guide:speak";
+
+export type RabbitGuideSpeechAction = {
+  href: string;
+  label: string;
+  primary?: boolean;
+};
+
+export type RabbitGuideSpeechPayload = {
+  title: string;
+  message: string;
+  status?: string;
+  actions?: RabbitGuideSpeechAction[];
+  durationMs?: number;
+};
 
 export type RabbitGuideStep = "idle" | "study_started" | "pomodoro_started" | "plan_checked";
 
