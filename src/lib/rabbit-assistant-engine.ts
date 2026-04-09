@@ -134,7 +134,7 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
     };
   }
 
-  if (pathname.startsWith("/day") && hasClinicalTasks) {
+  if ((pathname === "/" || pathname.startsWith("/day")) && hasClinicalTasks) {
     const taskStatus = `Hoy: ${clinicalTodayTasks} · Pendientes: ${clinicalPendingTasks}`;
     return {
       title: "Recordatorio del tablero clínico",
@@ -151,8 +151,8 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
       ),
       status: `${pomodoroText} · ${phaseStatus} · ${taskStatus}`,
       actions: [
-        { href: "/day", label: "Abrir tablero", primary: true },
-        { href: "/day", label: "Marcar avance" },
+        { href: "action://complete-today-task", label: "Ya lo completé", primary: true },
+        { href: "/", label: "Ver tablero" },
       ],
     };
   }

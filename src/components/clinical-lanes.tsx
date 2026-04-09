@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, ClipboardList, Clock3, Trash2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, CheckSquare, ClipboardList, Clock3, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { ClinicalTaskItem, TaskStatus } from "@/lib/clinical-store";
@@ -78,26 +78,34 @@ function Lane({
                 >
                   {t.title}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onDelete?.(t.id)}
-                  className="shrink-0 text-white/45 opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  {config.nextStatus && onMove ? (
+                    <button
+                      type="button"
+                      onClick={() => onMove(t.id, config.nextStatus!)}
+                      title={config.nextLabel}
+                      className="shrink-0 text-white/65 opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
+                    >
+                      {config.nextStatus === "COMPLETED" ? <CheckSquare className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => onDelete?.(t.id)}
+                    title="Eliminar"
+                    className={
+                      config.status === "COMPLETED"
+                        ? "shrink-0 text-white/70 transition-colors hover:text-white"
+                        : "shrink-0 text-white/45 opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
+                    }
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
               {t.meta ? (
                 <div className="mt-1 text-xs text-white/60">{t.meta}</div>
               ) : null}
-              {config.nextStatus && onMove && (
-                <button
-                  type="button"
-                  onClick={() => onMove(t.id, config.nextStatus!)}
-                  className="mt-2 flex items-center gap-1 text-[11px] font-medium text-white/85 opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  {config.nextLabel} <ArrowRight className="h-3 w-3" />
-                </button>
-              )}
             </div>
           ))
         )}

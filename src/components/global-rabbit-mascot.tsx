@@ -16,6 +16,7 @@ import {
   type RabbitVisualState,
   type RabbitGuideSpeechPayload,
 } from "@/lib/rabbit-guide";
+import { getTasksForDate, updateTask } from "@/lib/clinical-store";
 
 type RabbitFrame = number[][];
 
@@ -185,6 +186,44 @@ export function GlobalRabbitMascot() {
     side: "top",
     arrowOffset: 28,
   });
+
+  const runSpeechAction = (href: string) => {
+    if (href !== "action://complete-today-task") return;
+    if (typeof window === "undefined") return;
+
+    const date = new Date().toISOString().slice(0, 10);
+    const tasks = getTasksForDate(date);
+    const target = tasks.find((task) => task.status === "TODAY") ?? tasks.find((task) => task.status === "PENDING");
+
+    if (!target) {
+      window.dispatchEvent(
+        new CustomEvent(RABBIT_GUIDE_SPEAK_EVENT, {
+          detail: {
+            title: "Sin tareas para cerrar",
+            message: "No encontré tareas en Hoy o Pendiente por completar.",
+            status: "Tablero clínico",
+            actions: [{ href: "/", label: "Ver tablero", primary: true }],
+            durationMs: 4200,
+          } satisfies RabbitGuideSpeechPayload,
+        }),
+      );
+      return;
+    }
+
+    updateTask(target.id, { status: "COMPLETED" });
+
+    window.dispatchEvent(
+      new CustomEvent(RABBIT_GUIDE_SPEAK_EVENT, {
+        detail: {
+          title: "¡Marcado como completado!",
+          message: `Listo, marqué "${target.title}" como completada.`,
+          status: "Tablero clínico · Avance guardado",
+          actions: [{ href: "/", label: "Ver tablero", primary: true }],
+          durationMs: 4400,
+        } satisfies RabbitGuideSpeechPayload,
+      }),
+    );
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -672,17 +711,32 @@ export function GlobalRabbitMascot() {
           {speech.actions?.length ? (
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {speech.actions.slice(0, 2).map((action) => (
-                <Link
-                  key={action.href + action.label}
-                  href={action.href}
-                  className={
-                    action.primary
-                      ? "rounded-lg border border-white/30 bg-white px-2.5 py-1 text-[11px] font-semibold text-black"
-                      : "rounded-lg border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] text-white"
-                  }
-                >
-                  {action.label}
-                </Link>
+                action.href.startsWith("action://") ? (
+                  <button
+                    key={action.href + action.label}
+                    type="button"
+                    onClick={() => runSpeechAction(action.href)}
+                    className={
+                      action.primary
+                        ? "rounded-lg border border-white/30 bg-white px-2.5 py-1 text-[11px] font-semibold text-black"
+                        : "rounded-lg border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] text-white"
+                    }
+                  >
+                    {action.label}
+                  </button>
+                ) : (
+                  <Link
+                    key={action.href + action.label}
+                    href={action.href}
+                    className={
+                      action.primary
+                        ? "rounded-lg border border-white/30 bg-white px-2.5 py-1 text-[11px] font-semibold text-black"
+                        : "rounded-lg border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] text-white"
+                    }
+                  >
+                    {action.label}
+                  </Link>
+                )
               ))}
             </div>
           ) : null}
