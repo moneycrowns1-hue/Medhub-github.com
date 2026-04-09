@@ -146,6 +146,14 @@ type SpeechBubbleState = {
   actions?: { href: string; label: string; primary?: boolean }[];
 };
 
+function isBehaviorMode(value: unknown): value is RabbitBehaviorMode {
+  return value === "patrol" || value === "guide" || value === "waiting" || value === "resting" || value === "summary";
+}
+
+function isVisualState(value: unknown): value is RabbitVisualState {
+  return value === "run" || value === "jump" || value === "idle" || value === "sleep";
+}
+
 export function GlobalRabbitMascot() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const spriteRef = useRef<HTMLDivElement | null>(null);
@@ -406,6 +414,7 @@ export function GlobalRabbitMascot() {
       const custom = event as CustomEvent<RabbitAssistantControlPayload>;
       const detail = custom.detail;
       if (!detail || typeof detail !== "object") return;
+      if (!isBehaviorMode(detail.behaviorMode) || !isVisualState(detail.visualState)) return;
 
       behaviorMode = detail.behaviorMode;
       commandedVisualState = detail.visualState;

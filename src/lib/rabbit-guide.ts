@@ -9,6 +9,44 @@ export const RABBIT_ASSISTANT_CONTROL_EVENT = "somagnus:rabbit_assistant:control
 export type RabbitVisualState = "run" | "jump" | "idle" | "sleep";
 export type RabbitBehaviorMode = "patrol" | "guide" | "waiting" | "resting" | "summary";
 
+export type RabbitRoutinePhase =
+  | "idle"
+  | "study_selected"
+  | "pomodoro_active"
+  | "plan_aligned"
+  | "module_focus"
+  | "srs_review"
+  | "reading_block"
+  | "closure_ready"
+  | "routine_closed";
+
+export type RabbitGuideEventType =
+  | "start_study_selected"
+  | "pomodoro_started"
+  | "plan_viewed"
+  | "study_module_viewed"
+  | "srs_viewed"
+  | "reading_viewed"
+  | "routine_completed"
+  | "day_reset";
+
+export type RabbitGuideTransitionRecord = {
+  atMs: number;
+  event: RabbitGuideEventType;
+  fromPhase: RabbitRoutinePhase;
+  toPhase: RabbitRoutinePhase;
+  changed: boolean;
+  subjectSlug: SubjectSlug | null;
+  pathname: string | null;
+};
+
+export type RabbitGuideEvent = {
+  type: RabbitGuideEventType;
+  subjectSlug?: SubjectSlug;
+  pathname?: string;
+  atMs?: number;
+};
+
 export type RabbitGuideSpeechAction = {
   href: string;
   label: string;
@@ -34,6 +72,8 @@ export type RabbitGuideStep = "idle" | "study_started" | "pomodoro_started" | "p
 
 export type RabbitGuideState = {
   step: RabbitGuideStep;
+  routinePhase: RabbitRoutinePhase;
+  transitionHistory: RabbitGuideTransitionRecord[];
   activeSubjectSlug: SubjectSlug | null;
   lastStudySubjectSlug: SubjectSlug | null;
   lastStudyVisitedAtMs: number | null;
@@ -50,6 +90,8 @@ export type RabbitGuideState = {
 
 export const DEFAULT_RABBIT_GUIDE_STATE: RabbitGuideState = {
   step: "idle",
+  routinePhase: "idle",
+  transitionHistory: [],
   activeSubjectSlug: null,
   lastStudySubjectSlug: null,
   lastStudyVisitedAtMs: null,
@@ -64,6 +106,128 @@ export const DEFAULT_RABBIT_GUIDE_STATE: RabbitGuideState = {
   updatedAtMs: 0,
 };
 
+const MAX_TRANSITION_HISTORY = 120;
+
+export const RABBIT_ROUTINE_TRANSITIONS: Record<RabbitRoutinePhase, Partial<Record<RabbitGuideEventType, RabbitRoutinePhase>>> = {
+  idle: {
+    start_study_selected: "study_selected",
+    study_module_viewed: "module_focus",
+    plan_viewed: "plan_aligned",
+    routine_completed: "routine_closed",
+  },
+  study_selected: {
+    pomodoro_started: "pomodoro_active",
+    plan_viewed: "plan_aligned",
+    study_module_viewed: "module_focus",
+    routine_completed: "routine_closed",
+  },
+  pomodoro_active: {
+    plan_viewed: "plan_aligned",
+    study_module_viewed: "module_focus",
+    srs_viewed: "srs_review",
+    reading_viewed: "reading_block",
+    routine_completed: "routine_closed",
+  },
+  plan_aligned: {
+    study_module_viewed: "module_focus",
+    srs_viewed: "srs_review",
+    reading_viewed: "reading_block",
+    routine_completed: "routine_closed",
+  },
+  module_focus: {
+    srs_viewed: "srs_review",
+    reading_viewed: "reading_block",
+    plan_viewed: "closure_ready",
+    routine_completed: "routine_closed",
+  },
+  srs_review: {
+    study_module_viewed: "module_focus",
+    reading_viewed: "reading_block",
+    plan_viewed: "closure_ready",
+    routine_completed: "routine_closed",
+  },
+  reading_block: {
+    study_module_viewed: "module_focus",
+    srs_viewed: "srs_review",
+    plan_viewed: "closure_ready",
+    routine_completed: "routine_closed",
+  },
+  closure_ready: {
+    routine_completed: "routine_closed",
+    study_module_viewed: "module_focus",
+    srs_viewed: "srs_review",
+    reading_viewed: "reading_block",
+  },
+  routine_closed: {
+    day_reset: "idle",
+    start_study_selected: "study_selected",
+  },
+};
+
+function isRoutinePhase(value: unknown): value is RabbitRoutinePhase {
+  return (
+    value === "idle" ||
+    value === "study_selected" ||
+    value === "pomodoro_active" ||
+    value === "plan_aligned" ||
+    value === "module_focus" ||
+    value === "srs_review" ||
+    value === "reading_block" ||
+    value === "closure_ready" ||
+    value === "routine_closed"
+  );
+}
+
+function isGuideEventType(value: unknown): value is RabbitGuideEventType {
+  return (
+    value === "start_study_selected" ||
+    value === "pomodoro_started" ||
+    value === "plan_viewed" ||
+    value === "study_module_viewed" ||
+    value === "srs_viewed" ||
+    value === "reading_viewed" ||
+    value === "routine_completed" ||
+    value === "day_reset"
+  );
+}
+
+function phaseFromLegacyStep(step: RabbitGuideStep): RabbitRoutinePhase {
+  if (step === "study_started") return "study_selected";
+  if (step === "pomodoro_started") return "pomodoro_active";
+  if (step === "plan_checked") return "plan_aligned";
+  return "idle";
+}
+
+function stepFromPhase(phase: RabbitRoutinePhase): RabbitGuideStep {
+  if (phase === "study_selected") return "study_started";
+  if (phase === "pomodoro_active") return "pomodoro_started";
+  if (phase === "plan_aligned" || phase === "module_focus" || phase === "srs_review" || phase === "reading_block" || phase === "closure_ready") {
+    return "plan_checked";
+  }
+  return "idle";
+}
+
+function sanitizeTransitionHistory(value: unknown): RabbitGuideTransitionRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      const item = row as Partial<RabbitGuideTransitionRecord>;
+      if (!isGuideEventType(item.event) || !isRoutinePhase(item.fromPhase) || !isRoutinePhase(item.toPhase)) return null;
+      return {
+        atMs: typeof item.atMs === "number" ? item.atMs : Date.now(),
+        event: item.event,
+        fromPhase: item.fromPhase,
+        toPhase: item.toPhase,
+        changed: typeof item.changed === "boolean" ? item.changed : item.fromPhase !== item.toPhase,
+        subjectSlug: isSubjectSlug(item.subjectSlug) ? item.subjectSlug : null,
+        pathname: typeof item.pathname === "string" ? item.pathname : null,
+      };
+    })
+    .filter((item): item is RabbitGuideTransitionRecord => item !== null)
+    .slice(-MAX_TRANSITION_HISTORY);
+}
+
 function isSubjectSlug(value: unknown): value is SubjectSlug {
   return value === "anatomia" || value === "histologia" || value === "embriologia" || value === "biologia-celular";
 }
@@ -75,9 +239,13 @@ function sanitizeGuideState(value: unknown): RabbitGuideState {
     source.step === "study_started" || source.step === "pomodoro_started" || source.step === "plan_checked"
       ? source.step
       : "idle";
+  const routinePhase = isRoutinePhase(source.routinePhase) ? source.routinePhase : phaseFromLegacyStep(step);
+  const transitionHistory = sanitizeTransitionHistory(source.transitionHistory);
 
   return {
-    step,
+    step: stepFromPhase(routinePhase),
+    routinePhase,
+    transitionHistory,
     activeSubjectSlug: isSubjectSlug(source.activeSubjectSlug) ? source.activeSubjectSlug : null,
     lastStudySubjectSlug: isSubjectSlug(source.lastStudySubjectSlug) ? source.lastStudySubjectSlug : null,
     lastStudyVisitedAtMs: typeof source.lastStudyVisitedAtMs === "number" ? source.lastStudyVisitedAtMs : null,
@@ -121,34 +289,104 @@ export function patchRabbitGuideState(patch: Partial<RabbitGuideState>) {
   saveRabbitGuideState({ ...current, ...patch, updatedAtMs: Date.now() });
 }
 
-export function startStudyGuidance(subjectSlug: SubjectSlug) {
-  patchRabbitGuideState({
-    step: "study_started",
-    activeSubjectSlug: subjectSlug,
-    lastStudySubjectSlug: subjectSlug,
-    lastStudyVisitedAtMs: Date.now(),
-  });
+function buildTransitionRecord(current: RabbitGuideState, nextPhase: RabbitRoutinePhase, event: RabbitGuideEvent, atMs: number): RabbitGuideTransitionRecord {
+  return {
+    atMs,
+    event: event.type,
+    fromPhase: current.routinePhase,
+    toPhase: nextPhase,
+    changed: current.routinePhase !== nextPhase,
+    subjectSlug: event.subjectSlug ?? null,
+    pathname: event.pathname ?? null,
+  };
 }
 
-export function markPomodoroStarted() {
-  patchRabbitGuideState({
-    step: "pomodoro_started",
-    lastPomodoroStartedAtMs: Date.now(),
-  });
-}
-
-export function markPlanChecked() {
-  patchRabbitGuideState({
-    step: "plan_checked",
-  });
-}
-
-export function markStudyVisited(subjectSlug: SubjectSlug) {
+export function transitionRabbitGuideState(event: RabbitGuideEvent) {
   const current = loadRabbitGuideState();
-  patchRabbitGuideState({
-    activeSubjectSlug: current.activeSubjectSlug ?? subjectSlug,
-    lastStudySubjectSlug: subjectSlug,
-    lastStudyVisitedAtMs: Date.now(),
+  const atMs = event.atMs ?? Date.now();
+  const nextPhase = RABBIT_ROUTINE_TRANSITIONS[current.routinePhase]?.[event.type] ?? current.routinePhase;
+  const transition = buildTransitionRecord(current, nextPhase, event, atMs);
+
+  const nextState: RabbitGuideState = {
+    ...current,
+    routinePhase: nextPhase,
+    transitionHistory: [...current.transitionHistory, transition].slice(-MAX_TRANSITION_HISTORY),
+    step: stepFromPhase(nextPhase),
+    updatedAtMs: atMs,
+  };
+
+  if (event.type === "start_study_selected" && event.subjectSlug) {
+    nextState.activeSubjectSlug = event.subjectSlug;
+    nextState.lastStudySubjectSlug = event.subjectSlug;
+    nextState.lastStudyVisitedAtMs = atMs;
+  }
+
+  if (event.type === "study_module_viewed" && event.subjectSlug) {
+    nextState.activeSubjectSlug = nextState.activeSubjectSlug ?? event.subjectSlug;
+    nextState.lastStudySubjectSlug = event.subjectSlug;
+    nextState.lastStudyVisitedAtMs = atMs;
+  }
+
+  if (event.type === "pomodoro_started") {
+    nextState.lastPomodoroStartedAtMs = atMs;
+  }
+
+  if (event.type === "day_reset") {
+    nextState.routinePhase = "idle";
+    nextState.step = "idle";
+  }
+
+  saveRabbitGuideState(nextState);
+}
+
+export function startStudyGuidance(subjectSlug: SubjectSlug, pathname?: string) {
+  transitionRabbitGuideState({
+    type: "start_study_selected",
+    subjectSlug,
+    pathname,
+  });
+}
+
+export function markPomodoroStarted(pathname?: string) {
+  transitionRabbitGuideState({
+    type: "pomodoro_started",
+    pathname,
+  });
+}
+
+export function markPlanChecked(pathname?: string) {
+  transitionRabbitGuideState({
+    type: "plan_viewed",
+    pathname,
+  });
+}
+
+export function markStudyVisited(subjectSlug: SubjectSlug, pathname?: string) {
+  transitionRabbitGuideState({
+    type: "study_module_viewed",
+    subjectSlug,
+    pathname,
+  });
+}
+
+export function markSrsVisited(pathname?: string) {
+  transitionRabbitGuideState({
+    type: "srs_viewed",
+    pathname,
+  });
+}
+
+export function markReadingVisited(pathname?: string) {
+  transitionRabbitGuideState({
+    type: "reading_viewed",
+    pathname,
+  });
+}
+
+export function markRoutineCompleted(pathname?: string) {
+  transitionRabbitGuideState({
+    type: "routine_completed",
+    pathname,
   });
 }
 
@@ -164,6 +402,9 @@ export function markPdfProgress(input: {
     lastPdfPage: Math.max(1, Math.floor(input.page)),
     lastPdfSubjectSlug: input.subjectSlug ?? null,
   });
+  transitionRabbitGuideState({
+    type: "reading_viewed",
+  });
 }
 
 export function getPdfResumeForResource(resourceId: string): number | null {
@@ -177,5 +418,9 @@ export function markSrsDeckVisited(input: { deckId: string; deckName: string; su
     lastSrsDeckId: input.deckId,
     lastSrsDeckName: input.deckName,
     lastSrsSubjectSlug: input.subjectSlug ?? null,
+  });
+  transitionRabbitGuideState({
+    type: "srs_viewed",
+    subjectSlug: input.subjectSlug ?? undefined,
   });
 }

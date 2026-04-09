@@ -61,6 +61,18 @@ function byPersonality(
   return options.balanced;
 }
 
+const ROUTINE_PHASE_LABELS: Record<RabbitGuideState["routinePhase"], string> = {
+  idle: "Reposo",
+  study_selected: "Inicio",
+  pomodoro_active: "Pomodoro",
+  plan_aligned: "Plan",
+  module_focus: "Módulo",
+  srs_review: "SRS",
+  reading_block: "Lectura",
+  closure_ready: "Cierre",
+  routine_closed: "Completada",
+};
+
 function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   const { guideState: state, pathname, pomodoroState, todayStats, srsDueToday, srsDueForGuidedSubject, personality } = ctx;
   const todayPlan = getPlanForDate(new Date());
@@ -76,7 +88,8 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   const resumePdfLabel = state.lastPdfTitle ? `${state.lastPdfTitle}${state.lastPdfPage ? ` · p. ${state.lastPdfPage}` : ""}` : null;
   const resumeDeckLabel = state.lastSrsDeckName ?? null;
   const dayStamp = new Date().toISOString().slice(0, 10);
-  const baseSeed = [dayStamp, pathname, state.step, pomodoroState.phase, String(todayStats.blocksCompleted)].join("|");
+  const baseSeed = [dayStamp, pathname, state.routinePhase, pomodoroState.phase, String(todayStats.blocksCompleted)].join("|");
+  const phaseStatus = `Fase: ${ROUTINE_PHASE_LABELS[state.routinePhase]}`;
 
   if (todayStats.routineCompleted) {
     const summary = [
@@ -98,7 +111,7 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
         }),
         `${baseSeed}|routine-completed`,
       ),
-      status: `${pomodoroText} · Día al 100%`,
+      status: `${pomodoroText} · ${phaseStatus} · Día al 100%`,
       actions: [
         { href: "/stats", label: "Ver resumen", primary: true },
         { href: "/day", label: "Preparar mañana" },
@@ -112,7 +125,7 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
       message: active
         ? `Antes de seguir con ${active.name}, activa Pomodoro para iniciar bloque guiado.`
         : "Activa Pomodoro para iniciar la sesión.",
-      status: `${pomodoroText} · Paso 1`,
+      status: `${pomodoroText} · ${phaseStatus} · Paso 1`,
       actions: [
         { href: "/#pomodoro", label: "Ir a Pomodoro", primary: true },
         { href: "/day", label: "Ver plan" },
@@ -120,22 +133,22 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
     };
   }
 
-  if (state.step === "study_started") {
+  if (state.routinePhase === "study_selected") {
     return {
       title: "Inicio de estudio",
       message: active
         ? `Empezamos con ${active.name}. Te llevo primero a Pomodoro para ordenar la sesión.`
         : "Empezamos. Vamos primero a Pomodoro.",
-      status: `${pomodoroText} · Preparación`,
+      status: `${pomodoroText} · ${phaseStatus} · Preparación`,
       actions: [{ href: "/#pomodoro", label: "Ir a Pomodoro", primary: true }],
     };
   }
 
-  if (state.step === "pomodoro_started") {
+  if (state.routinePhase === "pomodoro_active") {
     return {
       title: "Siguiente: Plan del día",
       message: `Pomodoro activo. Revisemos el plan y la ruta ${primary.name} → ${secondary.name}.`,
-      status: `${pomodoroText} · Dirección`,
+      status: `${pomodoroText} · ${phaseStatus} · Dirección`,
       actions: [
         { href: "/day", label: "Ir al plan", primary: true },
         { href: `/study/${primary.slug}`, label: `Abrir ${primary.name}` },
@@ -150,7 +163,7 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
         srsDueForGuidedSubject > 0
           ? `Tienes ${srsDueForGuidedSubject} tarjetas pendientes de ${active?.name ?? "tu tema"}.`
           : `Tienes ${srsDueToday} tarjetas pendientes hoy.`,
-      status: `${pomodoroText} · Due: ${srsDueToday}`,
+      status: `${pomodoroText} · ${phaseStatus} · Due: ${srsDueToday}`,
       actions: [
         { href: "/srs", label: resumeDeckLabel ? `Reanudar ${resumeDeckLabel}` : "Abrir SRS", primary: true },
         active ? { href: `/study/${active.slug}`, label: "Seguir módulo" } : { href: "/day", label: "Ver plan" },
@@ -162,7 +175,7 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
     return {
       title: "Retomar progreso",
       message: `Tu último módulo fue ${resume.name}.${resumePdfLabel ? ` También tienes ${resumePdfLabel}.` : ""}`,
-      status: `${pomodoroText} · Reanudar`,
+      status: `${pomodoroText} · ${phaseStatus} · Reanudar`,
       actions: [
         { href: `/study/${resume.slug}`, label: "Retomar módulo", primary: true },
         resumePdfLabel ? { href: "/resources", label: "Retomar lectura" } : { href: "/#pomodoro", label: "Preparar Pomodoro" },
@@ -173,7 +186,7 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   return {
     title: "Conejo guía activo",
     message: `Ruta sugerida: ${primary.name} → ${secondary.name}.`,
-    status: `${pomodoroText} · Due hoy: ${srsDueToday}`,
+    status: `${pomodoroText} · ${phaseStatus} · Due hoy: ${srsDueToday}`,
     actions: [
       { href: `/study/${primary.slug}`, label: `Primaria: ${primary.name}`, primary: true },
       { href: `/study/${secondary.slug}`, label: `Secundaria: ${secondary.name}` },
@@ -182,16 +195,20 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
 }
 
 function controlForContext(ctx: RabbitAssistantContext): RabbitAssistantControlPayload {
-  const { pomodoroState, todayStats } = ctx;
+  const { pomodoroState, todayStats, guideState } = ctx;
 
   let behaviorMode: RabbitBehaviorMode = "patrol";
   let visualState: RabbitVisualState = "run";
   let pauseMs = 0;
 
-  if (todayStats.routineCompleted) {
+  if (todayStats.routineCompleted || guideState.routinePhase === "routine_closed") {
     behaviorMode = "summary";
     visualState = "idle";
     pauseMs = 900;
+  } else if (guideState.routinePhase === "closure_ready") {
+    behaviorMode = "guide";
+    visualState = "idle";
+    pauseMs = 700;
   } else if (pomodoroState.phase === "break_1" || pomodoroState.phase === "break_2") {
     behaviorMode = "resting";
     visualState = "sleep";
@@ -234,6 +251,8 @@ export function deriveRabbitAssistantOutput(ctx: RabbitAssistantContext): {
     card.title,
     card.message,
     card.status,
+    ctx.guideState.routinePhase,
+    String(ctx.guideState.transitionHistory.at(-1)?.atMs ?? 0),
     control.behaviorMode,
     control.visualState,
     routeSubject,
