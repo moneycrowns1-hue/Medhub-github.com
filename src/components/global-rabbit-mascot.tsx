@@ -425,10 +425,10 @@ export function GlobalRabbitMascot() {
         };
       }
       return {
-        supportX: spriteWidth * 0.5,
+        supportX: spriteWidth * 0.36,
         supportY: spriteHeight - 1,
-        contactOffsetX: -1,
-        contactOffsetY: 2,
+        contactOffsetX: 1,
+        contactOffsetY: 3,
         bubbleInset: Math.max(16, spriteHeight * 0.42),
         bubbleClearance: Math.max(30, spriteWidth * 0.78),
       };
@@ -438,7 +438,7 @@ export function GlobalRabbitMascot() {
       if (edgeValue === "top") return { direction: -1, angle: 180 };
       if (edgeValue === "right") return { direction: 1, angle: 90 };
       if (edgeValue === "bottom") return { direction: -1, angle: 0 };
-      return { direction: -1, angle: -90 };
+      return { direction: 1, angle: -90 };
     };
 
     const updateOrientation = () => {
