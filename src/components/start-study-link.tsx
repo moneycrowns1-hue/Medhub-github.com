@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import type { SubjectSlug } from "@/lib/subjects";
-import { RABBIT_GUIDE_SPEAK_EVENT, startStudyGuidance } from "@/lib/rabbit-guide";
+import {
+  RABBIT_ASSISTANT_CONTROL_EVENT,
+  RABBIT_GUIDE_SPEAK_EVENT,
+  startStudyGuidance,
+} from "@/lib/rabbit-guide";
 import { SUBJECTS } from "@/lib/subjects";
 
 type Props = {
@@ -19,6 +23,15 @@ export function StartStudyLink({ href, subjectSlug, className, children }: Props
       className={className}
       onClick={() => {
         startStudyGuidance(subjectSlug);
+        window.dispatchEvent(
+          new CustomEvent(RABBIT_ASSISTANT_CONTROL_EVENT, {
+            detail: {
+              behaviorMode: "guide",
+              visualState: "idle",
+              pauseMs: 2000,
+            },
+          }),
+        );
         const subject = SUBJECTS[subjectSlug];
         window.dispatchEvent(
           new CustomEvent(RABBIT_GUIDE_SPEAK_EVENT, {

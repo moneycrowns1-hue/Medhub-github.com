@@ -7,8 +7,12 @@ import {
   type RabbitPersonality,
 } from "@/lib/rabbit-personality";
 import {
+  RABBIT_ASSISTANT_CONTROL_EVENT,
   RABBIT_GUIDE_PROMPT_EVENT,
   RABBIT_GUIDE_SPEAK_EVENT,
+  type RabbitAssistantControlPayload,
+  type RabbitBehaviorMode,
+  type RabbitVisualState,
   type RabbitGuideSpeechPayload,
 } from "@/lib/rabbit-guide";
 
@@ -101,7 +105,7 @@ type PersistedState = {
 };
 
 type Edge = "top" | "right" | "bottom" | "left";
-type RabbitMode = "IDLE" | "RUN" | "JUMP";
+type RabbitMode = "IDLE" | "RUN" | "JUMP" | "SLEEP";
 
 type PersonalityProfile = {
   runSpeed: number;
@@ -246,6 +250,9 @@ export function GlobalRabbitMascot() {
     let cornerPauseRemainingMs = 0;
     let speakUntilTs = 0;
     let speechVisible = false;
+    let behaviorMode: RabbitBehaviorMode = "patrol";
+    let commandedVisualState: RabbitVisualState | null = null;
+    let controlPauseUntilTs = 0;
 
     if (shouldReduceMotion) {
       drawRabbitFrame(ctx, rabbitFrames[Math.max(0, rabbitFrames.length - 1)], 1, pixelSize, 0);
@@ -298,6 +305,7 @@ export function GlobalRabbitMascot() {
       const profile = personalityProfiles[personality];
       const isSpeaking = ts < speakUntilTs;
       const isPausedOnCorner = cornerPauseRemainingMs > 0;
+      const isControlPaused = ts < controlPauseUntilTs;
 
       if (!isSpeaking && speechVisible) {
         speechVisible = false;
@@ -308,7 +316,9 @@ export function GlobalRabbitMascot() {
         cornerPauseRemainingMs = Math.max(0, cornerPauseRemainingMs - dt * 1000);
       }
 
-      if (!isSpeaking && cornerPauseRemainingMs <= 0) {
+      const canPatrol = behaviorMode === "patrol" || behaviorMode === "guide";
+
+      if (!isSpeaking && !isControlPaused && canPatrol && cornerPauseRemainingMs <= 0) {
         const distance = profile.runSpeed * dt;
         if (edge === "top") {
           current.x += distance;
@@ -325,9 +335,16 @@ export function GlobalRabbitMascot() {
         }
       }
 
-      if (isSpeaking || cornerPauseRemainingMs > 0) {
+      if (isSpeaking || commandedVisualState === "idle" || isControlPaused || cornerPauseRemainingMs > 0) {
         mode = "IDLE";
         jumpRemainingMs = 0;
+      } else if (commandedVisualState === "sleep" || behaviorMode === "resting") {
+        mode = "SLEEP";
+        jumpRemainingMs = 0;
+      } else if (commandedVisualState === "jump") {
+        if (jumpRemainingMs <= 0) jumpRemainingMs = profile.jumpDurationMs;
+        mode = "JUMP";
+        jumpRemainingMs = Math.max(0, jumpRemainingMs - dt * 1000);
       } else if (jumpRemainingMs > 0) {
         mode = "JUMP";
         jumpRemainingMs = Math.max(0, jumpRemainingMs - dt * 1000);
@@ -346,14 +363,14 @@ export function GlobalRabbitMascot() {
         jumpLift = 0;
       }
 
-      breathingTick += dt * (mode === "IDLE" ? 3.6 : 2.2);
+      breathingTick += dt * (mode === "IDLE" || mode === "SLEEP" ? 2.2 : 3.2);
       frameTick += dt * (mode === "RUN" ? 7.2 : 4.2);
 
-      const breatheY = Math.round(Math.sin(breathingTick) * (mode === "IDLE" ? 2.2 : 1.1));
+      const breatheY = Math.round(Math.sin(breathingTick) * (mode === "SLEEP" ? 1 : mode === "IDLE" ? 2.2 : 1.1));
       const idleFrameIndex = Math.max(0, rabbitFrames.length - 1);
       const jumpFrameIndex = Math.min(2, Math.max(0, rabbitFrames.length - 1));
       const runFrameIndex = rabbitFrames.length > 1 ? Math.floor(frameTick) % (rabbitFrames.length - 1) : 0;
-      const frameIndex = mode === "IDLE" ? idleFrameIndex : mode === "JUMP" ? jumpFrameIndex : runFrameIndex;
+      const frameIndex = mode === "RUN" ? runFrameIndex : mode === "JUMP" ? jumpFrameIndex : idleFrameIndex;
 
       drawRabbitFrame(ctx, rabbitFrames[frameIndex], direction, pixelSize, breatheY);
       root.style.transform = `translate3d(${Math.round(current.x)}px, ${Math.round(current.y - spriteHeight - jumpLift)}px, 0)`;
@@ -385,6 +402,22 @@ export function GlobalRabbitMascot() {
       cornerPauseRemainingMs = Math.max(cornerPauseRemainingMs, 420);
     };
 
+    const onAssistantControl = (event: Event) => {
+      const custom = event as CustomEvent<RabbitAssistantControlPayload>;
+      const detail = custom.detail;
+      if (!detail || typeof detail !== "object") return;
+
+      behaviorMode = detail.behaviorMode;
+      commandedVisualState = detail.visualState;
+
+      if (typeof detail.pauseMs === "number" && detail.pauseMs > 0) {
+        controlPauseUntilTs = Math.max(controlPauseUntilTs, performance.now() + detail.pauseMs);
+      }
+      if (detail.visualState === "jump" && jumpRemainingMs <= 0) {
+        jumpRemainingMs = personalityProfiles[personality].jumpDurationMs;
+      }
+    };
+
     const onGuideSpeak = (event: Event) => {
       const custom = event as CustomEvent<RabbitGuideSpeechPayload>;
       const detail = custom.detail;
@@ -404,6 +437,7 @@ export function GlobalRabbitMascot() {
     window.addEventListener("storage", onPersonalityChange);
     window.addEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, onPersonalityChange);
     window.addEventListener(RABBIT_GUIDE_PROMPT_EVENT, onGuidePrompt);
+    window.addEventListener(RABBIT_ASSISTANT_CONTROL_EVENT, onAssistantControl as EventListener);
     window.addEventListener(RABBIT_GUIDE_SPEAK_EVENT, onGuideSpeak as EventListener);
 
     return () => {
@@ -412,6 +446,7 @@ export function GlobalRabbitMascot() {
       window.removeEventListener("storage", onPersonalityChange);
       window.removeEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, onPersonalityChange);
       window.removeEventListener(RABBIT_GUIDE_PROMPT_EVENT, onGuidePrompt);
+      window.removeEventListener(RABBIT_ASSISTANT_CONTROL_EVENT, onAssistantControl as EventListener);
       window.removeEventListener(RABBIT_GUIDE_SPEAK_EVENT, onGuideSpeak as EventListener);
     };
   }, []);

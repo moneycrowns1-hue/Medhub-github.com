@@ -4,6 +4,10 @@ const RABBIT_GUIDE_STATE_KEY = "somagnus:rabbit_guide:phase1:v1";
 export const RABBIT_GUIDE_UPDATED_EVENT = "somagnus:rabbit_guide:updated";
 export const RABBIT_GUIDE_PROMPT_EVENT = "somagnus:rabbit_guide:prompt";
 export const RABBIT_GUIDE_SPEAK_EVENT = "somagnus:rabbit_guide:speak";
+export const RABBIT_ASSISTANT_CONTROL_EVENT = "somagnus:rabbit_assistant:control";
+
+export type RabbitVisualState = "run" | "jump" | "idle" | "sleep";
+export type RabbitBehaviorMode = "patrol" | "guide" | "waiting" | "resting" | "summary";
 
 export type RabbitGuideSpeechAction = {
   href: string;
@@ -17,6 +21,13 @@ export type RabbitGuideSpeechPayload = {
   status?: string;
   actions?: RabbitGuideSpeechAction[];
   durationMs?: number;
+};
+
+export type RabbitAssistantControlPayload = {
+  behaviorMode: RabbitBehaviorMode;
+  visualState: RabbitVisualState;
+  focusHref?: string;
+  pauseMs?: number;
 };
 
 export type RabbitGuideStep = "idle" | "study_started" | "pomodoro_started" | "plan_checked";
