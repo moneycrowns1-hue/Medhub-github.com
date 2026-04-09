@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { algoStats, buildStudyQueueAnkiLike, dueQueue, type SrsDailyLimits } from "@/lib/srs-algo";
 import { clozeIndices } from "@/lib/srs-cloze-utils";
 import { renderCloze } from "@/lib/srs-cloze";
+import { markSrsDeckVisited } from "@/lib/rabbit-guide";
 import { applyReview, loadSrsLibrary, saveSrsLibrary } from "@/lib/srs-storage";
 import { incrementStat } from "@/lib/stats-store";
 import {
@@ -208,6 +209,22 @@ export function SrsClient() {
   }, [state, card, flip, rate, restart]);
 
   const selectedDeck = useMemo(() => lib.decks.find((d) => d.id === resolvedDeckId) ?? null, [lib.decks, resolvedDeckId]);
+
+  useEffect(() => {
+    if (!selectedDeck) return;
+    const subjectSlug =
+      selectedDeck.subjectSlug === "anatomia" ||
+      selectedDeck.subjectSlug === "histologia" ||
+      selectedDeck.subjectSlug === "embriologia" ||
+      selectedDeck.subjectSlug === "biologia-celular"
+        ? selectedDeck.subjectSlug
+        : null;
+    markSrsDeckVisited({
+      deckId: selectedDeck.id,
+      deckName: selectedDeck.name,
+      subjectSlug,
+    });
+  }, [selectedDeck]);
 
   const deckStats = useMemo(() => {
     const total = cardsInDeck.length;

@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import {
+  loadRabbitPersonality,
+  RABBIT_PERSONALITY_UPDATED_EVENT,
+  type RabbitPersonality,
+} from "@/lib/rabbit-personality";
 
 type RabbitFrame = number[][];
 
@@ -89,6 +94,81 @@ type PersistedState = {
   y: number;
   angle: number;
   direction: 1 | -1;
+  edgeS?: number;
+};
+
+type RabbitMode = "IDLE" | "RUN" | "JUMP";
+
+type PersonalityProfile = {
+  idleMinMs: number;
+  idleRangeMs: number;
+  runMinMs: number;
+  runRangeMs: number;
+  jumpMinMs: number;
+  jumpRangeMs: number;
+  runSpeed: number;
+  jumpSpeed: number;
+  jumpLift: number;
+  detourChance: number;
+  detourCooldownMin: number;
+  detourCooldownRange: number;
+  fromIdleJumpChance: number;
+  fromRunIdleChance: number;
+  fromJumpRunChance: number;
+};
+
+const personalityProfiles: Record<RabbitPersonality, PersonalityProfile> = {
+  balanced: {
+    idleMinMs: 900,
+    idleRangeMs: 1700,
+    runMinMs: 1800,
+    runRangeMs: 2600,
+    jumpMinMs: 700,
+    jumpRangeMs: 450,
+    runSpeed: 56,
+    jumpSpeed: 72,
+    jumpLift: 16,
+    detourChance: 0.0022,
+    detourCooldownMin: 5,
+    detourCooldownRange: 4,
+    fromIdleJumpChance: 0.22,
+    fromRunIdleChance: 0.42,
+    fromJumpRunChance: 0.55,
+  },
+  calm: {
+    idleMinMs: 1500,
+    idleRangeMs: 2400,
+    runMinMs: 1300,
+    runRangeMs: 1800,
+    jumpMinMs: 560,
+    jumpRangeMs: 260,
+    runSpeed: 42,
+    jumpSpeed: 58,
+    jumpLift: 12,
+    detourChance: 0.0009,
+    detourCooldownMin: 7,
+    detourCooldownRange: 5,
+    fromIdleJumpChance: 0.12,
+    fromRunIdleChance: 0.58,
+    fromJumpRunChance: 0.45,
+  },
+  active: {
+    idleMinMs: 500,
+    idleRangeMs: 700,
+    runMinMs: 2200,
+    runRangeMs: 3000,
+    jumpMinMs: 820,
+    jumpRangeMs: 400,
+    runSpeed: 70,
+    jumpSpeed: 92,
+    jumpLift: 20,
+    detourChance: 0.0034,
+    detourCooldownMin: 3,
+    detourCooldownRange: 3,
+    fromIdleJumpChance: 0.35,
+    fromRunIdleChance: 0.26,
+    fromJumpRunChance: 0.72,
+  },
 };
 
 export function GlobalRabbitMascot() {
@@ -137,6 +217,73 @@ export function GlobalRabbitMascot() {
       return { x: minX() + Math.random() * Math.max(1, maxX() - minX()), y: maxY() };
     };
 
+    const perimeter = () => {
+      const w = Math.max(1, maxX() - minX());
+      const h = Math.max(1, maxY() - minY());
+      return 2 * (w + h);
+    };
+
+    const pointOnEdge = (edgeS: number): Point => {
+      const w = Math.max(1, maxX() - minX());
+      const h = Math.max(1, maxY() - minY());
+      const p = perimeter();
+      let s = edgeS % p;
+      if (s < 0) s += p;
+
+      if (s <= w) {
+        return { x: minX() + s, y: minY() };
+      }
+      if (s <= w + h) {
+        return { x: maxX(), y: minY() + (s - w) };
+      }
+      if (s <= 2 * w + h) {
+        return { x: maxX() - (s - (w + h)), y: maxY() };
+      }
+      return { x: minX(), y: maxY() - (s - (2 * w + h)) };
+    };
+
+    const tangentOnEdge = (edgeS: number, sign: 1 | -1) => {
+      const w = Math.max(1, maxX() - minX());
+      const h = Math.max(1, maxY() - minY());
+      const p = perimeter();
+      let s = edgeS % p;
+      if (s < 0) s += p;
+
+      let tx = 1;
+      let ty = 0;
+      if (s > w && s <= w + h) {
+        tx = 0;
+        ty = 1;
+      } else if (s > w + h && s <= 2 * w + h) {
+        tx = -1;
+        ty = 0;
+      } else if (s > 2 * w + h) {
+        tx = 0;
+        ty = -1;
+      }
+
+      return { tx: tx * sign, ty: ty * sign };
+    };
+
+    const nearestEdgeS = (p: Point) => {
+      const w = Math.max(1, maxX() - minX());
+      const h = Math.max(1, maxY() - minY());
+      const topX = Math.max(minX(), Math.min(maxX(), p.x));
+      const rightY = Math.max(minY(), Math.min(maxY(), p.y));
+      const bottomX = Math.max(minX(), Math.min(maxX(), p.x));
+      const leftY = Math.max(minY(), Math.min(maxY(), p.y));
+
+      const candidates = [
+        { s: topX - minX(), d: Math.hypot(p.x - topX, p.y - minY()) },
+        { s: w + (rightY - minY()), d: Math.hypot(p.x - maxX(), p.y - rightY) },
+        { s: w + h + (maxX() - bottomX), d: Math.hypot(p.x - bottomX, p.y - maxY()) },
+        { s: 2 * w + h + (maxY() - leftY), d: Math.hypot(p.x - minX(), p.y - leftY) },
+      ];
+
+      candidates.sort((a, b) => a.d - b.d);
+      return candidates[0]?.s ?? 0;
+    };
+
     const loadState = (): PersistedState | null => {
       try {
         const raw = window.localStorage.getItem(MASCOT_POSITION_KEY);
@@ -164,10 +311,18 @@ export function GlobalRabbitMascot() {
     };
 
     const initialSaved = loadState();
-    let current = clampPoint(initialSaved ? { x: initialSaved.x, y: initialSaved.y } : randomEdgePoint());
-    let target = randomEdgePoint();
-    let direction: 1 | -1 = initialSaved?.direction ?? 1;
+    let personality = loadRabbitPersonality();
+    let direction: 1 | -1 = initialSaved?.direction ?? (Math.random() < 0.5 ? -1 : 1);
+    let edgeS = initialSaved?.edgeS ?? nearestEdgeS(initialSaved ? { x: initialSaved.x, y: initialSaved.y } : randomEdgePoint());
+    let current = pointOnEdge(edgeS);
     let angle = initialSaved?.angle ?? 0;
+    let mode: RabbitMode = "IDLE";
+    let modeDuration = 1200;
+    let modeElapsed = 0;
+    let jumpLift = 0;
+    let detourActive = false;
+    let detourTarget: Point | null = null;
+    let detourCooldown = 0;
     let breathingTick = 0;
     let frameTick = 0;
     let lastTs = performance.now();
@@ -179,14 +334,29 @@ export function GlobalRabbitMascot() {
       return;
     }
 
-    const pickNextTarget = () => {
-      let next = randomEdgePoint();
-      let attempts = 0;
-      while (Math.hypot(next.x - current.x, next.y - current.y) < 80 && attempts < 4) {
-        next = randomEdgePoint();
-        attempts += 1;
+    const pickCenterDetour = () => {
+      const profile = personalityProfiles[personality];
+      const padX = (maxX() - minX()) * 0.22;
+      const padY = (maxY() - minY()) * 0.24;
+      detourTarget = {
+        x: minX() + padX + Math.random() * Math.max(1, maxX() - minX() - padX * 2),
+        y: minY() + padY + Math.random() * Math.max(1, maxY() - minY() - padY * 2),
+      };
+      detourActive = true;
+      detourCooldown = profile.detourCooldownMin + Math.floor(Math.random() * profile.detourCooldownRange);
+    };
+
+    const setMode = (next: RabbitMode) => {
+      const profile = personalityProfiles[personality];
+      mode = next;
+      modeElapsed = 0;
+      if (next === "IDLE") {
+        modeDuration = profile.idleMinMs + Math.random() * profile.idleRangeMs;
+      } else if (next === "RUN") {
+        modeDuration = profile.runMinMs + Math.random() * profile.runRangeMs;
+      } else {
+        modeDuration = profile.jumpMinMs + Math.random() * profile.jumpRangeMs;
       }
-      target = next;
     };
 
     const smoothAngle = (from: number, to: number, factor: number) => {
@@ -196,47 +366,97 @@ export function GlobalRabbitMascot() {
       return from + delta * factor;
     };
 
-    pickNextTarget();
+    setMode("IDLE");
 
     let rafId = 0;
     const step = (ts: number) => {
       const dt = Math.min(0.05, (ts - lastTs) / 1000);
       lastTs = ts;
 
-      const dx = target.x - current.x;
-      const dy = target.y - current.y;
-      const distance = Math.hypot(dx, dy);
+      modeElapsed += dt * 1000;
 
-      if (distance < 10) {
-        pickNextTarget();
+      if (modeElapsed >= modeDuration) {
+        const profile = personalityProfiles[personality];
+        if (mode === "IDLE") {
+          setMode(Math.random() < profile.fromIdleJumpChance ? "JUMP" : "RUN");
+        } else if (mode === "RUN") {
+          setMode(Math.random() < profile.fromRunIdleChance ? "IDLE" : "JUMP");
+        } else {
+          setMode(Math.random() < profile.fromJumpRunChance ? "RUN" : "IDLE");
+        }
       }
 
-      const vx = distance > 0.001 ? dx / distance : 0;
-      const vy = distance > 0.001 ? dy / distance : 0;
-      const speed = 120;
-      current = clampPoint({
-        x: current.x + vx * speed * dt,
-        y: current.y + vy * speed * dt,
-      });
+      let vx = 0;
+      let vy = 0;
 
-      if (Math.abs(vx) > 0.05) {
-        direction = vx >= 0 ? 1 : -1;
+      if (mode !== "IDLE") {
+        const profile = personalityProfiles[personality];
+        const speed = mode === "JUMP" ? profile.jumpSpeed : profile.runSpeed;
+
+        if (!detourActive && detourCooldown <= 0 && mode === "RUN" && Math.random() < profile.detourChance) {
+          pickCenterDetour();
+        }
+
+        if (detourActive && detourTarget) {
+          const dx = detourTarget.x - current.x;
+          const dy = detourTarget.y - current.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 10) {
+            detourActive = false;
+            detourTarget = null;
+            edgeS = nearestEdgeS(current);
+          } else {
+            vx = dx / Math.max(0.001, dist);
+            vy = dy / Math.max(0.001, dist);
+            current = clampPoint({
+              x: current.x + vx * speed * dt,
+              y: current.y + vy * speed * dt,
+            });
+          }
+        }
+
+        if (!detourActive) {
+          edgeS += direction * speed * dt;
+          current = pointOnEdge(edgeS);
+          const tangent = tangentOnEdge(edgeS, direction);
+          vx = tangent.tx;
+          vy = tangent.ty;
+          if (Math.abs(vx) > 0.05) {
+            direction = vx > 0 ? 1 : -1;
+          }
+        }
+
+        if (detourCooldown > 0 && modeElapsed > modeDuration * 0.8) {
+          detourCooldown -= 1;
+        }
       }
 
-      const targetAngle = (Math.atan2(vy, vx) * 180) / Math.PI;
-      angle = smoothAngle(angle, targetAngle, 0.18);
+      const targetAngle =
+        Math.abs(vx) > 0.001 || Math.abs(vy) > 0.001
+          ? (Math.atan2(vy, vx) * 180) / Math.PI
+          : angle;
+      angle = smoothAngle(angle, targetAngle, 0.14);
 
-      frameTick += dt * 8;
-      breathingTick += dt * 4;
-      const breatheY = Math.round(Math.sin(breathingTick) * 1.8);
-      const frameIndex = Math.floor(frameTick) % rabbitFrames.length;
+      if (mode === "JUMP") {
+        const profile = personalityProfiles[personality];
+        const jumpN = Math.min(1, modeElapsed / Math.max(1, modeDuration));
+        jumpLift = Math.sin(jumpN * Math.PI) * profile.jumpLift;
+      } else {
+        jumpLift = 0;
+      }
+
+      breathingTick += dt * (mode === "IDLE" ? 3.6 : 2.2);
+      frameTick += dt * (mode === "RUN" ? 7.2 : 4.2);
+
+      const breatheY = Math.round(Math.sin(breathingTick) * (mode === "IDLE" ? 2.2 : 1.1));
+      const frameIndex = mode === "IDLE" ? 0 : mode === "JUMP" ? 2 : Math.floor(frameTick) % rabbitFrames.length;
 
       drawRabbitFrame(ctx, rabbitFrames[frameIndex], direction, pixelSize, breatheY);
-      root.style.transform = `translate3d(${Math.round(current.x)}px, ${Math.round(current.y)}px, 0) rotate(${angle.toFixed(1)}deg)`;
+      root.style.transform = `translate3d(${Math.round(current.x)}px, ${Math.round(current.y - jumpLift)}px, 0) rotate(${angle.toFixed(1)}deg)`;
 
       if (ts - lastPersistTs > 220) {
         lastPersistTs = ts;
-        saveState({ x: current.x, y: current.y, angle, direction });
+        saveState({ x: current.x, y: current.y, angle, direction, edgeS });
       }
 
       rafId = window.requestAnimationFrame(step);
@@ -246,14 +466,26 @@ export function GlobalRabbitMascot() {
 
     const onResize = () => {
       current = clampPoint(current);
-      target = clampPoint(target);
+      edgeS = nearestEdgeS(current);
+      if (detourTarget) {
+        detourTarget = clampPoint(detourTarget);
+      }
+    };
+
+    const onPersonalityChange = () => {
+      personality = loadRabbitPersonality();
+      setMode("IDLE");
     };
 
     window.addEventListener("resize", onResize);
+    window.addEventListener("storage", onPersonalityChange);
+    window.addEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, onPersonalityChange);
 
     return () => {
       window.cancelAnimationFrame(rafId);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("storage", onPersonalityChange);
+      window.removeEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, onPersonalityChange);
     };
   }, []);
 

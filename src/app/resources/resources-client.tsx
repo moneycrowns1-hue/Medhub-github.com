@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FileText, Filter, Search, Trash2, Upload } from "lucide-react";
-import { SUBJECTS } from "@/lib/subjects";
+import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +24,7 @@ import {
   saveSrsLibrary,
   type AiNoteDraft,
 } from "@/lib/srs-storage";
+import { getPdfResumeForResource, markPdfProgress } from "@/lib/rabbit-guide";
 import type { SrsLibrary } from "@/lib/srs";
 
 type InAppNotice = {
@@ -55,6 +56,7 @@ export function ResourcesClient() {
   const [srsLib, setSrsLib] = useState<SrsLibrary | null>(null);
   const [subject, setSubject] = useState<string>("histologia");
   const [deckId, setDeckId] = useState<string>("deck-histo");
+  const [readerPage, setReaderPage] = useState<number>(1);
   const [notices, setNotices] = useState<InAppNotice[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -155,6 +157,29 @@ export function ResourcesClient() {
   }, [items, query, filterSubject]);
 
   const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const resume = getPdfResumeForResource(selected.id);
+    setReaderPage(resume ?? selected.pageStart ?? 1);
+  }, [selected]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const subjectSlug =
+      selected.subjectSlug === "anatomia" ||
+      selected.subjectSlug === "histologia" ||
+      selected.subjectSlug === "embriologia" ||
+      selected.subjectSlug === "biologia-celular"
+        ? (selected.subjectSlug as SubjectSlug)
+        : null;
+    markPdfProgress({
+      resourceId: selected.id,
+      title: selected.title,
+      page: Math.max(1, Math.floor(readerPage || 1)),
+      subjectSlug,
+    });
+  }, [selected, readerPage]);
 
   const onPickFile = async (file: File) => {
     setBusy(true);
@@ -491,7 +516,7 @@ export function ResourcesClient() {
             </div>
             <div className="space-y-4 p-6">
               {selected ? (
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-4">
                   <div className="space-y-1">
                     <div className="text-xs uppercase tracking-wider text-muted-foreground">Título</div>
                     <input
@@ -565,6 +590,21 @@ export function ResourcesClient() {
                     </div>
                     <div className="text-xs text-foreground/60">Ej: 10–18</div>
                   </div>
+                  <div className="space-y-1">
+                    <div className="text-xs uppercase tracking-wider text-muted-foreground">Página actual</div>
+                    <input
+                      type="number"
+                      min={1}
+                      value={readerPage}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (!Number.isFinite(n)) return;
+                        setReaderPage(Math.max(1, Math.floor(n)));
+                      }}
+                      className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
+                    />
+                    <div className="text-xs text-foreground/60">El conejo recordará esta página para reanudar.</div>
+                  </div>
                 </div>
               ) : null}
 
@@ -573,7 +613,7 @@ export function ResourcesClient() {
                   <div className="text-xs uppercase tracking-wider text-foreground/70">Vista previa</div>
                   <div className="mt-2 overflow-hidden rounded-lg border border-white/15">
                     {previewUrl ? (
-                      <iframe title="pdf-preview" src={previewUrl} className="h-[640px] w-full" />
+                      <iframe title="pdf-preview" src={`${previewUrl}#page=${readerPage}`} className="h-[640px] w-full" />
                     ) : (
                       <div className="flex h-[640px] w-full items-center justify-center text-sm text-foreground/70">
                         No se pudo cargar el PDF.

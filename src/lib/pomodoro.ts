@@ -20,6 +20,7 @@ export type PomodoroDurations = {
 };
 
 const STORAGE_KEY = "somagnus:pomodoro:v1";
+export const POMODORO_STATE_UPDATED_EVENT = "somagnus:pomodoro:updated";
 
 export const DEFAULT_STATE: PomodoroState = {
   phase: "idle",
@@ -120,6 +121,7 @@ export function loadPomodoroState(): PomodoroState {
 export function savePomodoroState(state: PomodoroState) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  window.dispatchEvent(new Event(POMODORO_STATE_UPDATED_EVENT));
 }
 
 export function remainingSec(state: PomodoroState, nowMs: number) {

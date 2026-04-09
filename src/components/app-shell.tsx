@@ -26,6 +26,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { PomodoroOverlay } from "@/components/pomodoro-overlay";
 import { GlobalRabbitMascot } from "@/components/global-rabbit-mascot";
+import { RabbitGuidePanel } from "@/components/rabbit-guide-panel";
 
 export type NavItem = {
   href: string;
@@ -96,6 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh bg-background">
       <PomodoroOverlay />
       <GlobalRabbitMascot />
+      <RabbitGuidePanel />
       <header
         className={cn(
           "inset-x-0 top-0 z-40 transition-all duration-500",

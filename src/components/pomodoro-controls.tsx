@@ -22,6 +22,7 @@ import {
 } from "@/lib/pomodoro-settings";
 import { Button } from "@/components/ui/button";
 import { incrementStat } from "@/lib/stats-store";
+import { markPomodoroStarted } from "@/lib/rabbit-guide";
 
 function startPhase(phase: PomodoroPhase, settings: PomodoroSettings): PomodoroState {
   const durationSec = getPhaseDurationSecFromSettings(phase, settings);
@@ -130,6 +131,7 @@ export function PomodoroControls() {
   }, [running, state, settings]);
 
   const handleStart = () => {
+    markPomodoroStarted();
     setAndSave(startPhase(nextPhase("idle"), settings));
   };
 

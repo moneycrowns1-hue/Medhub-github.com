@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { markStudyVisited } from "@/lib/rabbit-guide";
 import {
   listPdfResources,
   RESOURCES_UPDATED_EVENT,
@@ -81,6 +82,10 @@ export function StudyClient({ subject }: Props) {
     },
     [subject.slug],
   );
+
+  useEffect(() => {
+    markStudyVisited(subject.slug);
+  }, [subject.slug]);
 
   useEffect(() => {
     void refreshPdfs(true);

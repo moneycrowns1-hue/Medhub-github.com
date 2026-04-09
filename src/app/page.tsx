@@ -12,6 +12,7 @@ import {
 
 import { ClinicalBoard } from "@/components/clinical-board";
 import { PomodoroControls } from "@/components/pomodoro-controls";
+import { StartStudyLink } from "@/components/start-study-link";
 import { HomeStatsChips } from "@/app/home-stats-chips";
 import { isoDate } from "@/lib/dates";
 import { getPlanForDate, formatPlanSummary } from "@/lib/schedule";
@@ -57,13 +58,14 @@ export default function Home() {
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-3">
-                <Link
+                <StartStudyLink
                   href={`/study/${plan.primary}`}
+                  subjectSlug={plan.primary}
                   className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white px-6 py-3 text-sm font-semibold text-black shadow-[0_8px_30px_-10px_rgba(255,255,255,0.8)] transition-all hover:bg-white/90"
                 >
                   Empezar estudio
                   <ArrowRight className="h-4 w-4" />
-                </Link>
+                </StartStudyLink>
                 <Link
                   href="/day"
                   className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/10 px-6 py-3 text-sm font-medium text-white backdrop-blur-sm transition-all hover:border-white/50 hover:bg-white/15 hover:shadow-[0_10px_28px_-16px_rgba(255,255,255,0.8)]"
@@ -141,7 +143,7 @@ export default function Home() {
       </section>
 
       {/* ── TABLERO + POMODORO ── */}
-      <section className="grid gap-6 lg:grid-cols-[1fr,340px]">
+      <section id="pomodoro" className="grid gap-6 lg:grid-cols-[1fr,340px]">
         <div className="space-y-6">
           <ClinicalBoard date={todayIso} />
 
