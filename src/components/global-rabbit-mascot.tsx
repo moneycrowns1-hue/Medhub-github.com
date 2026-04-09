@@ -436,9 +436,9 @@ export function GlobalRabbitMascot() {
 
     const orientationForEdge = (edgeValue: Edge): { direction: 1 | -1; angle: number } => {
       if (edgeValue === "top") return { direction: -1, angle: 180 };
-      if (edgeValue === "right") return { direction: -1, angle: 90 };
+      if (edgeValue === "right") return { direction: 1, angle: 90 };
       if (edgeValue === "bottom") return { direction: -1, angle: 0 };
-      return { direction: 1, angle: -90 };
+      return { direction: -1, angle: -90 };
     };
 
     const updateOrientation = () => {
