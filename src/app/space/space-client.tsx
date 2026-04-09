@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Outfit, Pixelify_Sans } from "next/font/google";
 import { ArrowLeft, ArrowRight, Headphones, Heart, Pause, Play, SkipBack, SkipForward, Sparkles, Waves } from "lucide-react";
+import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
 
 type Mood = {
   id: string;
@@ -28,6 +29,7 @@ const FAVORITES_STORAGE_KEY = "somagnus:space:favorites:v1";
 const PROGRESS_STORAGE_KEY = "somagnus:space:progress:v1";
 const VISUAL_MODE_STORAGE_KEY = "somagnus:space:visual-mode:v1";
 const DAILY_MASCOT_GUIDE_STORAGE_KEY = "somagnus:space:mascot-daily-checkin:v1";
+const ACTIVE_SESSION_STORAGE_KEY = "somagnus:space:active-session:v1";
 const SPACE_ARCHIVE_SESSION_ID = "dormir-mejor";
 const SPACE_ARCHIVE_STREAM_URL = "https://archive.org/download/entregate-al-sueno/Entregate%20al%20sue%C3%B1o.mp3";
 const SPACE_ARCHIVE_EXTERNAL_URL = "https://archive.org/details/entregate-al-sueno";
@@ -344,16 +346,54 @@ function loadDailyMascotCheckinDone() {
   }
 }
 
+function normalizeAudioUrl(url: string) {
+  try {
+    const origin = typeof window === "undefined" ? "https://localhost" : window.location.origin;
+    return new URL(url, origin).toString();
+  } catch {
+    return url;
+  }
+}
+
+function sameAudioSource(currentSrc: string, nextSrc: string) {
+  return normalizeAudioUrl(currentSrc) === normalizeAudioUrl(nextSrc);
+}
+
+function resolveSessionIdFromSource(source: string) {
+  return sessions.find((session) => sameAudioSource(source, withBasePath(session.audioSrc)))?.id;
+}
+
+function loadInitialActiveSessionId() {
+  if (typeof window === "undefined") return sessions[0]?.id ?? "";
+  const fromAudio = resolveSessionIdFromSource(getSpaceSharedAudio()?.currentSrc ?? "");
+  if (fromAudio) return fromAudio;
+  try {
+    const saved = window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
+    return sessions.some((session) => session.id === saved) ? (saved as string) : (sessions[0]?.id ?? "");
+  } catch {
+    return sessions[0]?.id ?? "";
+  }
+}
+
 export function SpaceClient() {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(getSpaceSharedAudio());
   const rabbitCardCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [selectedMood, setSelectedMood] = useState<string>("all");
-  const [activeId, setActiveId] = useState<string>(sessions[0]?.id ?? "");
-  const [playing, setPlaying] = useState(false);
-  const [elapsedSec, setElapsedSec] = useState(0);
-  const [durationSec, setDurationSec] = useState(sessions[0]?.approxLengthSec ?? 0);
+  const [activeId, setActiveId] = useState<string>(() => loadInitialActiveSessionId());
+  const [playing, setPlaying] = useState(() => {
+    const audio = getSpaceSharedAudio();
+    return Boolean(audio && !audio.paused && !audio.ended);
+  });
+  const [elapsedSec, setElapsedSec] = useState(() => {
+    const audio = getSpaceSharedAudio();
+    return audio ? Math.floor(audio.currentTime || 0) : 0;
+  });
+  const [durationSec, setDurationSec] = useState(() => {
+    const audio = getSpaceSharedAudio();
+    const mediaDuration = audio && Number.isFinite(audio.duration) ? Math.floor(audio.duration) : 0;
+    return mediaDuration > 0 ? mediaDuration : (sessions[0]?.approxLengthSec ?? 0);
+  });
   const [playbackError, setPlaybackError] = useState<string | null>(null);
-  const [autoplayRequested, setAutoplayRequested] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => loadFavorites());
   const [sessionProgress, setSessionProgress] = useState<Record<string, number>>(() => loadProgress());
   const [revealedSections, setRevealedSections] = useState<Record<string, boolean>>(() => loadInitialRevealState());
@@ -362,6 +402,7 @@ export function SpaceClient() {
   const [playPulseToken, setPlayPulseToken] = useState(0);
   const [guideStep, setGuideStep] = useState(0);
   const [dailyMascotCheckinDone, setDailyMascotCheckinDone] = useState<boolean>(() => loadDailyMascotCheckinDone());
+  const sessionProgressRef = useRef<Record<string, number>>(sessionProgress);
 
   const modeStyle = useMemo(() => {
     if (visualMode === "deep-night") {
@@ -557,36 +598,33 @@ export function SpaceClient() {
   }, [activeSession, playing, selectedMood]);
 
   useEffect(() => {
+    sessionProgressRef.current = sessionProgress;
+  }, [sessionProgress]);
+
+  useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     const onLoadedMetadata = () => {
       const mediaDuration = Number.isFinite(audio.duration) ? Math.floor(audio.duration) : 0;
       setDurationSec(mediaDuration > 0 ? mediaDuration : activeSession?.approxLengthSec ?? 0);
-      const saved = activeSession ? sessionProgress[activeSession.id] ?? 0 : 0;
+      const linkedSessionId = resolveSessionIdFromSource(audio.currentSrc) ?? activeSession?.id;
+      const saved = linkedSessionId ? sessionProgressRef.current[linkedSessionId] ?? 0 : 0;
       if (saved > 0 && saved < audio.duration) {
         audio.currentTime = saved;
-      }
-      if (autoplayRequested) {
-        void audio.play().then(() => {
-          setPlaying(true);
-          setAutoplayRequested(false);
-        }).catch(() => {
-          setPlaying(false);
-          setAutoplayRequested(false);
-          setPlaybackError("No se pudo iniciar el audio automáticamente. Presiona reproducir manualmente.");
-        });
       }
     };
 
     const onTimeUpdate = () => {
       const nextElapsed = Math.floor(audio.currentTime);
       setElapsedSec(nextElapsed);
-      if (activeSession) {
+      const linkedSessionId = resolveSessionIdFromSource(audio.currentSrc) ?? activeSession?.id;
+      if (linkedSessionId) {
         setSessionProgress((prev) => {
-          if (prev[activeSession.id] === nextElapsed) return prev;
-          return { ...prev, [activeSession.id]: nextElapsed };
+          if (prev[linkedSessionId] === nextElapsed) return prev;
+          return { ...prev, [linkedSessionId]: nextElapsed };
         });
+        setActiveId((prev) => (prev === linkedSessionId ? prev : linkedSessionId));
       }
     };
 
@@ -606,8 +644,9 @@ export function SpaceClient() {
 
     const onEnded = () => {
       setPlaying(false);
-      if (activeSession) {
-        setSessionProgress((prev) => ({ ...prev, [activeSession.id]: 0 }));
+      const linkedSessionId = resolveSessionIdFromSource(audio.currentSrc) ?? activeSession?.id;
+      if (linkedSessionId) {
+        setSessionProgress((prev) => ({ ...prev, [linkedSessionId]: 0 }));
       }
     };
 
@@ -635,7 +674,7 @@ export function SpaceClient() {
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
     };
-  }, [activeSession, activeUsesArchiveSource, autoplayRequested, dailyMascotCheckinDone, sessionProgress]);
+  }, [activeSession, activeUsesArchiveSource, dailyMascotCheckinDone]);
 
   useEffect(() => {
     try {
@@ -653,28 +692,67 @@ export function SpaceClient() {
     }
   }, [sessionProgress]);
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, activeId);
+    } catch {
+      return;
+    }
+  }, [activeId]);
+
   const progress = durationSec > 0 ? Math.min(100, Math.round((elapsedSec / durationSec) * 100)) : 0;
 
   const toggleFavorite = (id: string) => {
     setFavoriteIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
+  const ensureAudioSourceForSession = (sessionId: string) => {
+    const audio = audioRef.current;
+    const targetSession = sessions.find((session) => session.id === sessionId);
+    if (!audio || !targetSession) return null;
+
+    const nextSrc = withBasePath(targetSession.audioSrc);
+    if (!sameAudioSource(audio.currentSrc, nextSrc)) {
+      audio.src = nextSrc;
+      audio.load();
+      setElapsedSec(sessionProgressRef.current[sessionId] ?? 0);
+      setDurationSec(targetSession.approxLengthSec);
+    }
+
+    return { audio, targetSession };
+  };
+
   const startSession = (sessionId: string, options?: { autoplay?: boolean }) => {
     const shouldAutoplay = options?.autoplay ?? false;
-    const audio = audioRef.current;
-    audio?.pause();
-    const next = sessions.find((s) => s.id === sessionId);
     setActiveId(sessionId);
-    setElapsedSec(sessionProgress[sessionId] ?? 0);
-    setDurationSec(next?.approxLengthSec ?? 0);
     setPlaybackError(null);
-    setAutoplayRequested(shouldAutoplay);
-    if (!shouldAutoplay) setPlaying(false);
+
+    const prepared = ensureAudioSourceForSession(sessionId);
+    if (!prepared) return;
+
+    if (!shouldAutoplay) {
+      prepared.audio.pause();
+      setPlaying(false);
+      return;
+    }
+
+    void prepared.audio.play().then(() => {
+      setPlaying(true);
+    }).catch(() => {
+      setPlaying(false);
+      setPlaybackError(
+        sessionId === SPACE_ARCHIVE_SESSION_ID
+          ? "No se pudo iniciar rápido el streaming de Archive. Usa 'Abrir fuente' como respaldo."
+          : "No se pudo iniciar este audio. Intenta nuevamente.",
+      );
+    });
   };
 
   const togglePlayback = async () => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    if (!activeSession) return;
+    const prepared = ensureAudioSourceForSession(activeSession.id);
+    if (!prepared) return;
+    const { audio } = prepared;
 
     setPlaybackError(null);
     if (playing) {
@@ -742,8 +820,6 @@ export function SpaceClient() {
           </div>
         </div>
       </div>
-
-      <audio ref={audioRef} preload="metadata" className="hidden" src={activeSession ? withBasePath(activeSession.audioSrc) : undefined} />
 
       <section
         data-reveal-id="hero"
