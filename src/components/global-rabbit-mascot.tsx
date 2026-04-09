@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   loadRabbitPersonality,
   RABBIT_PERSONALITY_UPDATED_EVENT,
@@ -155,6 +156,15 @@ type BubbleLayout = {
   arrowOffset: number;
 };
 
+type EdgeVisualConfig = {
+  supportX: number;
+  supportY: number;
+  contactOffsetX: number;
+  contactOffsetY: number;
+  bubbleInset: number;
+  bubbleClearance: number;
+};
+
 function isBehaviorMode(value: unknown): value is RabbitBehaviorMode {
   return value === "patrol" || value === "guide" || value === "waiting" || value === "resting" || value === "summary";
 }
@@ -192,7 +202,8 @@ export function GlobalRabbitMascot() {
     const rows = rabbitFrames[0].length;
     const spriteWidth = cols * pixelSize;
     const spriteHeight = rows * pixelSize;
-    const footAnchor = { x: spriteWidth / 2, y: spriteHeight };
+    const baseSupportX = spriteWidth * 0.5;
+    const baseSupportY = spriteHeight - 1;
 
     canvas.width = spriteWidth;
     canvas.height = spriteHeight;
@@ -279,14 +290,20 @@ export function GlobalRabbitMascot() {
     let commandedVisualState: RabbitVisualState | null = null;
     let controlPauseUntilTs = 0;
     let lastBubbleLayout: BubbleLayout | null = null;
+    let currentVisual: EdgeVisualConfig = {
+      supportX: baseSupportX,
+      supportY: baseSupportY,
+      contactOffsetX: 0,
+      contactOffsetY: 0,
+      bubbleInset: Math.max(16, spriteHeight * 0.42),
+      bubbleClearance: Math.max(30, Math.max(spriteWidth, spriteHeight) * 0.56),
+    };
 
     if (shouldReduceMotion) {
       drawRabbitFrame(ctx, rabbitFrames[Math.max(0, rabbitFrames.length - 1)], 1, pixelSize, 0);
-      root.style.transform = `translate3d(${Math.round(current.x - footAnchor.x)}px, ${Math.round(current.y - footAnchor.y)}px, 0)`;
+      root.style.transform = `translate3d(${Math.round(current.x - currentVisual.supportX)}px, ${Math.round(current.y - currentVisual.supportY)}px, 0)`;
       return;
     }
-
-    sprite.style.transformOrigin = `${footAnchor.x}px ${footAnchor.y}px`;
 
     const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -311,7 +328,7 @@ export function GlobalRabbitMascot() {
       return order.filter((value, index) => order.indexOf(value) === index);
     };
 
-    const updateSpeechBubbleLayout = (anchorX: number, anchorY: number) => {
+    const updateSpeechBubbleLayout = (anchorX: number, anchorY: number, mascotClearance: number) => {
       if (!speechVisible) return;
       const bubbleEl = speechRef.current;
       if (!bubbleEl) return;
@@ -324,15 +341,15 @@ export function GlobalRabbitMascot() {
 
       const candidates = bubblePriorityForAnchor(anchorX, anchorY).map((side) => {
         let baseLeft = anchorX - bubbleWidth / 2;
-        let baseTop = anchorY - bubbleHeight - gap;
+        let baseTop = anchorY - mascotClearance - bubbleHeight - gap;
 
         if (side === "bottom") {
-          baseTop = anchorY + gap;
+          baseTop = anchorY + mascotClearance + gap;
         } else if (side === "left") {
-          baseLeft = anchorX - bubbleWidth - gap;
+          baseLeft = anchorX - mascotClearance - bubbleWidth - gap;
           baseTop = anchorY - bubbleHeight / 2;
         } else if (side === "right") {
-          baseLeft = anchorX + gap;
+          baseLeft = anchorX + mascotClearance + gap;
           baseTop = anchorY - bubbleHeight / 2;
         }
 
@@ -376,14 +393,57 @@ export function GlobalRabbitMascot() {
       setBubbleLayout(nextLayout);
     };
 
+    const visualForEdge = (edgeValue: Edge): EdgeVisualConfig => {
+      if (edgeValue === "top") {
+        return {
+          supportX: spriteWidth * 0.52,
+          supportY: spriteHeight - 1,
+          contactOffsetX: 0,
+          contactOffsetY: 1,
+          bubbleInset: Math.max(16, spriteHeight * 0.44),
+          bubbleClearance: Math.max(30, spriteHeight * 0.72),
+        };
+      }
+      if (edgeValue === "right") {
+        return {
+          supportX: spriteWidth * 0.4,
+          supportY: spriteHeight - 1,
+          contactOffsetX: 1,
+          contactOffsetY: 3,
+          bubbleInset: Math.max(16, spriteHeight * 0.42),
+          bubbleClearance: Math.max(30, spriteWidth * 0.78),
+        };
+      }
+      if (edgeValue === "bottom") {
+        return {
+          supportX: spriteWidth * 0.48,
+          supportY: spriteHeight - 1,
+          contactOffsetX: 0,
+          contactOffsetY: 0,
+          bubbleInset: Math.max(16, spriteHeight * 0.44),
+          bubbleClearance: Math.max(30, spriteHeight * 0.72),
+        };
+      }
+      return {
+        supportX: spriteWidth * 0.5,
+        supportY: spriteHeight - 1,
+        contactOffsetX: -1,
+        contactOffsetY: 2,
+        bubbleInset: Math.max(16, spriteHeight * 0.42),
+        bubbleClearance: Math.max(30, spriteWidth * 0.78),
+      };
+    };
+
     const orientationForEdge = (edgeValue: Edge): { direction: 1 | -1; angle: number } => {
       if (edgeValue === "top") return { direction: -1, angle: 180 };
-      if (edgeValue === "right") return { direction: 1, angle: 90 };
+      if (edgeValue === "right") return { direction: -1, angle: 90 };
       if (edgeValue === "bottom") return { direction: -1, angle: 0 };
       return { direction: 1, angle: -90 };
     };
 
     const updateOrientation = () => {
+      currentVisual = visualForEdge(edge);
+      sprite.style.transformOrigin = `${currentVisual.supportX}px ${currentVisual.supportY}px`;
       const o = orientationForEdge(edge);
       direction = o.direction;
       angle = o.angle;
@@ -490,11 +550,13 @@ export function GlobalRabbitMascot() {
 
       drawRabbitFrame(ctx, rabbitFrames[frameIndex], direction, pixelSize, breatheY);
       const normal = normalForEdge(edge);
-      const footX = current.x + normal.x * jumpLift;
-      const footY = current.y + normal.y * jumpLift;
-      root.style.transform = `translate3d(${Math.round(footX - footAnchor.x)}px, ${Math.round(footY - footAnchor.y)}px, 0)`;
+      const footX = current.x + normal.x * jumpLift + currentVisual.contactOffsetX;
+      const footY = current.y + normal.y * jumpLift + currentVisual.contactOffsetY;
+      root.style.transform = `translate3d(${Math.round(footX - currentVisual.supportX)}px, ${Math.round(footY - currentVisual.supportY)}px, 0)`;
       sprite.style.transform = `rotate(${angle.toFixed(1)}deg)`;
-      updateSpeechBubbleLayout(footX, footY);
+      const bubbleAnchorX = footX + normal.x * currentVisual.bubbleInset;
+      const bubbleAnchorY = footY + normal.y * currentVisual.bubbleInset;
+      updateSpeechBubbleLayout(bubbleAnchorX, bubbleAnchorY, currentVisual.bubbleClearance);
 
       if (ts - lastPersistTs > 220) {
         lastPersistTs = ts;
@@ -511,7 +573,10 @@ export function GlobalRabbitMascot() {
       current = snappedResize.point;
       edge = snappedResize.edge;
       updateOrientation();
-      updateSpeechBubbleLayout(current.x, current.y);
+      const normal = normalForEdge(edge);
+      const bubbleAnchorX = current.x + normal.x * currentVisual.bubbleInset;
+      const bubbleAnchorY = current.y + normal.y * currentVisual.bubbleInset;
+      updateSpeechBubbleLayout(bubbleAnchorX, bubbleAnchorY, currentVisual.bubbleClearance);
     };
 
     const onPersonalityChange = () => {
@@ -552,7 +617,10 @@ export function GlobalRabbitMascot() {
         status: detail.status,
         actions: detail.actions,
       });
-      updateSpeechBubbleLayout(current.x, current.y);
+      const normal = normalForEdge(edge);
+      const bubbleAnchorX = current.x + normal.x * currentVisual.bubbleInset;
+      const bubbleAnchorY = current.y + normal.y * currentVisual.bubbleInset;
+      updateSpeechBubbleLayout(bubbleAnchorX, bubbleAnchorY, currentVisual.bubbleClearance);
       speakUntilTs = performance.now() + Math.max(1400, detail.durationMs ?? 4800);
     };
 
@@ -604,7 +672,7 @@ export function GlobalRabbitMascot() {
           {speech.actions?.length ? (
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {speech.actions.slice(0, 2).map((action) => (
-                <a
+                <Link
                   key={action.href + action.label}
                   href={action.href}
                   className={
@@ -614,7 +682,7 @@ export function GlobalRabbitMascot() {
                   }
                 >
                   {action.label}
-                </a>
+                </Link>
               ))}
             </div>
           ) : null}
