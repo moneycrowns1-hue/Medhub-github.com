@@ -134,6 +134,19 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
     };
   }
 
+  if (pathname.startsWith("/space")) {
+    return {
+      title: "Space listo para audios",
+      message:
+        "Tip: si un audio no carga, espera unos segundos y vuelve a entrar. Coloca tus pistas en public/audio/space con estos nombres: reset-express.mp3, foco-profundo.mp3, dormir-mejor.mp3, aterriza-mente.mp3, modo-examen.mp3.",
+      status: `${pomodoroText} · ${phaseStatus} · Relax guiado`,
+      actions: [
+        { href: "/space", label: "Seguir en Space", primary: true },
+        { href: "/resources", label: "Ir a Biblioteca" },
+      ],
+    };
+  }
+
   if ((pathname === "/" || pathname.startsWith("/day")) && hasClinicalTasks) {
     const taskStatus = `Hoy: ${clinicalTodayTasks} · Pendientes: ${clinicalPendingTasks}`;
     return {

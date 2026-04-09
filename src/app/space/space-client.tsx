@@ -1040,19 +1040,6 @@ export function SpaceClient() {
         </div>
       </section>
 
-      <section
-        data-reveal-id="tip"
-        className={`rounded-2xl border p-4 text-xs backdrop-blur-xl transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurface} ${modeStyle.textSoft} ${revealClass("tip")}`}
-        style={{ transitionDelay: "260ms" }}
-      >
-        <div className="flex items-start gap-2">
-          <ArrowLeft className="mt-0.5 h-3.5 w-3.5 rotate-180" />
-          <div>
-            Tip: el video principal está optimizado para reproducirse en silencio de fondo. Si no carga por red lenta, espera unos segundos y vuelve a entrar a la sección.
-          </div>
-        </div>
-      </section>
-
       <style jsx>{`
         .rabbit-card-canvas {
           image-rendering: pixelated;
