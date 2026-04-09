@@ -29,7 +29,7 @@ const PROGRESS_STORAGE_KEY = "somagnus:space:progress:v1";
 const VISUAL_MODE_STORAGE_KEY = "somagnus:space:visual-mode:v1";
 const DAILY_MASCOT_GUIDE_STORAGE_KEY = "somagnus:space:mascot-daily-checkin:v1";
 const SPACE_IFRAME_SESSION_ID = "dormir-mejor";
-const SPACE_IFRAME_SRC = "https://archive.org/embed/entregate-al-sueno";
+const SPACE_IFRAME_SRC = "https://archive.org/embed/entregate-al-sueno?playlist=1";
 const SPACE_IFRAME_EXTERNAL_URL = "https://archive.org/details/entregate-al-sueno";
 
 type VisualModeId = "aurora" | "deep-night" | "soft-glass";
@@ -673,7 +673,7 @@ export function SpaceClient() {
 
   const togglePlayback = async () => {
     if (activeUsesIframe) {
-      setPlaybackError("Esta sesión se reproduce con player embebido. Pulsa Play dentro del iframe.");
+      setPlaybackError("Para esta sesión, pulsa Play dentro del reproductor integrado de abajo.");
       return;
     }
 
@@ -791,16 +791,22 @@ export function SpaceClient() {
           </div>
           <div className="flex flex-wrap gap-2">
             {activeUsesIframe ? (
-              <button
-                type="button"
-                onClick={() => {
-                  window.open(SPACE_IFRAME_EXTERNAL_URL, "_blank", "noopener,noreferrer");
-                }}
-                className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition ${modeStyle.primaryButton}`}
-              >
-                <Play className="h-4 w-4" />
-                Abrir en Archive
-              </button>
+              <>
+                <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
+                  <Headphones className="h-3.5 w-3.5" />
+                  Player integrado
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.open(SPACE_IFRAME_EXTERNAL_URL, "_blank", "noopener,noreferrer");
+                  }}
+                  className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition ${modeStyle.primaryButton}`}
+                >
+                  <Play className="h-4 w-4" />
+                  Abrir en Archive
+                </button>
+              </>
             ) : (
               <button
                 type="button"
@@ -822,14 +828,19 @@ export function SpaceClient() {
         </div>
         {activeUsesIframe ? (
           <div className={`mt-4 rounded-2xl border p-3 ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
-            <iframe
-              src={SPACE_IFRAME_SRC}
-              width="100%"
-              height="60"
-              frameBorder="0"
-              allow="autoplay"
-              title="Reproductor Entregate Al Sueño"
-            />
+            <div className={`mb-2 text-[11px] ${modeStyle.textSoft}`}>
+              Reproductor en streaming (sin guardar audio en tu app). Presiona play dentro del player.
+            </div>
+            <div className="overflow-hidden rounded-xl border border-white/15 bg-black/25">
+              <iframe
+                src={SPACE_IFRAME_SRC}
+                width="100%"
+                height="96"
+                frameBorder="0"
+                allow="autoplay; encrypted-media"
+                title="Reproductor Entregate Al Sueño"
+              />
+            </div>
           </div>
         ) : (
           <>
