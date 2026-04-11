@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Outfit, Pixelify_Sans } from "next/font/google";
-import { Headphones, Heart, Pause, Play, SkipBack, SkipForward, Sparkles, Waves } from "lucide-react";
+import { Headphones, Heart, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Waves } from "lucide-react";
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
 
 type Mood = {
@@ -437,6 +437,8 @@ export function SpaceClient() {
   const audioRef = useRef<HTMLAudioElement | null>(getSpaceSharedAudio());
   const rabbitCardCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [selectedMood, setSelectedMood] = useState<string>("all");
+  const [sessionQuery, setSessionQuery] = useState("");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [activeId, setActiveId] = useState<string>(() => loadInitialActiveSessionId());
   const [playing, setPlaying] = useState(() => {
     const audio = getSpaceSharedAudio();
@@ -929,7 +931,33 @@ export function SpaceClient() {
     startSession(next.id, { autoplay: true });
   };
 
-  const favoriteSessions = sessions.filter((s) => favoriteIds.includes(s.id));
+  const visibleSessions = useMemo(() => {
+    const query = sessionQuery.trim().toLowerCase();
+    return filteredSessions.filter((session) => {
+      if (favoritesOnly && !favoriteIds.includes(session.id)) return false;
+      if (!query) return true;
+      return `${session.title} ${session.type} ${session.desc}`.toLowerCase().includes(query);
+    });
+  }, [favoriteIds, favoritesOnly, filteredSessions, sessionQuery]);
+  const recentSessions = useMemo(() => {
+    return sessions
+      .filter((session) => session.id === activeId || (sessionProgress[session.id] ?? 0) > 0)
+      .sort((a, b) => (sessionProgress[b.id] ?? 0) - (sessionProgress[a.id] ?? 0))
+      .slice(0, 7);
+  }, [activeId, sessionProgress]);
+  const groupedVisibleSessions = useMemo(() => {
+    const groups = moods.map((mood) => ({
+      id: mood.id,
+      title: mood.title,
+      items: visibleSessions.filter((session) => session.moodId === mood.id),
+    })).filter((group) => group.items.length > 0);
+
+    if (selectedMood !== "all") {
+      const one = groups.find((group) => group.id === selectedMood);
+      return one ? [one] : [];
+    }
+    return groups;
+  }, [selectedMood, visibleSessions]);
   const stickyHeaderSolid = parallaxY > 24;
 
   const revealClass = (id: string) => {
@@ -1114,6 +1142,37 @@ export function SpaceClient() {
         className={`space-y-4 transition-all duration-700 ease-out ${revealClass("mood")}`}
         style={{ transitionDelay: "70ms" }}
       >
+        <div className="grid gap-2 md:grid-cols-[1fr_190px_150px]">
+          <label className={`flex items-center gap-2 rounded-2xl border px-3 py-2 ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+            <Search className={`h-4 w-4 ${modeStyle.textSoft}`} />
+            <input
+              value={sessionQuery}
+              onChange={(event) => setSessionQuery(event.target.value)}
+              placeholder="Buscar sesión..."
+              className="w-full bg-transparent text-sm outline-none placeholder:text-slate-300/50"
+            />
+          </label>
+          <select
+            value={selectedMood}
+            onChange={(event) => setSelectedMood(event.target.value)}
+            className={`rounded-2xl border px-3 py-2 text-sm outline-none ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}
+          >
+            <option value="all">Todos</option>
+            {moods.map((mood) => (
+              <option key={mood.id} value={mood.id}>{mood.title}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setFavoritesOnly((prev) => !prev)}
+            className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
+              favoritesOnly ? `${modeStyle.borderStrong} ${modeStyle.softSurfaceAlt}` : `${modeStyle.border} ${modeStyle.softSurface}`
+            }`}
+          >
+            <Heart className={`h-4 w-4 ${favoritesOnly ? "fill-current" : ""}`} />
+            Favoritos
+          </button>
+        </div>
         <div className={`flex items-center gap-2 text-sm font-medium ${modeStyle.textMuted}`}>
           <Sparkles className="h-4 w-4" />
           Elige cómo te sientes hoy
@@ -1149,120 +1208,125 @@ export function SpaceClient() {
       </section>
 
       <section
+        data-reveal-id="favorites"
+        className={`space-y-3 transition-all duration-700 ease-out ${revealClass("favorites")}`}
+        style={{ transitionDelay: "95ms" }}
+      >
+        <h3 className="text-base font-semibold">Recientes</h3>
+        {recentSessions.length === 0 ? (
+          <div className={`rounded-2xl border px-4 py-3 text-sm ${modeStyle.border} ${modeStyle.softSurface} ${modeStyle.textSoft}`}>
+            Todavía no hay sesiones recientes.
+          </div>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {recentSessions.map((session) => (
+              <button
+                key={session.id}
+                type="button"
+                onClick={() => startSession(session.id, { autoplay: true })}
+                className="group min-w-[88px] text-center"
+              >
+                <span className={`mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full border ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+                  <Music2 className="h-6 w-6" />
+                </span>
+                <span className="mt-2 line-clamp-2 block text-xs leading-tight text-cyan-50/90">{session.title}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section
         data-reveal-id="carousel"
         className={`space-y-4 transition-all duration-700 ease-out ${revealClass("carousel")}`}
         style={{ transitionDelay: "120ms" }}
       >
-        <div className={`mb-1 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
-          <Headphones className="h-3.5 w-3.5" />
-          Sesiones disponibles
-        </div>
-        <div className="space-y-3">
-          {filteredSessions.map((session) => {
-            const isFav = favoriteIds.includes(session.id);
-            const isActive = activeSession?.id === session.id;
-            const isAvailable = isSessionAvailable(session.id);
-            return (
-              <article
-                key={session.id}
-                className={`rounded-2xl border px-4 py-4 backdrop-blur-xl transition ${
-                  isActive ? `${modeStyle.borderStrong} ${modeStyle.softSurfaceAlt}` : `${modeStyle.border} ${modeStyle.softSurface}`
-                }`}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold sm:text-base">{session.title}</div>
-                    <div className={`text-xs ${modeStyle.textSoft}`}>{session.type} · {displayDurationForSession(session)} · {session.moodId}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!isAvailable ? (
-                      <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
-                        Próximamente
-                      </span>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => toggleFavorite(session.id)}
-                      className={`rounded-full border p-2 transition ${
-                        isFav ? "border-rose-300/60 bg-rose-300/20 text-rose-100" : `${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`
-                      }`}
-                      aria-label="Favorito"
+        {groupedVisibleSessions.length === 0 ? (
+          <div className={`rounded-2xl border px-4 py-4 text-sm ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
+            No hay sesiones que coincidan con tu búsqueda/filtro.
+          </div>
+        ) : null}
+        <div className="space-y-6">
+          {groupedVisibleSessions.map((group) => (
+            <div key={group.id} className="space-y-3">
+              <h3 className="text-lg font-semibold">{group.title}</h3>
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {group.items.map((session) => {
+                  const isFav = favoriteIds.includes(session.id);
+                  const isAvailable = isSessionAvailable(session.id);
+
+                  return (
+                    <article
+                      key={session.id}
+                      className={`relative min-w-[210px] overflow-hidden rounded-3xl border ${modeStyle.border} ${modeStyle.softSurface}`}
                     >
-                      <Heart className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        startSession(session.id, { autoplay: true });
-                      }}
-                      disabled={!isAvailable}
-                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${modeStyle.primaryButton}`}
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                      Play
-                    </button>
-                  </div>
-                </div>
-                <p className={`mt-2 text-sm ${modeStyle.textSoft}`}>{session.desc}</p>
-              </article>
-            );
-          })}
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.24),transparent_58%)]" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Music2 className="h-16 w-16 text-cyan-50/45" />
+                      </div>
+
+                      <div className="relative z-10 flex items-start justify-between p-3">
+                        <div className="flex items-center gap-2">
+                          {isAvailable ? (
+                            <button
+                              type="button"
+                              onClick={() => startSession(session.id, { autoplay: true })}
+                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${modeStyle.primaryButton}`}
+                            >
+                              <Play className="h-3 w-3" />
+                              Play
+                            </button>
+                          ) : (
+                            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
+                              Próximamente
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleFavorite(session.id)}
+                          className={`rounded-full border p-2 transition ${
+                            isFav ? "border-rose-300/70 bg-rose-300/20 text-rose-100" : `${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`
+                          }`}
+                          aria-label="Favorito"
+                        >
+                          <Heart className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => startSession(session.id)}
+                        disabled={!isAvailable}
+                        className="absolute inset-0 z-[5]"
+                        aria-label={`Seleccionar ${session.title}`}
+                      />
+
+                      <div className="relative z-10 mt-24 bg-gradient-to-t from-slate-950/95 via-slate-950/72 to-transparent p-4">
+                        <div className="text-[11px] uppercase tracking-wide text-cyan-50/70">{session.type}</div>
+                        <div className="mt-1 text-lg font-semibold leading-tight">{session.title}</div>
+                        <div className="mt-1 text-xs text-cyan-50/75">{displayDurationForSession(session)}</div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
-
-      <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <article
-          data-reveal-id="favorites"
-          className={`rounded-3xl border p-5 backdrop-blur-xl transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${revealClass("favorites")}`}
-          style={{ transitionDelay: "160ms" }}
-        >
-          <div className={`text-xs uppercase tracking-widest ${modeStyle.textSoft}`}>Tus favoritos</div>
-          {favoriteSessions.length === 0 ? (
-            <p className={`mt-3 text-sm ${modeStyle.textSoft}`}>
-              Todavía no tienes sesiones favoritas. Marca con corazón las que quieras tener siempre a mano.
-            </p>
-          ) : (
-            <div className="mt-4 space-y-2">
-              {favoriteSessions.map((session) => (
-                <button
-                  key={session.id}
-                  type="button"
-                  onClick={() => startSession(session.id)}
-                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${modeStyle.border} ${modeStyle.surface}`}
-                >
-                  <div>
-                    <div className="text-sm font-semibold">{session.title}</div>
-                    <div className={`text-xs ${modeStyle.textSoft}`}>{session.type}</div>
-                  </div>
-                  <span className={`text-xs ${modeStyle.textSoft}`}>{displayDurationForSession(session)}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </article>
-
-        <article
-          data-reveal-id="upcoming"
-          className={`relative overflow-hidden rounded-3xl border p-5 backdrop-blur-xl transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${revealClass("upcoming")}`}
-          style={{ transitionDelay: "220ms" }}
-        >
-          <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full bg-cyan-200/20 blur-2xl" />
-          <div className="relative z-10 space-y-4">
-            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
-              <Waves className="h-3.5 w-3.5" />
-              Próximamente
-            </div>
-            <h3 className="text-xl font-semibold">Biblioteca de audios personalizada</h3>
-            <p className={`text-sm ${modeStyle.textSoft}`}>
-              Se detectan automáticamente los audios locales en <code>public/audio/space</code> y se activan en sesiones disponibles.
-              <br />
-              <span className={modeStyle.textMuted}>reset-express.mp3, foco-profundo.mp3, dormir-mejor.mp3, aterriza-mente.mp3, modo-examen.mp3</span>
-            </p>
-            <div className={`rounded-2xl border border-dashed p-4 text-xs ${modeStyle.border} ${modeStyle.surface} ${modeStyle.textSoft}`}>
-              Sesiones activas ahora: <span className="font-semibold">{availableSessionIds.size}</span>. También puedes usar volumen, velocidad y auto-avance desde el player principal.
-            </div>
-          </div>
-        </article>
+      <section
+        data-reveal-id="upcoming"
+        className={`rounded-3xl border p-4 transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${revealClass("upcoming")}`}
+        style={{ transitionDelay: "200ms" }}
+      >
+        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
+          <Waves className="h-3.5 w-3.5" />
+          Biblioteca personalizada activa
+        </div>
+        <p className={`mt-3 text-xs ${modeStyle.textSoft}`}>
+          Sesiones activas ahora: <span className="font-semibold">{availableSessionIds.size}</span> · Archivos esperados en <code>public/audio/space</code>.
+        </p>
       </section>
 
     </div>
