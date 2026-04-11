@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FileText, Filter, Loader2, Search, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,7 +25,7 @@ import {
   saveSrsLibrary,
   type AiNoteDraft,
 } from "@/lib/srs-storage";
-import { getPdfResumeForResource, markPdfProgress } from "@/lib/rabbit-guide";
+import { getPdfResumeForResource, markPdfProgress, RABBIT_GUIDE_SPEAK_EVENT, type RabbitGuideSpeechPayload } from "@/lib/rabbit-guide";
 import type { SrsLibrary } from "@/lib/srs";
 
 type InAppNotice = {
@@ -37,6 +38,70 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+type PdfPreviewCacheEntry = {
+  objectUrl: string;
+  pages: string[];
+  pageCount: number;
+};
+
+const PDF_PREVIEW_CACHE = new Map<string, PdfPreviewCacheEntry>();
+let pdfWorkerConfigured = false;
+let previewCacheCleanupBound = false;
+
+function ensurePdfWorker() {
+  if (pdfWorkerConfigured) return;
+  GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+    import.meta.url,
+  ).toString();
+  pdfWorkerConfigured = true;
+}
+
+function bindPreviewCacheCleanup() {
+  if (previewCacheCleanupBound || typeof window === "undefined") return;
+  previewCacheCleanupBound = true;
+  window.addEventListener("beforeunload", () => {
+    for (const entry of PDF_PREVIEW_CACHE.values()) {
+      URL.revokeObjectURL(entry.objectUrl);
+    }
+    PDF_PREVIEW_CACHE.clear();
+  });
+}
+
+async function renderPdfPages(blob: Blob): Promise<{ pages: string[]; pageCount: number }> {
+  ensurePdfWorker();
+  const data = await blob.arrayBuffer();
+  const task = getDocument({ data });
+  const pdf = await task.promise;
+  const pages: string[] = [];
+  const targetWidth = 980;
+
+  for (let p = 1; p <= pdf.numPages; p += 1) {
+    const page = await pdf.getPage(p);
+    const firstViewport = page.getViewport({ scale: 1 });
+    const scale = targetWidth / firstViewport.width;
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      pages.push("");
+      continue;
+    }
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    pages.push(canvas.toDataURL("image/jpeg", 0.92));
+  }
+
+  try {
+    await pdf.destroy();
+  } catch {
+    // ignore
+  }
+
+  return { pages, pageCount: pdf.numPages };
+}
+
 export function ResourcesClient() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -47,6 +112,8 @@ export function ResourcesClient() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewStalled, setPreviewStalled] = useState(false);
+  const [previewPages, setPreviewPages] = useState<string[]>([]);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [extractedText, setExtractedText] = useState<string>("");
@@ -63,8 +130,11 @@ export function ResourcesClient() {
   const [subject, setSubject] = useState<string>("histologia");
   const [deckId, setDeckId] = useState<string>("deck-histo");
   const [readerPage, setReaderPage] = useState<number>(1);
+  const [committedReaderPage, setCommittedReaderPage] = useState<number>(1);
+  const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
   const [notices, setNotices] = useState<InAppNotice[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const previewScrollRef = useRef<HTMLDivElement | null>(null);
 
   const pushNotice = (title: string, body: string) => {
     const id = `res_notice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -97,6 +167,9 @@ export function ResourcesClient() {
       if (!selectedId) {
         setPreviewUrl(null);
         setPreviewLoading(false);
+        setPreviewStalled(false);
+        setPreviewPages([]);
+        setPreviewError(null);
         setPageCount(null);
         setExtractedText("");
         setChunks([]);
@@ -104,24 +177,22 @@ export function ResourcesClient() {
         setExtractError(null);
         return;
       }
-      const blob = await getPdfResourceBlob(selectedId);
-      if (!blob) {
-        setPreviewUrl(null);
+
+      const cached = PDF_PREVIEW_CACHE.get(selectedId);
+      if (cached) {
+        setPreviewUrl(cached.objectUrl);
+        setPreviewPages(cached.pages);
+        setPageCount(cached.pageCount);
         setPreviewLoading(false);
-        setPageCount(null);
-        setExtractedText("");
-        setChunks([]);
-        setSelectedChunkIdxs(new Set());
-        setExtractError(null);
+        setPreviewStalled(false);
+        setPreviewError(null);
         return;
       }
-      const url = URL.createObjectURL(blob);
-      setPreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return url;
-      });
+
       setPreviewLoading(true);
       setPreviewStalled(false);
+      setPreviewPages([]);
+      setPreviewError(null);
       setPageCount(null);
       setExtractedText("");
       setChunks([]);
@@ -129,14 +200,46 @@ export function ResourcesClient() {
       setExtractError(null);
       setAiNotes(null);
       setAiError(null);
+
+      const blob = await getPdfResourceBlob(selectedId);
+      if (!blob) {
+        setPreviewUrl(null);
+        setPreviewLoading(false);
+        setPreviewPages([]);
+        setPageCount(null);
+        setExtractedText("");
+        setChunks([]);
+        setSelectedChunkIdxs(new Set());
+        setExtractError(null);
+        setPreviewError("No se pudo leer el PDF.");
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      bindPreviewCacheCleanup();
+
+      try {
+        const rendered = await renderPdfPages(blob);
+        const entry: PdfPreviewCacheEntry = {
+          objectUrl,
+          pages: rendered.pages,
+          pageCount: rendered.pageCount,
+        };
+        PDF_PREVIEW_CACHE.set(selectedId, entry);
+        setPreviewUrl(entry.objectUrl);
+        setPreviewPages(entry.pages);
+        setPageCount(entry.pageCount);
+        setPreviewLoading(false);
+        setPreviewStalled(false);
+      } catch (e) {
+        URL.revokeObjectURL(objectUrl);
+        setPreviewLoading(false);
+        setPreviewPages([]);
+        setPreviewError(e instanceof Error ? e.message : "No se pudo renderizar el PDF.");
+      }
     };
+
     void run();
-    return () => {
-      setPreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-    };
   }, [selectedId]);
 
   useEffect(() => {
@@ -176,29 +279,152 @@ export function ResourcesClient() {
   }, [items, query, filterSubject]);
 
   const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
+  const selectedSubjectSlug =
+    selected?.subjectSlug === "anatomia" ||
+    selected?.subjectSlug === "histologia" ||
+    selected?.subjectSlug === "embriologia" ||
+    selected?.subjectSlug === "biologia-celular"
+      ? (selected.subjectSlug as SubjectSlug)
+      : null;
+
+  const speakRabbit = (payload: RabbitGuideSpeechPayload) => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent(RABBIT_GUIDE_SPEAK_EVENT, { detail: payload }));
+  };
 
   useEffect(() => {
     if (!selected) return;
     const resume = getPdfResumeForResource(selected.id);
-    setReaderPage(resume ?? selected.pageStart ?? 1);
+    const nextPage = resume ?? selected.pageStart ?? 1;
+    setReaderPage(nextPage);
+    setCommittedReaderPage(nextPage);
   }, [selected]);
 
-  useEffect(() => {
+  const scrollToPreviewPage = (page: number, behavior: ScrollBehavior = "smooth") => {
+    const root = previewScrollRef.current;
+    if (!root) return;
+    const node = root.querySelector<HTMLElement>(`[data-preview-page="${page}"]`);
+    if (!node) return;
+    root.scrollTo({ top: node.offsetTop - 8, behavior });
+  };
+
+  const jumpToPage = (next: number, behavior: ScrollBehavior = "smooth") => {
+    const maxPage = pageCount ?? previewPages.length || 1;
+    const safe = clamp(Math.floor(next || 1), 1, maxPage);
+    setReaderPage(safe);
+    scrollToPreviewPage(safe, behavior);
+  };
+
+  const commitReaderProgress = (page: number, notifyMessage: string) => {
     if (!selected) return;
-    const subjectSlug =
-      selected.subjectSlug === "anatomia" ||
-      selected.subjectSlug === "histologia" ||
-      selected.subjectSlug === "embriologia" ||
-      selected.subjectSlug === "biologia-celular"
-        ? (selected.subjectSlug as SubjectSlug)
-        : null;
+    const safe = Math.max(1, Math.floor(page || 1));
     markPdfProgress({
       resourceId: selected.id,
       title: selected.title,
-      page: Math.max(1, Math.floor(readerPage || 1)),
-      subjectSlug,
+      page: safe,
+      subjectSlug: selectedSubjectSlug,
     });
-  }, [selected, readerPage]);
+    setCommittedReaderPage(safe);
+    speakRabbit({
+      title: "Lectura guardada",
+      message: `${selected.title}: retomamos en la página ${safe}.`,
+      status: notifyMessage,
+      durationMs: 4200,
+    });
+  };
+
+  const hasPendingReaderChanges = Boolean(selected && readerPage !== committedReaderPage);
+
+  useEffect(() => {
+    const root = previewScrollRef.current;
+    if (!root || !previewPages.length) return;
+    const nodes = Array.from(root.querySelectorAll<HTMLElement>("[data-preview-page]"));
+    if (!nodes.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (!visible) return;
+        const page = Number((visible.target as HTMLElement).dataset.previewPage);
+        if (!Number.isFinite(page)) return;
+        setReaderPage((prev) => (prev === page ? prev : page));
+      },
+      {
+        root,
+        threshold: [0.55, 0.75, 0.92],
+      },
+    );
+
+    for (const node of nodes) observer.observe(node);
+
+    return () => observer.disconnect();
+  }, [previewPages, selectedId]);
+
+  useEffect(() => {
+    if (!previewPages.length) return;
+    const id = window.requestAnimationFrame(() => {
+      scrollToPreviewPage(readerPage, "auto");
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [previewPages, selectedId, readerPage]);
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasPendingReaderChanges) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasPendingReaderChanges]);
+
+  useEffect(() => {
+    const onDocumentClick = (event: MouseEvent) => {
+      if (!hasPendingReaderChanges || pendingLeaveHref) return;
+      const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!(target instanceof HTMLAnchorElement)) return;
+      const href = target.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+      const next = new URL(href, window.location.href);
+      const current = new URL(window.location.href);
+      if (next.origin !== current.origin) return;
+      if (next.pathname === current.pathname && next.search === current.search && next.hash === current.hash) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setPendingLeaveHref(next.toString());
+      speakRabbit({
+        title: "¿Guardamos tu avance?",
+        message: `Vas por la página ${readerPage}. ¿Quieres guardar esa página antes de salir?`,
+        status: "Elige Sí para guardar o No para mantener la página anterior.",
+        durationMs: 6000,
+      });
+    };
+
+    document.addEventListener("click", onDocumentClick, true);
+    return () => document.removeEventListener("click", onDocumentClick, true);
+  }, [hasPendingReaderChanges, pendingLeaveHref, readerPage]);
+
+  const resolvePendingLeave = (saveCurrentPage: boolean) => {
+    const targetHref = pendingLeaveHref;
+    setPendingLeaveHref(null);
+
+    if (saveCurrentPage) {
+      commitReaderProgress(readerPage, "Confirmado antes de salir.");
+    } else {
+      jumpToPage(committedReaderPage, "auto");
+      speakRabbit({
+        title: "Avance conservado",
+        message: `Mantenemos la página anterior (${committedReaderPage}) sin cambios.`,
+        durationMs: 4200,
+      });
+    }
+
+    if (targetHref) {
+      window.location.assign(targetHref);
+    }
+  };
 
   const onPickFile = async (file: File) => {
     setBusy(true);
@@ -591,35 +817,54 @@ export function ResourcesClient() {
                 <div className="rounded-2xl bg-white/7 p-3">
                   <div className="text-xs uppercase tracking-wider text-white/70">Vista previa</div>
                   <div className="mt-2 overflow-hidden rounded-xl border border-white/10">
-                    {previewUrl ? (
-                      <div className="relative">
-                        <object
-                          data={`${previewUrl}#page=${readerPage}&toolbar=1&navpanes=0&scrollbar=1`}
-                          type="application/pdf"
-                          className="h-[640px] w-full"
-                          onLoad={() => {
-                            setPreviewLoading(false);
-                            setPreviewStalled(false);
-                          }}
-                        >
-                          <div className="flex h-[640px] w-full flex-col items-center justify-center gap-2 px-4 text-center text-sm text-foreground/75">
-                            <p>No se pudo renderizar el PDF embebido en este navegador.</p>
-                            <a
-                              href={previewUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/15"
-                            >
-                              Abrir PDF completo
-                            </a>
-                          </div>
-                        </object>
-                        {previewLoading ? (
-                          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/70 text-xs text-foreground/75">
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            <span>Cargando PDF completo...</span>
-                          </div>
+                    {previewLoading ? (
+                      <div className="flex h-[640px] w-full flex-col items-center justify-center gap-2 text-xs text-foreground/75">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Cargando PDF completo...</span>
+                      </div>
+                    ) : previewError ? (
+                      <div className="flex h-[640px] w-full flex-col items-center justify-center gap-3 px-4 text-center text-sm text-foreground/75">
+                        <p>{previewError}</p>
+                        {previewUrl ? (
+                          <a
+                            href={previewUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/15"
+                          >
+                            Abrir PDF completo
+                          </a>
                         ) : null}
+                      </div>
+                    ) : previewPages.length ? (
+                      <div className="relative">
+                        <div className="border-b border-white/10 px-3 py-2 text-[11px] text-white/70">
+                          Página actual detectada: <span className="font-semibold text-white">{readerPage}</span>
+                        </div>
+                        <div ref={previewScrollRef} className="h-[600px] overflow-y-auto bg-black/35 p-2">
+                          <div className="space-y-3">
+                            {previewPages.map((pageSrc, idx) => (
+                              <section
+                                key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
+                                data-preview-page={idx + 1}
+                                className="overflow-hidden rounded-lg border border-white/10 bg-white"
+                              >
+                                {pageSrc ? (
+                                  <img
+                                    src={pageSrc}
+                                    alt={`Página ${idx + 1}`}
+                                    className="w-full"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="flex h-56 items-center justify-center text-sm text-slate-600">
+                                    No se pudo renderizar esta página.
+                                  </div>
+                                )}
+                              </section>
+                            ))}
+                          </div>
+                        </div>
                         {previewStalled ? (
                           <div className="absolute bottom-3 right-3 rounded-lg border border-amber-300/40 bg-amber-200/10 px-2.5 py-1 text-[11px] text-amber-100">
                             Vista previa lenta. Puedes abrir el PDF completo.
@@ -685,11 +930,45 @@ export function ResourcesClient() {
                         onChange={(e) => {
                           const n = Number(e.target.value);
                           if (!Number.isFinite(n)) return;
-                          setReaderPage(Math.max(1, Math.floor(n)));
+                          jumpToPage(n);
                         }}
+                        onBlur={(e) => jumpToPage(Number(e.target.value), "auto")}
                         className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
                       />
-                      <div className="text-xs text-white/60">Se guarda para reanudar lectura.</div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+                          onClick={() => jumpToPage(readerPage - 1)}
+                          disabled={readerPage <= 1}
+                        >
+                          -1
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+                          onClick={() => jumpToPage(readerPage + 1)}
+                          disabled={readerPage >= (pageCount ?? previewPages.length || 1)}
+                        >
+                          +1
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="border border-white/25 bg-white text-black hover:bg-white/90"
+                          onClick={() => commitReaderProgress(readerPage, "Guardado manual.")}
+                          disabled={!selected}
+                        >
+                          Guardar
+                        </Button>
+                      </div>
+                      <div className="text-xs text-white/60">
+                        Guardado actual: pág. {committedReaderPage}. {hasPendingReaderChanges ? "Hay cambios sin confirmar." : "Todo guardado."}
+                      </div>
                     </div>
                   </div>
 
@@ -942,6 +1221,35 @@ export function ResourcesClient() {
           </div>
         </div>
       )}
+
+      {pendingLeaveHref ? (
+        <div className="fixed inset-0 z-[135] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-white/20 bg-slate-950/95 p-4 text-white shadow-2xl">
+            <div className="text-sm font-semibold">¿Guardar página antes de salir?</div>
+            <p className="mt-1 text-xs text-white/75">
+              Te quedaste en la página {readerPage}. Si eliges &quot;Sí&quot;, se guarda esa página para retomar con el conejo.
+              Si eliges &quot;No&quot;, mantenemos la página anterior ({committedReaderPage}).
+            </p>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+                onClick={() => resolvePendingLeave(false)}
+              >
+                No
+              </Button>
+              <Button
+                type="button"
+                className="border border-white/20 bg-white text-black hover:bg-white/90"
+                onClick={() => resolvePendingLeave(true)}
+              >
+                Sí, guardar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {notices.length > 0 ? (
         <div className="pointer-events-none fixed bottom-5 left-5 z-[130] flex w-[min(92vw,360px)] flex-col gap-2">
