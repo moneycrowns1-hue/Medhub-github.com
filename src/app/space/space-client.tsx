@@ -1252,25 +1252,27 @@ export function SpaceClient() {
       </section>
 
       {showDockPlayer ? (
-        <section className="fixed inset-x-0 bottom-0 z-40 px-3 pb-3 sm:px-5 sm:pb-5">
-          <div className="mx-auto w-full max-w-6xl">
-            <div className={`overflow-hidden rounded-[26px] border shadow-[0_26px_90px_-38px_rgba(0,0,0,0.92)] backdrop-blur-2xl ${modeStyle.border} ${modeStyle.surface}`}>
+        <section className="fixed inset-x-0 bottom-0 z-40 px-3 pb-4 sm:px-6 sm:pb-6">
+          <div className="mx-auto w-full max-w-5xl">
+            <div className={`relative isolate overflow-hidden rounded-[30px] border shadow-[0_30px_120px_-44px_rgba(0,0,0,0.98)] backdrop-blur-2xl ${modeStyle.border} ${modeStyle.surface}`}>
+              <div className="pointer-events-none absolute -left-10 -top-10 h-28 w-28 rounded-full bg-cyan-200/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-16 right-8 h-32 w-32 rounded-full bg-indigo-200/10 blur-3xl" />
               {playing ? (
-                <div key={playPulseToken} className="pointer-events-none absolute inset-0 rounded-[26px] border border-cyan-200/35 animate-[ping_900ms_ease-out_1]" />
+                <div key={playPulseToken} className="pointer-events-none absolute inset-0 rounded-[30px] border border-cyan-200/35 animate-[ping_900ms_ease-out_1]" />
               ) : null}
 
-              <div className="px-4 pt-4 sm:px-5 sm:pt-5">
+              <div className="px-4 pt-3 sm:px-6 sm:pt-4">
                 <div className={`h-1.5 overflow-hidden rounded-full ${modeStyle.progressTrack}`}>
                   <div className={`h-full rounded-full transition-all ${modeStyle.progressFill}`} style={{ width: `${progress}%` }} />
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4">
+              <div className="flex items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
                 <button
                   type="button"
                   onClick={() => setPlayerExpanded((prev) => !prev)}
                   aria-expanded={playerExpanded}
-                  className={`flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-2 py-1 text-left transition ${modeStyle.softSurfaceAlt}`}
+                  className={`flex min-w-0 flex-1 items-center gap-3 rounded-3xl border px-3 py-2 text-left transition ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}
                 >
                   <span className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
                     <span className={`absolute inset-0 bg-gradient-to-br ${activeCoverTone} ${playing ? "animate-pulse" : ""}`} />
@@ -1278,7 +1280,23 @@ export function SpaceClient() {
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold sm:text-base">{activeSession?.title ?? "Sin sesión"}</span>
-                    <span className={`block truncate text-xs ${modeStyle.textSoft}`}>{activeSession?.type}</span>
+                    <span className={`inline-flex items-center gap-2 truncate text-xs ${modeStyle.textSoft}`}>
+                      {activeSession?.type}
+                      <span className="inline-flex items-end gap-0.5">
+                        <span
+                          className={`w-0.5 rounded-full bg-cyan-100/80 ${playing ? "animate-pulse" : "opacity-40"}`}
+                          style={{ height: "8px", animationDelay: "0ms" }}
+                        />
+                        <span
+                          className={`w-0.5 rounded-full bg-cyan-100/80 ${playing ? "animate-pulse" : "opacity-40"}`}
+                          style={{ height: "11px", animationDelay: "140ms" }}
+                        />
+                        <span
+                          className={`w-0.5 rounded-full bg-cyan-100/80 ${playing ? "animate-pulse" : "opacity-40"}`}
+                          style={{ height: "7px", animationDelay: "260ms" }}
+                        />
+                      </span>
+                    </span>
                   </span>
                   <span className={`ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full border ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
                     {playerExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -1317,11 +1335,11 @@ export function SpaceClient() {
 
               <div
                 className={`overflow-hidden border-t transition-all duration-300 ease-out ${modeStyle.border} ${
-                  playerExpanded ? "max-h-[520px] opacity-100" : "max-h-0 opacity-0"
+                  playerExpanded ? "max-h-[560px] translate-y-0 opacity-100" : "max-h-0 -translate-y-1 opacity-0"
                 }`}
                 aria-hidden={!playerExpanded}
               >
-                <div className="space-y-4 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+                <div className="space-y-4 px-4 pb-4 pt-3 sm:px-6 sm:pb-6">
                   <div className={`relative overflow-hidden rounded-2xl border p-4 ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
                     <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${activeCoverTone}`} />
                     <div className="relative z-10 flex items-center gap-3">
@@ -1360,7 +1378,7 @@ export function SpaceClient() {
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-[1fr_180px_160px]">
-                    <label className={`space-y-1 text-xs ${modeStyle.textSoft}`}>
+                    <label className={`space-y-1 rounded-2xl border px-3 py-2.5 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
                       <span className="inline-flex items-center gap-1">
                         <Volume2 className="h-3.5 w-3.5" />
                         Volumen ({Math.round(volume * 100)}%)
@@ -1377,7 +1395,7 @@ export function SpaceClient() {
                       />
                     </label>
 
-                    <label className={`space-y-1 text-xs ${modeStyle.textSoft}`}>
+                    <label className={`space-y-1 rounded-2xl border px-3 py-2.5 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
                       <span>Velocidad</span>
                       <select
                         value={String(playbackRate)}
@@ -1393,7 +1411,7 @@ export function SpaceClient() {
                       </select>
                     </label>
 
-                    <label className={`inline-flex items-center gap-2 self-end rounded-xl px-3 py-2 text-xs ${modeStyle.softSurfaceAlt}`}>
+                    <label className={`inline-flex items-center gap-2 self-end rounded-2xl border px-3 py-2.5 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
                       <input
                         type="checkbox"
                         checked={autoAdvance}
