@@ -218,34 +218,34 @@ export function SpaceGlobalPlayer() {
   if (pathname === "/space" || !visible) return null;
 
   return (
-    <section className="fixed inset-x-0 bottom-0 z-50 px-3 pb-4 sm:px-6 sm:pb-6">
-      <div className="mx-auto w-full max-w-4xl">
-        <div className="relative overflow-hidden rounded-[28px] border border-cyan-100/20 bg-slate-950/80 shadow-[0_24px_90px_-42px_rgba(0,0,0,0.98)] backdrop-blur-2xl">
+    <section className="fixed inset-x-0 bottom-0 z-50 px-3 pb-2 sm:px-6 sm:pb-3">
+      <div className="mx-auto w-full max-w-3xl">
+        <div className="relative overflow-hidden rounded-[24px] bg-slate-950/80 shadow-[0_18px_60px_-34px_rgba(0,0,0,0.96)] backdrop-blur-2xl">
           <div className="pointer-events-none absolute -left-10 -top-10 h-28 w-28 rounded-full bg-cyan-200/10 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-14 right-8 h-28 w-28 rounded-full bg-indigo-200/10 blur-3xl" />
 
-          <div className="px-4 pt-3 sm:px-6 sm:pt-4">
+          <div className="px-3 pt-2.5 sm:px-4 sm:pt-3">
             <div className="h-1.5 overflow-hidden rounded-full bg-cyan-50/15">
               <div className="h-full rounded-full bg-cyan-50 transition-all" style={{ width: `${progress}%` }} />
             </div>
           </div>
 
-          <div className="flex items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3">
             <button
               type="button"
               onClick={() => setExpanded((prev) => !prev)}
               aria-expanded={expanded}
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-3xl border border-cyan-100/20 bg-cyan-50/10 px-3 py-2 text-left transition"
+              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl bg-cyan-50/10 px-2.5 py-2 text-left transition"
             >
-              <span className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-cyan-100/20 bg-cyan-50/10">
+              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-cyan-50/10">
                 <span className={`absolute inset-0 bg-gradient-to-br from-cyan-300/35 via-indigo-300/20 to-transparent ${playing ? "animate-pulse" : ""}`} />
-                <Music2 className="relative z-10 h-5 w-5 text-cyan-50" />
+                <Music2 className="relative z-10 h-4.5 w-4.5 text-cyan-50" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-cyan-50 sm:text-base">{activeMeta?.title ?? "Space"}</span>
+                <span className="block truncate text-sm font-semibold text-cyan-50">{activeMeta?.title ?? "Space"}</span>
                 <span className="block truncate text-xs text-cyan-50/75">{activeMeta?.type ?? "Audio en reproducción"}</span>
               </span>
-              <span className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full border border-cyan-100/20 bg-cyan-50/10 text-cyan-50">
+              <span className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full bg-cyan-50/10 text-cyan-50">
                 {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
               </span>
             </button>
@@ -253,21 +253,21 @@ export function SpaceGlobalPlayer() {
             <button
               type="button"
               onClick={togglePlayback}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-cyan-50/40 bg-cyan-50 text-slate-950 transition hover:bg-cyan-100"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-cyan-50 text-slate-950 transition hover:bg-cyan-100"
               aria-label={playing ? "Pausar" : "Reproducir"}
             >
-              {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+              {playing ? <Pause className="h-4.5 w-4.5" /> : <Play className="h-4.5 w-4.5" />}
             </button>
           </div>
 
           <div
-            className={`overflow-hidden border-t border-cyan-100/20 transition-all duration-300 ease-out ${
-              expanded ? "max-h-[320px] translate-y-0 opacity-100" : "max-h-0 -translate-y-1 opacity-0"
+            className={`overflow-hidden transition-all duration-300 ease-out ${
+              expanded ? "max-h-[250px] translate-y-0 opacity-100" : "max-h-0 -translate-y-1 opacity-0"
             }`}
             aria-hidden={!expanded}
           >
-            <div className="space-y-4 px-4 pb-4 pt-3 sm:px-6 sm:pb-6">
-              <label className="block space-y-1">
+            <div className="space-y-3 px-3 pb-3 pt-1.5 sm:px-4 sm:pb-4">
+              <label className="block">
                 <span className="sr-only">Progreso</span>
                 <input
                   type="range"
@@ -285,7 +285,7 @@ export function SpaceGlobalPlayer() {
               </div>
 
               <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-                <label className="space-y-1 rounded-2xl border border-cyan-100/20 bg-cyan-50/10 px-3 py-2.5 text-xs text-cyan-50/80">
+                <label className="space-y-1 rounded-xl bg-cyan-50/10 px-2.5 py-2 text-xs text-cyan-50/80">
                   <span className="inline-flex items-center gap-1">
                     <Volume2 className="h-3.5 w-3.5" />
                     Volumen ({Math.round(volume * 100)}%)
@@ -300,7 +300,7 @@ export function SpaceGlobalPlayer() {
                   />
                 </label>
 
-                <label className="space-y-1 rounded-2xl border border-cyan-100/20 bg-cyan-50/10 px-3 py-2.5 text-xs text-cyan-50/80">
+                <label className="space-y-1 rounded-xl bg-cyan-50/10 px-2.5 py-2 text-xs text-cyan-50/80">
                   <span className="inline-flex items-center gap-1">
                     <SlidersHorizontal className="h-3.5 w-3.5" />
                     Velocidad
