@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { FileText, Filter, Search, Trash2, Upload } from "lucide-react";
+import { FileText, Filter, Loader2, Search, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ export function ResourcesClient() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewStalled, setPreviewStalled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [extractedText, setExtractedText] = useState<string>("");
@@ -120,6 +121,7 @@ export function ResourcesClient() {
         return url;
       });
       setPreviewLoading(true);
+      setPreviewStalled(false);
       setPageCount(null);
       setExtractedText("");
       setChunks([]);
@@ -136,6 +138,15 @@ export function ResourcesClient() {
       });
     };
   }, [selectedId]);
+
+  useEffect(() => {
+    if (!previewLoading || !previewUrl) return;
+    const timeoutId = window.setTimeout(() => {
+      setPreviewStalled(true);
+      setPreviewLoading(false);
+    }, 9000);
+    return () => window.clearTimeout(timeoutId);
+  }, [previewLoading, previewUrl]);
 
   const selectedTextForAi = useMemo(() => {
     if (!chunks.length || selectedChunkIdxs.size === 0) return extractedText;
@@ -582,16 +593,36 @@ export function ResourcesClient() {
                   <div className="mt-2 overflow-hidden rounded-xl border border-white/10">
                     {previewUrl ? (
                       <div className="relative">
-                        <iframe
-                          title="pdf-preview"
-                          src={`${previewUrl}#page=${readerPage}&toolbar=1&navpanes=0&scrollbar=1`}
+                        <object
+                          data={`${previewUrl}#page=${readerPage}&toolbar=1&navpanes=0&scrollbar=1`}
+                          type="application/pdf"
                           className="h-[640px] w-full"
-                          loading="lazy"
-                          onLoad={() => setPreviewLoading(false)}
-                        />
+                          onLoad={() => {
+                            setPreviewLoading(false);
+                            setPreviewStalled(false);
+                          }}
+                        >
+                          <div className="flex h-[640px] w-full flex-col items-center justify-center gap-2 px-4 text-center text-sm text-foreground/75">
+                            <p>No se pudo renderizar el PDF embebido en este navegador.</p>
+                            <a
+                              href={previewUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/15"
+                            >
+                              Abrir PDF completo
+                            </a>
+                          </div>
+                        </object>
                         {previewLoading ? (
-                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/70 text-xs text-foreground/70">
-                            Cargando vista previa...
+                          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/70 text-xs text-foreground/75">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span>Cargando PDF completo...</span>
+                          </div>
+                        ) : null}
+                        {previewStalled ? (
+                          <div className="absolute bottom-3 right-3 rounded-lg border border-amber-300/40 bg-amber-200/10 px-2.5 py-1 text-[11px] text-amber-100">
+                            Vista previa lenta. Puedes abrir el PDF completo.
                           </div>
                         ) : null}
                       </div>
