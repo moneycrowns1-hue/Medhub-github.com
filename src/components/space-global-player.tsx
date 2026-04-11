@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import { ChevronDown, ChevronUp, Music2, Pause, Play, SlidersHorizontal, Volume2 } from "lucide-react";
 
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
@@ -92,7 +91,6 @@ function loadInitialPlaybackRate() {
 }
 
 export function SpaceGlobalPlayer() {
-  const pathname = usePathname();
   const audioRef = useRef<HTMLAudioElement | null>(getSpaceSharedAudio());
   const [expanded, setExpanded] = useState(false);
   const [visible, setVisible] = useState(() => {
@@ -215,7 +213,7 @@ export function SpaceGlobalPlayer() {
     setElapsedSec(nextTime);
   };
 
-  if (pathname === "/space" || !visible) return null;
+  if (!visible) return null;
 
   return (
     <section className="fixed inset-x-0 bottom-0 z-50 px-3 pb-2 sm:px-6 sm:pb-3">

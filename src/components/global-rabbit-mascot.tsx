@@ -685,7 +685,7 @@ export function GlobalRabbitMascot() {
     <>
       <div
         ref={rootRef}
-        className="fixed left-0 top-0 z-50"
+        className="fixed left-0 top-0 z-[70]"
         style={{ willChange: "transform" }}
       >
         <div ref={spriteRef} className="pointer-events-none">
@@ -702,7 +702,7 @@ export function GlobalRabbitMascot() {
       {speech ? (
         <div
           ref={speechRef}
-          className="pointer-events-auto fixed z-[55] w-[min(360px,88vw)] rounded-[26px] border border-white/25 bg-slate-950/95 px-4 py-3 text-white shadow-2xl backdrop-blur-xl"
+          className="pointer-events-auto fixed z-[75] w-[min(360px,88vw)] rounded-[26px] border border-white/25 bg-slate-950/95 px-4 py-3 text-white shadow-2xl backdrop-blur-xl"
           style={{ left: bubbleLayout.left, top: bubbleLayout.top }}
         >
           <div className="text-sm leading-tight [font-family:var(--font-heading)]">{speech.title}</div>

@@ -855,7 +855,7 @@ export function SpaceClient() {
   const isSessionAvailable = (sessionId: string) => availableSessionIds.has(sessionId);
 
   const progress = durationSec > 0 ? Math.min(100, Math.round((elapsedSec / durationSec) * 100)) : 0;
-  const showDockPlayer = dockVisible && Boolean(activeSession);
+  const showDockPlayer = false && dockVisible && Boolean(activeSession);
   const availablePlaylist = playlist.filter((session) => isSessionAvailable(session.id));
   const currentPlaylistIndex = availablePlaylist.findIndex((session) => session.id === activeSession?.id);
   const canPlayPrev = currentPlaylistIndex > 0;
