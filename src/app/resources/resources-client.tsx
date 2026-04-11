@@ -444,11 +444,17 @@ export function ResourcesClient() {
       </div>
 
       {loading ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),minmax(0,1.2fr)]">
+        <div className="grid gap-4 lg:grid-cols-[430px,minmax(0,1.2fr)]">
           <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-white/55">Biblioteca</div>
+                <div className="text-sm font-semibold text-white/90">Tarjetas PDF</div>
+              </div>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {Array.from({ length: 6 }).map((_, idx) => (
-                <div key={idx} className="aspect-square rounded-3xl bg-white/8 p-3">
+                <div key={idx} className="aspect-square w-full max-w-[170px] justify-self-center rounded-3xl bg-white/8 p-3">
                   <Skeleton className="h-full w-full rounded-2xl" />
                 </div>
               ))}
@@ -459,8 +465,17 @@ export function ResourcesClient() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),minmax(0,1.2fr)]">
+        <div className="grid gap-4 lg:grid-cols-[430px,minmax(0,1.2fr)]">
           <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-white/55">Biblioteca</div>
+                <div className="text-sm font-semibold text-white/90">Tarjetas PDF</div>
+              </div>
+              <div className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] text-white/75">
+                {filtered.length}
+              </div>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {filtered.map((i) => (
                 <div
@@ -474,7 +489,7 @@ export function ResourcesClient() {
                   }}
                   role="button"
                   tabIndex={0}
-                  className={`relative aspect-square overflow-hidden rounded-3xl p-4 text-left transition-all duration-200 hover:-translate-y-0.5 ${
+                  className={`relative aspect-square w-full max-w-[170px] justify-self-center overflow-hidden rounded-3xl p-3 text-left transition-all duration-200 hover:-translate-y-0.5 ${
                     i.id === selectedId
                       ? "bg-gradient-to-br from-white/28 via-white/14 to-white/6 ring-1 ring-white/45"
                       : "bg-gradient-to-br from-white/14 via-white/8 to-white/4 ring-1 ring-white/15 hover:ring-white/30"
@@ -483,8 +498,8 @@ export function ResourcesClient() {
                   <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_52%)]" />
                   <div className="relative flex h-full flex-col justify-between">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/35 text-white/90">
-                        <FileText className="h-4.5 w-4.5" />
+                      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-black/35 text-white/90">
+                        <FileText className="h-4 w-4" />
                       </span>
                       <Button
                         variant="outline"
@@ -501,7 +516,7 @@ export function ResourcesClient() {
                     </div>
 
                     <div className="space-y-2">
-                      <div className="line-clamp-2 text-base font-semibold leading-tight text-white">{i.title}</div>
+                      <div className="line-clamp-2 text-sm font-semibold leading-tight text-white">{i.title}</div>
                       <div className="text-xs text-white/70">{Math.round(i.sizeBytes / 1024)} KB · pp. {i.pageStart}–{i.pageEnd}</div>
                       {i.subjectSlug && SUBJECTS[i.subjectSlug as keyof typeof SUBJECTS] ? (
                         <span className="inline-flex rounded-full bg-black/30 px-2.5 py-1 text-[10px] font-medium text-white/90">
