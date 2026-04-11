@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Outfit, Pixelify_Sans } from "next/font/google";
-import { ArrowRight, Headphones, Heart, Pause, Play, SkipBack, SkipForward, Sparkles, Waves } from "lucide-react";
+import { Headphones, Heart, Pause, Play, SkipBack, SkipForward, Sparkles, Waves } from "lucide-react";
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
 
 type Mood = {
@@ -260,7 +259,7 @@ const sessions: SpaceSession[] = [
     audioSrc: SPACE_ARCHIVE_STREAM_URL,
     embedSrc: SPACE_ARCHIVE_EMBED_URL,
     externalHref: SPACE_ARCHIVE_EXTERNAL_URL,
-    preferEmbed: true,
+    preferEmbed: false,
   },
   {
     id: "aterriza-mente",
@@ -624,7 +623,6 @@ export function SpaceClient() {
     return sessions.find((s) => s.id === activeId) ?? filteredSessions[0] ?? sessions[0];
   }, [activeId, filteredSessions]);
   const activeUsesArchiveSource = activeSession?.id === SPACE_ARCHIVE_SESSION_ID;
-  const activeUsesEmbed = Boolean(activeSession?.embedSrc && activeSession.preferEmbed);
 
   const playlist = useMemo(() => {
     if (filteredSessions.length === 0) return sessions;
@@ -868,19 +866,6 @@ export function SpaceClient() {
     setActiveId(sessionId);
     setPlaybackError(null);
 
-    const targetSession = sessions.find((session) => session.id === sessionId);
-    if (targetSession?.embedSrc && targetSession.preferEmbed) {
-      const audio = audioRef.current;
-      audio?.pause();
-      setPlaying(false);
-      setElapsedSec(0);
-      setDurationSec(targetSession.approxLengthSec);
-      if (shouldAutoplay) {
-        setPlaybackError("Esta sesión usa reproductor embebido. Presiona play dentro del iframe.");
-      }
-      return;
-    }
-
     const prepared = ensureAudioSourceForSession(sessionId);
     if (!prepared) return;
 
@@ -904,10 +889,6 @@ export function SpaceClient() {
 
   const togglePlayback = async () => {
     if (!activeSession) return;
-    if (activeUsesEmbed) {
-      setPlaybackError("Esta sesión usa reproductor embebido. Presiona play dentro del iframe.");
-      return;
-    }
     const prepared = ensureAudioSourceForSession(activeSession.id);
     if (!prepared) return;
     const { audio } = prepared;
@@ -1030,29 +1011,11 @@ export function SpaceClient() {
               {playing ? "Pausar" : "Reproducir"}
             </button>
             {activeUsesArchiveSource ? (
-              <>
-                <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
-                  <Headphones className="h-3.5 w-3.5" />
-                  Fuente: Archive
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.open(SPACE_ARCHIVE_EXTERNAL_URL, "_blank", "noopener,noreferrer");
-                  }}
-                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${modeStyle.secondaryButton}`}
-                >
-                  Abrir fuente
-                </button>
-              </>
+              <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
+                <Headphones className="h-3.5 w-3.5" />
+                Fuente: Archive
+              </span>
             ) : null}
-            <Link
-              href="/day"
-              className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition ${modeStyle.secondaryButton}`}
-            >
-              Conectar con mi plan
-              <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
         </div>
         <>
@@ -1064,36 +1027,6 @@ export function SpaceClient() {
             <span>{fmt(durationSec)}</span>
           </div>
         </>
-        {activeUsesEmbed ? (
-          <div className={`mt-4 rounded-2xl border p-3 ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
-            <div className={`mb-2 text-[11px] ${modeStyle.textSoft}`}>
-              Reproductor embebido para audio pesado. El audio se sirve desde fuente externa.
-            </div>
-            <div className="overflow-hidden rounded-xl border border-white/15 bg-black/25">
-              <iframe
-                src={activeSession?.embedSrc}
-                width="100%"
-                height="90"
-                frameBorder="0"
-                allow="autoplay; encrypted-media"
-                title={`Embed ${activeSession?.title ?? "audio"}`}
-              />
-            </div>
-            {activeSession?.externalHref ? (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.open(activeSession.externalHref, "_blank", "noopener,noreferrer");
-                  }}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${modeStyle.secondaryButton}`}
-                >
-                  Abrir fuente externa
-                </button>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <label className={`space-y-1 text-xs ${modeStyle.textSoft}`}>
             <span>Volumen ({Math.round(volume * 100)}%)</span>
@@ -1102,7 +1035,6 @@ export function SpaceClient() {
               min={0}
               max={100}
               value={Math.round(volume * 100)}
-              disabled={activeUsesEmbed}
               onChange={(event) => {
                 setVolume(Number(event.target.value) / 100);
               }}
@@ -1113,7 +1045,6 @@ export function SpaceClient() {
             <span>Velocidad</span>
             <select
               value={String(playbackRate)}
-              disabled={activeUsesEmbed}
               onChange={(event) => {
                 setPlaybackRate(Number(event.target.value));
               }}
@@ -1129,7 +1060,6 @@ export function SpaceClient() {
             <input
               type="checkbox"
               checked={autoAdvance}
-              disabled={activeUsesEmbed}
               onChange={(event) => {
                 setAutoAdvance(event.target.checked);
               }}
@@ -1274,23 +1204,6 @@ export function SpaceClient() {
                   </div>
                 </div>
                 <p className={`mt-2 text-sm ${modeStyle.textSoft}`}>{session.desc}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => startSession(session.id)}
-                    disabled={!isAvailable}
-                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${modeStyle.primaryButton}`}
-                  >
-                    Seleccionar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleFavorite(session.id)}
-                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition ${modeStyle.secondaryButton}`}
-                  >
-                    {isFav ? "Quitar favorito" : "Guardar favorito"}
-                  </button>
-                </div>
               </article>
             );
           })}
