@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Outfit, Pixelify_Sans } from "next/font/google";
-import { Headphones, Heart, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Waves } from "lucide-react";
+import { ChevronDown, ChevronUp, Headphones, Heart, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Volume2, Waves } from "lucide-react";
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
 
 type Mood = {
@@ -287,6 +287,13 @@ function fmt(sec: number) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function coverGradientForMood(moodId?: string) {
+  if (moodId === "respira") return "from-emerald-300/40 via-cyan-300/25 to-transparent";
+  if (moodId === "enfocate") return "from-indigo-300/40 via-blue-300/25 to-transparent";
+  if (moodId === "descarga") return "from-fuchsia-300/35 via-violet-300/20 to-transparent";
+  return "from-cyan-200/40 via-slate-200/20 to-transparent";
+}
+
 function loadFavorites() {
   if (typeof window === "undefined") return [] as string[];
   try {
@@ -469,6 +476,12 @@ export function SpaceClient() {
   const [volume, setVolume] = useState(() => loadInitialVolume());
   const [playbackRate, setPlaybackRate] = useState(() => loadInitialPlaybackRate());
   const [autoAdvance, setAutoAdvance] = useState(() => loadInitialAutoAdvance());
+  const [dockVisible, setDockVisible] = useState(() => {
+    const audio = getSpaceSharedAudio();
+    if (!audio) return false;
+    return !audio.paused || Math.floor(audio.currentTime || 0) > 0;
+  });
+  const [playerExpanded, setPlayerExpanded] = useState(false);
 
   const modeStyle = useMemo(() => {
     if (visualMode === "deep-night") {
@@ -716,6 +729,7 @@ export function SpaceClient() {
 
     const onPlay = () => {
       setPlaying(true);
+      setDockVisible(true);
       setPlayPulseToken((prev) => prev + 1);
       if (!dailyMascotCheckinDone) {
         setDailyMascotCheckinDone(true);
@@ -838,13 +852,18 @@ export function SpaceClient() {
     }
   }, [autoAdvance]);
 
+  const isSessionAvailable = (sessionId: string) => availableSessionIds.has(sessionId);
+
   const progress = durationSec > 0 ? Math.min(100, Math.round((elapsedSec / durationSec) * 100)) : 0;
+  const showDockPlayer = dockVisible && Boolean(activeSession);
+  const availablePlaylist = playlist.filter((session) => isSessionAvailable(session.id));
+  const currentPlaylistIndex = availablePlaylist.findIndex((session) => session.id === activeSession?.id);
+  const canPlayPrev = currentPlaylistIndex > 0;
+  const canPlayNext = currentPlaylistIndex >= 0 && currentPlaylistIndex < availablePlaylist.length - 1;
 
   const toggleFavorite = (id: string) => {
     setFavoriteIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
-
-  const isSessionAvailable = (sessionId: string) => availableSessionIds.has(sessionId);
 
   const displayDurationForSession = (session: SpaceSession) => {
     if (!isSessionAvailable(session.id)) return "Sin audio aún";
@@ -943,6 +962,14 @@ export function SpaceClient() {
     startSession(next.id, { autoplay: true });
   };
 
+  const seekToRatio = (ratio: number) => {
+    const audio = audioRef.current;
+    if (!audio || durationSec <= 0) return;
+    const nextTime = Math.max(0, Math.min(durationSec, Math.round(ratio * durationSec)));
+    audio.currentTime = nextTime;
+    setElapsedSec(nextTime);
+  };
+
   const visibleSessions = useMemo(() => {
     const query = sessionQuery.trim().toLowerCase();
     return filteredSessions.filter((session) => {
@@ -970,6 +997,7 @@ export function SpaceClient() {
     }
     return groups;
   }, [selectedMood, visibleSessions]);
+  const activeCoverTone = coverGradientForMood(activeSession?.moodId);
   const stickyHeaderSolid = parallaxY > 24;
 
   const revealClass = (id: string) => {
@@ -979,7 +1007,7 @@ export function SpaceClient() {
   };
 
   return (
-    <div className={`${outfit.className} relative space-y-10 overflow-x-hidden pb-8 ${modeStyle.pageText}`}>
+    <div className={`${outfit.className} relative space-y-10 overflow-x-hidden pb-44 md:pb-52 ${modeStyle.pageText}`}>
       <div className="fixed left-1/2 top-3 z-30 w-[min(96vw,1200px)] -translate-x-1/2">
         <div
           className={`space-y-2 rounded-3xl p-4 transition-all duration-300 ${
@@ -1029,124 +1057,6 @@ export function SpaceClient() {
             <p className="max-w-2xl text-sm text-cyan-50/85 md:text-base">Video ambiente + audio guiado para arrancar estudio sin saturarte.</p>
           </div>
         </div>
-      </section>
-
-      <section className={`relative z-20 -mt-8 rounded-[28px] border p-6 backdrop-blur-xl shadow-[0_24px_60px_-38px_rgba(0,0,0,0.85)] ${modeStyle.border} ${modeStyle.surface}`}>
-        {playing ? (
-          <div key={playPulseToken} className="pointer-events-none absolute inset-0 rounded-3xl border border-cyan-200/35 animate-[ping_850ms_ease-out_1]" />
-        ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className={`text-xs uppercase tracking-widest ${modeStyle.textSoft}`}>Reproduciendo</div>
-            <div className="mt-1 text-lg font-semibold">{activeSession?.title ?? "Sin sesión"}</div>
-            <div className={`text-xs ${modeStyle.textSoft}`}>{activeSession?.type}</div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={togglePlayback}
-              className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition ${modeStyle.primaryButton}`}
-            >
-              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {playing ? "Pausar" : "Reproducir"}
-            </button>
-            {activeUsesArchiveSource ? (
-              <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
-                <Headphones className="h-3.5 w-3.5" />
-                Fuente: Archive
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <>
-          <div className={`mt-4 h-2 overflow-hidden rounded-full ${modeStyle.progressTrack}`}>
-            <div className={`h-full rounded-full transition-all ${modeStyle.progressFill}`} style={{ width: `${progress}%` }} />
-          </div>
-          <div className={`mt-2 flex items-center justify-between text-xs ${modeStyle.textSoft}`}>
-            <span>{fmt(elapsedSec)}</span>
-            <span>{fmt(durationSec)}</span>
-          </div>
-        </>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <label className={`space-y-1 text-xs ${modeStyle.textSoft}`}>
-            <span>Volumen ({Math.round(volume * 100)}%)</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(volume * 100)}
-              onChange={(event) => {
-                setVolume(Number(event.target.value) / 100);
-              }}
-              className="w-full"
-            />
-          </label>
-          <label className={`space-y-1 text-xs ${modeStyle.textSoft}`}>
-            <span>Velocidad</span>
-            <select
-              value={String(playbackRate)}
-              onChange={(event) => {
-                setPlaybackRate(Number(event.target.value));
-              }}
-              className={`w-full rounded-xl border px-3 py-2 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}
-            >
-              <option value="0.8">0.8x</option>
-              <option value="1">1.0x</option>
-              <option value="1.25">1.25x</option>
-              <option value="1.5">1.5x</option>
-            </select>
-          </label>
-          <label className={`inline-flex items-center gap-2 self-end rounded-xl border px-3 py-2 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
-            <input
-              type="checkbox"
-              checked={autoAdvance}
-              onChange={(event) => {
-                setAutoAdvance(event.target.checked);
-              }}
-            />
-            Auto-avance
-          </label>
-        </div>
-        <div className="mt-4 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={playPrev}
-            disabled={playlist.filter((session) => isSessionAvailable(session.id)).findIndex((session) => session.id === activeSession?.id) <= 0}
-            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
-          >
-            <SkipBack className="h-3.5 w-3.5" />
-            Anterior
-          </button>
-          <button
-            type="button"
-            onClick={playNext}
-            disabled={(() => {
-              const availablePlaylist = playlist.filter((session) => isSessionAvailable(session.id));
-              const index = availablePlaylist.findIndex((session) => session.id === activeSession?.id);
-              return index < 0 || index >= availablePlaylist.length - 1;
-            })()}
-            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
-          >
-            Siguiente
-            <SkipForward className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        {playbackError ? (
-          <div className="mt-3 space-y-2">
-            <div className="text-xs text-amber-200/90">{playbackError}</div>
-            {activeUsesArchiveSource ? (
-              <button
-                type="button"
-                onClick={() => {
-                  window.open(SPACE_ARCHIVE_EXTERNAL_URL, "_blank", "noopener,noreferrer");
-                }}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${modeStyle.secondaryButton}`}
-              >
-                Abrir fuente en Archive
-              </button>
-            ) : null}
-          </div>
-        ) : null}
       </section>
 
       <section
@@ -1340,6 +1250,183 @@ export function SpaceClient() {
           Sesiones activas ahora: <span className="font-semibold">{availableSessionIds.size}</span> · Archivos esperados en <code>public/audio/space</code>.
         </p>
       </section>
+
+      {showDockPlayer ? (
+        <section className="fixed inset-x-0 bottom-0 z-40 px-3 pb-3 sm:px-5 sm:pb-5">
+          <div className="mx-auto w-full max-w-6xl">
+            <div className={`overflow-hidden rounded-[26px] border shadow-[0_26px_90px_-38px_rgba(0,0,0,0.92)] backdrop-blur-2xl ${modeStyle.border} ${modeStyle.surface}`}>
+              {playing ? (
+                <div key={playPulseToken} className="pointer-events-none absolute inset-0 rounded-[26px] border border-cyan-200/35 animate-[ping_900ms_ease-out_1]" />
+              ) : null}
+
+              <div className="px-4 pt-4 sm:px-5 sm:pt-5">
+                <div className={`h-1.5 overflow-hidden rounded-full ${modeStyle.progressTrack}`}>
+                  <div className={`h-full rounded-full transition-all ${modeStyle.progressFill}`} style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4">
+                <button
+                  type="button"
+                  onClick={() => setPlayerExpanded((prev) => !prev)}
+                  aria-expanded={playerExpanded}
+                  className={`flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-2 py-1 text-left transition ${modeStyle.softSurfaceAlt}`}
+                >
+                  <span className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+                    <span className={`absolute inset-0 bg-gradient-to-br ${activeCoverTone} ${playing ? "animate-pulse" : ""}`} />
+                    <Music2 className="relative z-10 h-5 w-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold sm:text-base">{activeSession?.title ?? "Sin sesión"}</span>
+                    <span className={`block truncate text-xs ${modeStyle.textSoft}`}>{activeSession?.type}</span>
+                  </span>
+                  <span className={`ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full border ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+                    {playerExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                  </span>
+                </button>
+
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <button
+                    type="button"
+                    onClick={playPrev}
+                    disabled={!canPlayPrev}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
+                    aria-label="Anterior"
+                  >
+                    <SkipBack className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={togglePlayback}
+                    className={`inline-flex h-11 w-11 items-center justify-center rounded-full border transition ${modeStyle.primaryButton}`}
+                    aria-label={playing ? "Pausar" : "Reproducir"}
+                  >
+                    {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={playNext}
+                    disabled={!canPlayNext}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
+                    aria-label="Siguiente"
+                  >
+                    <SkipForward className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div
+                className={`overflow-hidden border-t transition-all duration-300 ease-out ${modeStyle.border} ${
+                  playerExpanded ? "max-h-[520px] opacity-100" : "max-h-0 opacity-0"
+                }`}
+                aria-hidden={!playerExpanded}
+              >
+                <div className="space-y-4 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+                  <div className={`relative overflow-hidden rounded-2xl border p-4 ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+                    <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${activeCoverTone}`} />
+                    <div className="relative z-10 flex items-center gap-3">
+                      <span className={`inline-flex h-14 w-14 items-center justify-center rounded-xl border ${modeStyle.border} ${modeStyle.softSurface}`}>
+                        <Music2 className="h-6 w-6" />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold sm:text-base">{activeSession?.title ?? "Sin sesión"}</div>
+                        <div className={`truncate text-xs ${modeStyle.textSoft}`}>{activeSession?.desc}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <label className="block space-y-1">
+                    <span className="sr-only">Progreso</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1000}
+                      value={durationSec > 0 ? Math.round((elapsedSec / durationSec) * 1000) : 0}
+                      onChange={(event) => {
+                        seekToRatio(Number(event.target.value) / 1000);
+                      }}
+                      className="w-full"
+                    />
+                  </label>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div className={`text-xs ${modeStyle.textSoft}`}>{fmt(elapsedSec)} / {fmt(durationSec)}</div>
+                    {activeUsesArchiveSource ? (
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
+                        <Headphones className="h-3 w-3" />
+                        Source: Archive
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-[1fr_180px_160px]">
+                    <label className={`space-y-1 text-xs ${modeStyle.textSoft}`}>
+                      <span className="inline-flex items-center gap-1">
+                        <Volume2 className="h-3.5 w-3.5" />
+                        Volumen ({Math.round(volume * 100)}%)
+                      </span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={Math.round(volume * 100)}
+                        onChange={(event) => {
+                          setVolume(Number(event.target.value) / 100);
+                        }}
+                        className="w-full"
+                      />
+                    </label>
+
+                    <label className={`space-y-1 text-xs ${modeStyle.textSoft}`}>
+                      <span>Velocidad</span>
+                      <select
+                        value={String(playbackRate)}
+                        onChange={(event) => {
+                          setPlaybackRate(Number(event.target.value));
+                        }}
+                        className={`w-full rounded-xl px-3 py-2 text-xs outline-none ${modeStyle.softSurfaceAlt}`}
+                      >
+                        <option value="0.8">0.8x</option>
+                        <option value="1">1.0x</option>
+                        <option value="1.25">1.25x</option>
+                        <option value="1.5">1.5x</option>
+                      </select>
+                    </label>
+
+                    <label className={`inline-flex items-center gap-2 self-end rounded-xl px-3 py-2 text-xs ${modeStyle.softSurfaceAlt}`}>
+                      <input
+                        type="checkbox"
+                        checked={autoAdvance}
+                        onChange={(event) => {
+                          setAutoAdvance(event.target.checked);
+                        }}
+                      />
+                      Auto-avance
+                    </label>
+                  </div>
+
+                  {playerExpanded && playbackError ? (
+                    <div className="space-y-2">
+                      <div className="text-xs text-amber-200/90">{playbackError}</div>
+                      {activeUsesArchiveSource ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.open(SPACE_ARCHIVE_EXTERNAL_URL, "_blank", "noopener,noreferrer");
+                          }}
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${modeStyle.secondaryButton}`}
+                        >
+                          Abrir fuente en Archive
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
     </div>
   );
