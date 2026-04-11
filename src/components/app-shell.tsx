@@ -27,6 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { PomodoroOverlay } from "@/components/pomodoro-overlay";
 import { GlobalRabbitMascot } from "@/components/global-rabbit-mascot";
 import { RabbitGuidePanel } from "@/components/rabbit-guide-panel";
+import { SpaceGlobalPlayer } from "@/components/space-global-player";
 
 export type NavItem = {
   href: string;
@@ -144,6 +145,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className={cn("mx-auto w-full max-w-7xl px-6", pathname === "/" ? "py-8" : "pb-8 pt-24")}>{children}</main>
+      <SpaceGlobalPlayer />
     </div>
   );
 }
