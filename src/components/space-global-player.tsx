@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Music2, Pause, Play, SlidersHorizontal, Volume2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import { ChevronDown, ChevronUp, Minus, Music2, Pause, Play, SlidersHorizontal, Volume2 } from "lucide-react";
 
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
 
@@ -93,6 +93,7 @@ function loadInitialPlaybackRate() {
 export function SpaceGlobalPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(getSpaceSharedAudio());
   const [expanded, setExpanded] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const [visible, setVisible] = useState(() => {
     const audio = getSpaceSharedAudio();
     if (!audio) return false;
@@ -117,6 +118,13 @@ export function SpaceGlobalPlayer() {
     const fromStorage = window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
     return resolveMetaByActiveId(fromStorage);
   });
+  const [miniPosition, setMiniPosition] = useState<{ x: number; y: number }>(() => {
+    if (typeof window === "undefined") return { x: 12, y: 12 };
+    return { x: Math.max(12, window.innerWidth - 78), y: Math.max(12, window.innerHeight - 120) };
+  });
+  const miniPointerIdRef = useRef<number | null>(null);
+  const miniDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const miniDraggedRef = useRef(false);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -190,6 +198,28 @@ export function SpaceGlobalPlayer() {
     }
   }, [playbackRate]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const clamp = (next: { x: number; y: number }) => {
+      const size = 56;
+      const margin = 12;
+      const maxX = Math.max(margin, window.innerWidth - size - margin);
+      const maxY = Math.max(margin, window.innerHeight - size - margin);
+      return {
+        x: Math.min(maxX, Math.max(margin, next.x)),
+        y: Math.min(maxY, Math.max(margin, next.y)),
+      };
+    };
+    const onResize = () => {
+      setMiniPosition((prev) => {
+        if (!prev) return prev;
+        return clamp(prev);
+      });
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const progress = useMemo(() => {
     if (durationSec <= 0) return 0;
     return Math.min(100, Math.round((elapsedSec / durationSec) * 100));
@@ -213,45 +243,124 @@ export function SpaceGlobalPlayer() {
     setElapsedSec(nextTime);
   };
 
+  const clampMiniPosition = (x: number, y: number) => {
+    if (typeof window === "undefined") return { x, y };
+    const size = 56;
+    const margin = 12;
+    const maxX = Math.max(margin, window.innerWidth - size - margin);
+    const maxY = Math.max(margin, window.innerHeight - size - margin);
+    return {
+      x: Math.min(maxX, Math.max(margin, x)),
+      y: Math.min(maxY, Math.max(margin, y)),
+    };
+  };
+
+  const onMiniPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    miniDraggedRef.current = false;
+    miniPointerIdRef.current = event.pointerId;
+    miniDragOffsetRef.current = {
+      x: event.clientX - (miniPosition?.x ?? 0),
+      y: event.clientY - (miniPosition?.y ?? 0),
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onMiniPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    if (miniPointerIdRef.current !== event.pointerId) return;
+    const next = clampMiniPosition(
+      event.clientX - miniDragOffsetRef.current.x,
+      event.clientY - miniDragOffsetRef.current.y,
+    );
+    const dx = Math.abs(next.x - (miniPosition?.x ?? 0));
+    const dy = Math.abs(next.y - (miniPosition?.y ?? 0));
+    if (dx > 1 || dy > 1) {
+      miniDraggedRef.current = true;
+    }
+    setMiniPosition(next);
+  };
+
+  const onMiniPointerUp = (event: PointerEvent<HTMLButtonElement>) => {
+    if (miniPointerIdRef.current !== event.pointerId) return;
+    miniPointerIdRef.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
+  const onMiniClick = (event: MouseEvent<HTMLButtonElement>) => {
+    if (miniDraggedRef.current) {
+      event.preventDefault();
+      miniDraggedRef.current = false;
+      return;
+    }
+    setMinimized(false);
+  };
+
   if (!visible) return null;
+
+  if (minimized) {
+    return (
+      <button
+        type="button"
+        aria-label="Abrir reproductor"
+        onClick={onMiniClick}
+        onPointerDown={onMiniPointerDown}
+        onPointerMove={onMiniPointerMove}
+        onPointerUp={onMiniPointerUp}
+        className="fixed z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/65 text-white shadow-[0_14px_34px_-18px_rgba(0,0,0,0.95)] backdrop-blur-2xl"
+        style={{ left: miniPosition.x, top: miniPosition.y }}
+      >
+        <Music2 className="h-5 w-5" />
+      </button>
+    );
+  }
 
   return (
     <section className="fixed inset-x-0 bottom-0 z-50 px-3 pb-2 sm:px-6 sm:pb-3">
       <div className="mx-auto w-full max-w-3xl">
-        <div className="relative overflow-hidden rounded-[24px] bg-slate-950/80 shadow-[0_18px_60px_-34px_rgba(0,0,0,0.96)] backdrop-blur-2xl">
-          <div className="pointer-events-none absolute -left-10 -top-10 h-28 w-28 rounded-full bg-cyan-200/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-14 right-8 h-28 w-28 rounded-full bg-indigo-200/10 blur-3xl" />
+        <div className="relative overflow-hidden rounded-[24px] bg-black/60 shadow-[0_18px_60px_-34px_rgba(0,0,0,0.96)] backdrop-blur-2xl">
 
           <div className="px-3 pt-2.5 sm:px-4 sm:pt-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-cyan-50/15">
-              <div className="h-full rounded-full bg-cyan-50 transition-all" style={{ width: `${progress}%` }} />
+            <div className="h-1.5 overflow-hidden rounded-full bg-white/15">
+              <div className="h-full rounded-full bg-white/85 transition-all" style={{ width: `${progress}%` }} />
             </div>
           </div>
 
           <div className="flex items-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl bg-white/10 px-2.5 py-2 text-left transition">
+              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10">
+                <span className={`absolute inset-0 bg-gradient-to-br from-white/25 via-white/10 to-transparent ${playing ? "animate-pulse" : ""}`} />
+                <Music2 className="relative z-10 h-4.5 w-4.5 text-white" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-white">{activeMeta?.title ?? "Space"}</span>
+                <span className="block truncate text-xs text-white/75">{activeMeta?.type ?? "Audio en reproducción"}</span>
+              </span>
+            </div>
+
             <button
               type="button"
               onClick={() => setExpanded((prev) => !prev)}
               aria-expanded={expanded}
-              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl bg-cyan-50/10 px-2.5 py-2 text-left transition"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/15"
+              aria-label={expanded ? "Contraer" : "Expandir"}
             >
-              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-cyan-50/10">
-                <span className={`absolute inset-0 bg-gradient-to-br from-cyan-300/35 via-indigo-300/20 to-transparent ${playing ? "animate-pulse" : ""}`} />
-                <Music2 className="relative z-10 h-4.5 w-4.5 text-cyan-50" />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-cyan-50">{activeMeta?.title ?? "Space"}</span>
-                <span className="block truncate text-xs text-cyan-50/75">{activeMeta?.type ?? "Audio en reproducción"}</span>
-              </span>
-              <span className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full bg-cyan-50/10 text-cyan-50">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white">
                 {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
               </span>
             </button>
 
             <button
               type="button"
+              onClick={() => setMinimized(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/15"
+              aria-label="Minimizar"
+            >
+              <Minus className="h-4.5 w-4.5" />
+            </button>
+
+            <button
+              type="button"
               onClick={togglePlayback}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-cyan-50 text-slate-950 transition hover:bg-cyan-100"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-950 transition hover:bg-white/90"
               aria-label={playing ? "Pausar" : "Reproducir"}
             >
               {playing ? <Pause className="h-4.5 w-4.5" /> : <Play className="h-4.5 w-4.5" />}
@@ -277,13 +386,13 @@ export function SpaceGlobalPlayer() {
                 />
               </label>
 
-              <div className="flex items-center justify-between text-xs text-cyan-50/75">
+              <div className="flex items-center justify-between text-xs text-white/75">
                 <span>{fmt(elapsedSec)}</span>
                 <span>{fmt(durationSec)}</span>
               </div>
 
               <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-                <label className="space-y-1 rounded-xl bg-cyan-50/10 px-2.5 py-2 text-xs text-cyan-50/80">
+                <label className="space-y-1 rounded-xl bg-white/10 px-2.5 py-2 text-xs text-white/80">
                   <span className="inline-flex items-center gap-1">
                     <Volume2 className="h-3.5 w-3.5" />
                     Volumen ({Math.round(volume * 100)}%)
@@ -298,7 +407,7 @@ export function SpaceGlobalPlayer() {
                   />
                 </label>
 
-                <label className="space-y-1 rounded-xl bg-cyan-50/10 px-2.5 py-2 text-xs text-cyan-50/80">
+                <label className="space-y-1 rounded-xl bg-white/10 px-2.5 py-2 text-xs text-white/80">
                   <span className="inline-flex items-center gap-1">
                     <SlidersHorizontal className="h-3.5 w-3.5" />
                     Velocidad
@@ -306,7 +415,7 @@ export function SpaceGlobalPlayer() {
                   <select
                     value={String(playbackRate)}
                     onChange={(event) => setPlaybackRate(Number(event.target.value))}
-                    className="w-full rounded-xl bg-cyan-50/10 px-3 py-2 text-xs text-cyan-50 outline-none"
+                    className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs text-white outline-none"
                   >
                     <option value="0.8">0.8x</option>
                     <option value="1">1.0x</option>

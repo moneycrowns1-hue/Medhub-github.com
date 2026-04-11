@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Outfit, Pixelify_Sans } from "next/font/google";
-import { ChevronDown, ChevronUp, Headphones, Heart, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Volume2, Waves } from "lucide-react";
+import { ChevronDown, ChevronUp, Headphones, Heart, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Volume2 } from "lucide-react";
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
 
 type Mood = {
@@ -1237,20 +1237,6 @@ export function SpaceClient() {
           ))}
         </div>
       </section>
-      <section
-        data-reveal-id="upcoming"
-        className={`rounded-3xl border p-4 transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${revealClass("upcoming")}`}
-        style={{ transitionDelay: "200ms" }}
-      >
-        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
-          <Waves className="h-3.5 w-3.5" />
-          Biblioteca personalizada activa
-        </div>
-        <p className={`mt-3 text-xs ${modeStyle.textSoft}`}>
-          Sesiones activas ahora: <span className="font-semibold">{availableSessionIds.size}</span> · Archivos esperados en <code>public/audio/space</code>.
-        </p>
-      </section>
-
       {showDockPlayer ? (
         <section className="fixed inset-x-0 bottom-0 z-40 px-3 pb-4 sm:px-6 sm:pb-6">
           <div className="mx-auto w-full max-w-5xl">

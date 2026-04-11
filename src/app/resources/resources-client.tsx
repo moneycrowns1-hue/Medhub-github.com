@@ -379,33 +379,35 @@ export function ResourcesClient() {
   };
 
   return (
-    <div className="space-y-10">
-      <div className="space-y-4 rounded-3xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
+    <div className="space-y-8 pb-4">
+      <div className="relative space-y-4 overflow-hidden rounded-[30px] bg-black/45 p-6 shadow-[0_26px_90px_-54px_rgba(0,0,0,0.95)] backdrop-blur-2xl sm:p-7">
+        <div className="pointer-events-none absolute -left-12 -top-12 h-32 w-32 rounded-full bg-cyan-300/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-14 right-6 h-32 w-32 rounded-full bg-indigo-300/10 blur-3xl" />
         <div className="space-y-2">
-          <div className="text-xs font-medium uppercase tracking-widest text-foreground/70">Recursos</div>
-          <h1 className="text-3xl font-bold tracking-tight">Biblioteca</h1>
-          <p className="text-sm text-foreground/70">
+          <div className="text-xs font-medium uppercase tracking-[0.2em] text-white/65">Recursos</div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Biblioteca inteligente</h1>
+          <p className="text-sm text-white/70">
             PDFs locales guardados en tu dispositivo. Seleccioná un rango de páginas para generar flashcards con IA.
           </p>
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/50" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar PDF por título..."
-            className="h-10 w-full rounded-xl border border-white/25 bg-white/8 pl-9 pr-3 text-sm outline-none placeholder:text-foreground/45 focus-visible:ring-3 focus-visible:ring-white/30"
+            className="h-11 w-full rounded-2xl bg-white/10 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/45 focus-visible:ring-2 focus-visible:ring-white/35"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/8 px-3 py-1.5">
-            <Filter className="h-3.5 w-3.5 text-foreground/60" />
+          <div className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-1.5 text-white">
+            <Filter className="h-3.5 w-3.5 text-white/70" />
             <select
               value={filterSubject}
               onChange={(e) => setFilterSubject(e.target.value)}
-              className="bg-transparent text-sm outline-none"
+              className="bg-transparent text-sm text-white outline-none"
             >
               <option value="all">Todas las materias</option>
               {Object.values(SUBJECTS).map((s) => (
@@ -426,34 +428,38 @@ export function ResourcesClient() {
               e.target.value = "";
             }}
           />
-          <Button variant="secondary" className="border border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={() => fileRef.current?.click()} disabled={busy}>
+          <Button variant="secondary" className="rounded-xl border-0 bg-white text-black hover:bg-white/90" onClick={() => fileRef.current?.click()} disabled={busy}>
             <Upload className="h-4 w-4" />
             Subir PDF
           </Button>
+          <div className="ml-auto rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">
+            {filtered.length} PDF{filtered.length === 1 ? "" : "s"}
+          </div>
         </div>
         {uploadError ? (
-          <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             Error al subir PDF: {uploadError}
           </div>
         ) : null}
       </div>
 
       {loading ? (
-        <div className="grid gap-3 lg:grid-cols-[320px,1fr]">
+        <div className="grid gap-4 lg:grid-cols-[360px,1fr]">
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, idx) => (
-              <div key={idx} className="rounded-xl border border-white/20 bg-white/5 p-3 backdrop-blur-xl">
+              <div key={idx} className="rounded-2xl bg-black/35 p-3 backdrop-blur-xl">
                 <Skeleton className="h-10 w-full rounded-lg" />
               </div>
             ))}
           </div>
-          <div className="rounded-xl border border-white/20 bg-white/5 p-3 backdrop-blur-xl">
+          <div className="rounded-2xl bg-black/35 p-3 backdrop-blur-xl">
             <Skeleton className="h-[520px] w-full rounded-lg" />
           </div>
         </div>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-[320px,1fr]">
-          <div className="space-y-2">
+        <div className="grid gap-4 lg:grid-cols-[360px,1fr]">
+          <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
             {filtered.map((i) => (
               <div
                 key={i.id}
@@ -466,24 +472,26 @@ export function ResourcesClient() {
                 }}
                 role="button"
                 tabIndex={0}
-                className={`w-full rounded-xl border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 ${
-                  i.id === selectedId ? "border-white/40 bg-white/12" : "border-white/20 bg-white/5"
+                className={`w-full rounded-2xl p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 ${
+                  i.id === selectedId ? "bg-white/18 ring-1 ring-white/35" : "bg-white/8 ring-1 ring-white/10"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-foreground/60" />
-                      <div className="truncate text-sm font-medium">{i.title}</div>
+                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white/85">
+                        <FileText className="h-4 w-4" />
+                      </span>
+                      <div className="truncate text-sm font-medium text-white">{i.title}</div>
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-foreground/65">
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/65">
                       <span>{Math.round(i.sizeBytes / 1024)} KB · pp. {i.pageStart}–{i.pageEnd}</span>
                       {i.subjectSlug && SUBJECTS[i.subjectSlug as keyof typeof SUBJECTS] ? (
-                        <span className="rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/90">
+                        <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/90">
                           {SUBJECTS[i.subjectSlug as keyof typeof SUBJECTS].name}
                         </span>
                       ) : (
-                        <span className="rounded-full border border-white/15 bg-white/8 px-2 py-0.5 text-[10px] text-foreground/60">
+                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/60">
                           Sin materia
                         </span>
                       )}
@@ -492,7 +500,7 @@ export function ResourcesClient() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+                    className="border-white/25 bg-black/30 text-white hover:bg-white/15"
                     onClick={(e) => {
                       e.stopPropagation();
                       void onDelete(i.id);
@@ -505,15 +513,16 @@ export function ResourcesClient() {
               </div>
             ))}
             {!filtered.length ? (
-              <div className="rounded-xl border border-white/20 bg-white/5 p-4 text-sm text-foreground/70">
+              <div className="rounded-xl bg-white/8 p-4 text-sm text-white/70">
                 No hay PDFs todavía.
               </div>
             ) : null}
+            </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-white/20 bg-white/5 backdrop-blur-xl">
-            <div className="border-b border-white/15 px-6 py-4">
-              <div className="text-base font-bold">{selected ? selected.title : "Seleccioná un PDF"}</div>
+          <div className="overflow-hidden rounded-[24px] bg-black/35 backdrop-blur-2xl">
+            <div className="border-b border-white/10 px-6 py-4">
+              <div className="text-base font-bold text-white">{selected ? selected.title : "Seleccioná un PDF"}</div>
             </div>
             <div className="space-y-4 p-6">
               {selected ? (
@@ -551,9 +560,9 @@ export function ResourcesClient() {
               ) : null}
 
               {selected ? (
-                <div className="rounded-xl border border-white/20 bg-white/5 p-3">
-                  <div className="text-xs uppercase tracking-wider text-foreground/70">Vista previa</div>
-                  <div className="mt-2 overflow-hidden rounded-lg border border-white/15">
+                <div className="rounded-2xl bg-white/7 p-3">
+                  <div className="text-xs uppercase tracking-wider text-white/70">Vista previa</div>
+                  <div className="mt-2 overflow-hidden rounded-xl border border-white/10">
                     {previewUrl ? (
                       <div className="relative">
                         <iframe
@@ -576,12 +585,12 @@ export function ResourcesClient() {
                     )}
                   </div>
 
-                  <div className="mt-3 grid gap-3 rounded-xl border border-white/20 bg-white/5 p-3 md:grid-cols-3">
+                  <div className="mt-3 grid gap-3 rounded-xl bg-white/7 p-3 md:grid-cols-3">
                     <div className="space-y-1 md:col-span-2">
                       <div className="text-xs uppercase tracking-wider text-foreground/70">Rango páginas para extracción</div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Desde</div>
+                          <div className="text-[10px] uppercase tracking-wider text-white/60">Desde</div>
                           <input
                             type="number"
                             min={1}
@@ -599,7 +608,7 @@ export function ResourcesClient() {
                           />
                         </div>
                         <div className="space-y-1">
-                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Hasta</div>
+                          <div className="text-[10px] uppercase tracking-wider text-white/60">Hasta</div>
                           <input
                             type="number"
                             min={1}
@@ -620,7 +629,7 @@ export function ResourcesClient() {
                       <div className="text-xs text-foreground/60">Ej: 10–18</div>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xs uppercase tracking-wider text-muted-foreground">Página actual</div>
+                      <div className="text-xs uppercase tracking-wider text-white/60">Página actual</div>
                       <input
                         type="number"
                         min={1}
@@ -632,7 +641,7 @@ export function ResourcesClient() {
                         }}
                         className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
                       />
-                      <div className="text-xs text-foreground/60">Se guarda para reanudar lectura.</div>
+                      <div className="text-xs text-white/60">Se guarda para reanudar lectura.</div>
                     </div>
                   </div>
 
@@ -678,7 +687,7 @@ export function ResourcesClient() {
                       />
 
                       {chunks.length ? (
-                        <div className="rounded-xl border border-white/20 bg-white/5 p-3">
+                        <div className="rounded-xl bg-white/7 p-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="text-xs uppercase tracking-wider text-foreground/70">Seleccionar chunks</div>
                             <div className="flex flex-wrap gap-2">
@@ -741,7 +750,7 @@ export function ResourcesClient() {
                         </div>
                       ) : null}
 
-                      <div className="grid gap-3 rounded-xl border border-white/20 bg-white/5 p-3 md:grid-cols-3">
+                      <div className="grid gap-3 rounded-xl bg-white/7 p-3 md:grid-cols-3">
                         <div className="space-y-1 md:col-span-2">
                           <div className="text-xs uppercase tracking-wider text-foreground/70">Destino (SRS)</div>
                           <div className="flex flex-wrap gap-2">
@@ -758,7 +767,7 @@ export function ResourcesClient() {
 
                           <div className="mt-3 grid gap-2 md:grid-cols-2">
                             <div className="space-y-1">
-                              <div className="text-xs uppercase tracking-wider text-foreground/70">Modo IA</div>
+                              <div className="text-xs uppercase tracking-wider text-white/70">Modo IA</div>
                               <select
                                 value={aiMode}
                                 onChange={(e) => setAiMode(e.target.value === "exam" ? "exam" : "flashcards")}
@@ -769,7 +778,7 @@ export function ResourcesClient() {
                               </select>
                             </div>
                             <div className="space-y-1">
-                              <div className="text-xs uppercase tracking-wider text-foreground/70">Tema (opcional)</div>
+                              <div className="text-xs uppercase tracking-wider text-white/70">Tema (opcional)</div>
                               <input
                                 value={topic}
                                 onChange={(e) => setTopic(e.target.value)}
@@ -781,7 +790,7 @@ export function ResourcesClient() {
                         </div>
 
                         <div className="space-y-1">
-                          <div className="text-xs uppercase tracking-wider text-foreground/70">Cantidad</div>
+                          <div className="text-xs uppercase tracking-wider text-white/70">Cantidad</div>
                           <input
                             type="number"
                             min={5}
@@ -821,7 +830,7 @@ export function ResourcesClient() {
 
                           <div className="space-y-3">
                             {aiNotes.map((n, noteIdx) => (
-                              <div key={noteIdx} className="rounded-xl border border-white/20 bg-white/5 p-3">
+                              <div key={noteIdx} className="rounded-xl bg-white/7 p-3">
                                 <div className="text-sm font-medium">{n.title ?? `Nota ${noteIdx + 1}`}</div>
                                 {n.tags?.length ? (
                                   <div className="mt-1 text-xs text-foreground/60">{n.tags.join(" · ")}</div>
