@@ -33,6 +33,10 @@ type InAppNotice = {
   body: string;
 };
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 export function ResourcesClient() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -41,6 +45,7 @@ export function ResourcesClient() {
   const [items, setItems] = useState<PdfResource[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [extractedText, setExtractedText] = useState<string>("");
@@ -73,7 +78,7 @@ export function ResourcesClient() {
       try {
         const all = await listPdfResources();
         setItems(all);
-        if (!selectedId && all[0]) setSelectedId(all[0].id);
+        setSelectedId((prev) => prev ?? (all[0]?.id ?? null));
       } finally {
         setLoading(false);
       }
@@ -90,6 +95,7 @@ export function ResourcesClient() {
     const run = async () => {
       if (!selectedId) {
         setPreviewUrl(null);
+        setPreviewLoading(false);
         setPageCount(null);
         setExtractedText("");
         setChunks([]);
@@ -100,6 +106,7 @@ export function ResourcesClient() {
       const blob = await getPdfResourceBlob(selectedId);
       if (!blob) {
         setPreviewUrl(null);
+        setPreviewLoading(false);
         setPageCount(null);
         setExtractedText("");
         setChunks([]);
@@ -112,6 +119,7 @@ export function ResourcesClient() {
         if (prev) URL.revokeObjectURL(prev);
         return url;
       });
+      setPreviewLoading(true);
       setPageCount(null);
       setExtractedText("");
       setChunks([]);
@@ -208,8 +216,15 @@ export function ResourcesClient() {
 
   const runAi = async () => {
     if (!selectedTextForAi.trim()) return;
+    if (selectedTextForAi.trim().length < 120) {
+      setAiError("Necesitas un poco más de contenido para la IA (mínimo sugerido: 120 caracteres). Extrae más páginas o selecciona más chunks.");
+      return;
+    }
     setAiBusy(true);
     setAiError(null);
+    const safeMaxCards = clamp(Math.floor(Number(maxCards) || 25), 5, 80);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 30000);
     try {
       if (typeof window !== "undefined" && window.location.hostname.endsWith("github.io")) {
         setAiError("La función de IA no está disponible en GitHub Pages (hosting estático). Para usarla, ejecuta la app en un servidor Next.js.");
@@ -221,11 +236,12 @@ export function ResourcesClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: selectedTextForAi,
-          maxCards,
+          maxCards: safeMaxCards,
           language: "es",
           topic,
           mode: aiMode,
         }),
+        signal: controller.signal,
       });
       const data = (await r.json().catch(() => null)) as
         | null
@@ -248,9 +264,14 @@ export function ResourcesClient() {
       setAiNotes(notes);
       pushNotice("IA completada", notes.length ? `Se generaron ${notes.length} notas para revisar.` : "La IA respondió, pero no devolvió notas útiles.");
     } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") {
+        setAiError("La IA tardó demasiado en responder (timeout de 30s). Intenta con menos texto o menor cantidad de tarjetas.");
+        return;
+      }
       const msg = e instanceof Error ? e.message : "Error desconocido";
       setAiError(msg);
     } finally {
+      window.clearTimeout(timeoutId);
       setAiBusy(false);
     }
   };
@@ -302,12 +323,9 @@ export function ResourcesClient() {
     setBusy(true);
     try {
       await deletePdfResource(id);
-      setItems((prev) => prev.filter((x) => x.id !== id));
-      setSelectedId((prev) => {
-        if (prev !== id) return prev;
-        const rest = items.filter((x) => x.id !== id);
-        return rest[0]?.id ?? null;
-      });
+      const all = await listPdfResources();
+      setItems(all);
+      setSelectedId((prev) => (prev === id ? (all[0]?.id ?? null) : prev));
       pushNotice("PDF eliminado", "El recurso se borró de tu biblioteca local.");
     } finally {
       setBusy(false);
@@ -412,23 +430,6 @@ export function ResourcesClient() {
             <Upload className="h-4 w-4" />
             Subir PDF
           </Button>
-          <Button
-            variant="outline"
-            className="rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/15"
-            onClick={async () => {
-              setBusy(true);
-              try {
-                const all = await listPdfResources();
-                setItems(all);
-                if (!selectedId && all[0]) setSelectedId(all[0].id);
-              } finally {
-                setBusy(false);
-              }
-            }}
-            disabled={busy}
-          >
-            Recargar
-          </Button>
         </div>
         {uploadError ? (
           <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -516,7 +517,7 @@ export function ResourcesClient() {
             </div>
             <div className="space-y-4 p-6">
               {selected ? (
-                <div className="grid gap-3 md:grid-cols-4">
+                <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
                     <div className="text-xs uppercase tracking-wider text-muted-foreground">Título</div>
                     <input
@@ -536,7 +537,7 @@ export function ResourcesClient() {
                       onChange={(e) => {
                         const v = e.target.value || undefined;
                         setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, subjectSlug: v } : x)));
-                        void updateMeta({ subjectSlug: v ?? "" });
+                        void updateMeta({ subjectSlug: v });
                       }}
                       className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
                     >
@@ -546,65 +547,6 @@ export function ResourcesClient() {
                       ))}
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <div className="text-xs uppercase tracking-wider text-muted-foreground">Rango páginas</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Desde</div>
-                        <input
-                          type="number"
-                          min={1}
-                          value={selected.pageStart}
-                          onChange={(e) => {
-                            const n = Number(e.target.value);
-                            if (!Number.isFinite(n)) return;
-                            setItems((prev) =>
-                              prev.map((x) => (x.id === selected.id ? { ...x, pageStart: n } : x)),
-                            );
-                          }}
-                          onBlur={(e) => {
-                            const n = Math.max(1, Math.floor(Number(e.target.value)));
-                            void updateMeta({ pageStart: n });
-                          }}
-                          className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Hasta</div>
-                        <input
-                          type="number"
-                          min={1}
-                          value={selected.pageEnd}
-                          onChange={(e) => {
-                            const n = Number(e.target.value);
-                            if (!Number.isFinite(n)) return;
-                            setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, pageEnd: n } : x)));
-                          }}
-                          onBlur={(e) => {
-                            const n = Math.max(1, Math.floor(Number(e.target.value)));
-                            void updateMeta({ pageEnd: n });
-                          }}
-                          className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
-                        />
-                      </div>
-                    </div>
-                    <div className="text-xs text-foreground/60">Ej: 10–18</div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-xs uppercase tracking-wider text-muted-foreground">Página actual</div>
-                    <input
-                      type="number"
-                      min={1}
-                      value={readerPage}
-                      onChange={(e) => {
-                        const n = Number(e.target.value);
-                        if (!Number.isFinite(n)) return;
-                        setReaderPage(Math.max(1, Math.floor(n)));
-                      }}
-                      className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
-                    />
-                    <div className="text-xs text-foreground/60">El conejo recordará esta página para reanudar.</div>
-                  </div>
                 </div>
               ) : null}
 
@@ -613,7 +555,20 @@ export function ResourcesClient() {
                   <div className="text-xs uppercase tracking-wider text-foreground/70">Vista previa</div>
                   <div className="mt-2 overflow-hidden rounded-lg border border-white/15">
                     {previewUrl ? (
-                      <iframe title="pdf-preview" src={`${previewUrl}#page=${readerPage}`} className="h-[640px] w-full" />
+                      <div className="relative">
+                        <iframe
+                          title="pdf-preview"
+                          src={`${previewUrl}#page=${readerPage}`}
+                          className="h-[640px] w-full"
+                          loading="lazy"
+                          onLoad={() => setPreviewLoading(false)}
+                        />
+                        {previewLoading ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-background/70 text-xs text-foreground/70">
+                            Cargando vista previa...
+                          </div>
+                        ) : null}
+                      </div>
                     ) : (
                       <div className="flex h-[640px] w-full items-center justify-center text-sm text-foreground/70">
                         No se pudo cargar el PDF.
@@ -621,26 +576,87 @@ export function ResourcesClient() {
                     )}
                   </div>
 
+                  <div className="mt-3 grid gap-3 rounded-xl border border-white/20 bg-white/5 p-3 md:grid-cols-3">
+                    <div className="space-y-1 md:col-span-2">
+                      <div className="text-xs uppercase tracking-wider text-foreground/70">Rango páginas para extracción</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Desde</div>
+                          <input
+                            type="number"
+                            min={1}
+                            value={selected.pageStart}
+                            onChange={(e) => {
+                              const n = Number(e.target.value);
+                              if (!Number.isFinite(n)) return;
+                              setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, pageStart: n } : x)));
+                            }}
+                            onBlur={(e) => {
+                              const n = Math.max(1, Math.floor(Number(e.target.value)));
+                              void updateMeta({ pageStart: n });
+                            }}
+                            className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Hasta</div>
+                          <input
+                            type="number"
+                            min={1}
+                            value={selected.pageEnd}
+                            onChange={(e) => {
+                              const n = Number(e.target.value);
+                              if (!Number.isFinite(n)) return;
+                              setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, pageEnd: n } : x)));
+                            }}
+                            onBlur={(e) => {
+                              const n = Math.max(1, Math.floor(Number(e.target.value)));
+                              void updateMeta({ pageEnd: n });
+                            }}
+                            className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-xs text-foreground/60">Ej: 10–18</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs uppercase tracking-wider text-muted-foreground">Página actual</div>
+                      <input
+                        type="number"
+                        min={1}
+                        value={readerPage}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (!Number.isFinite(n)) return;
+                          setReaderPage(Math.max(1, Math.floor(n)));
+                        }}
+                        className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
+                      />
+                      <div className="text-xs text-foreground/60">Se guarda para reanudar lectura.</div>
+                    </div>
+                  </div>
+
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <Button variant="secondary" className="border border-white/25 bg-white text-black hover:bg-white/90" onClick={() => void runExtract()} disabled={busy || !previewUrl}>
                       Extraer texto (rango)
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="border-white/25 bg-white/10 text-white hover:bg-white/15"
-                      onClick={async () => {
-                        if (!extractedText) return;
-                        try {
-                          await navigator.clipboard.writeText(extractedText);
-                          pushNotice("Copiado", "Texto extraído copiado al portapapeles.");
-                        } catch {
-                          // ignore
-                        }
-                      }}
-                      disabled={busy || !extractedText}
-                    >
-                      Copiar
-                    </Button>
+                    {extractedText ? (
+                      <Button
+                        variant="outline"
+                        className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(extractedText);
+                            pushNotice("Copiado", "Texto extraído copiado al portapapeles.");
+                          } catch {
+                            // ignore
+                          }
+                        }}
+                        disabled={busy}
+                      >
+                        Copiar
+                      </Button>
+                    ) : null}
                     {pageCount ? (
                       <div className="text-xs text-foreground/60">PDF: {pageCount} páginas</div>
                     ) : null}
@@ -719,6 +735,9 @@ export function ResourcesClient() {
                           <div className="mt-2 text-xs text-foreground/60">
                             Seleccionado: {selectedChunkIdxs.size}/{chunks.length}. Si no seleccionás nada, se usa el texto completo.
                           </div>
+                          <div className="mt-1 text-xs text-foreground/60">
+                            Texto para IA: {selectedTextForAi.length.toLocaleString("es-PE")} caracteres.
+                          </div>
                         </div>
                       ) : null}
 
@@ -768,7 +787,11 @@ export function ResourcesClient() {
                             min={5}
                             max={80}
                             value={maxCards}
-                            onChange={(e) => setMaxCards(Number(e.target.value))}
+                            onChange={(e) => {
+                              const parsed = Number(e.target.value);
+                              if (!Number.isFinite(parsed)) return;
+                              setMaxCards(clamp(Math.floor(parsed), 5, 80));
+                            }}
                             className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
                           />
                           <Button
@@ -776,7 +799,7 @@ export function ResourcesClient() {
                             onClick={() => void runAi()}
                             disabled={aiBusy || busy || !selectedTextForAi.trim()}
                           >
-                            Generar flashcards con IA
+                            {aiBusy ? "Generando..." : "Generar flashcards con IA"}
                           </Button>
                         </div>
                       </div>

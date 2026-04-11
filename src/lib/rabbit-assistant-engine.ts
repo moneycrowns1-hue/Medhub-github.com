@@ -136,9 +136,9 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
 
   if (pathname.startsWith("/space")) {
     return {
-      title: "Space listo para audios",
+      title: "Conejo blanco: guía Space",
       message:
-        "Tip: si un audio no carga, espera unos segundos y vuelve a entrar. Coloca tus pistas en public/audio/space con estos nombres: reset-express.mp3, foco-profundo.mp3, dormir-mejor.mp3, aterriza-mente.mp3, modo-examen.mp3.",
+        "Guía rápida: 1) Reproduce Dormir mejor. 2) Elige mood para enfocarte o descargar. 3) Guarda favoritos para volver en un toque. Próximos ajustes en esta sección: volumen, velocidad y auto-avance; y luego completamos la biblioteca personalizada en public/audio/space.",
       status: `${pomodoroText} · ${phaseStatus} · Relax guiado`,
       actions: [
         { href: "/space", label: "Seguir en Space", primary: true },

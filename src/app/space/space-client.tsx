@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Outfit, Pixelify_Sans } from "next/font/google";
-import { ArrowLeft, ArrowRight, Headphones, Heart, Pause, Play, SkipBack, SkipForward, Sparkles, Waves } from "lucide-react";
+import { ArrowRight, Headphones, Heart, Pause, Play, SkipBack, SkipForward, Sparkles, Waves } from "lucide-react";
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
 
 type Mood = {
@@ -22,7 +22,10 @@ type SpaceSession = {
   approxLengthSec: number;
   desc: string;
   moodId: string;
-  audioSrc: string;
+  audioSrc?: string;
+  embedSrc?: string;
+  externalHref?: string;
+  preferEmbed?: boolean;
 };
 
 const FAVORITES_STORAGE_KEY = "somagnus:space:favorites:v1";
@@ -30,8 +33,12 @@ const PROGRESS_STORAGE_KEY = "somagnus:space:progress:v1";
 const VISUAL_MODE_STORAGE_KEY = "somagnus:space:visual-mode:v1";
 const DAILY_MASCOT_GUIDE_STORAGE_KEY = "somagnus:space:mascot-daily-checkin:v1";
 const ACTIVE_SESSION_STORAGE_KEY = "somagnus:space:active-session:v1";
+const VOLUME_STORAGE_KEY = "somagnus:space:volume:v1";
+const PLAYBACK_RATE_STORAGE_KEY = "somagnus:space:rate:v1";
+const AUTO_ADVANCE_STORAGE_KEY = "somagnus:space:auto-advance:v1";
 const SPACE_ARCHIVE_SESSION_ID = "dormir-mejor";
 const SPACE_ARCHIVE_STREAM_URL = "https://archive.org/download/entregate-al-sueno/Entregate%20al%20sue%C3%B1o.mp3";
+const SPACE_ARCHIVE_EMBED_URL = "https://archive.org/embed/entregate-al-sueno";
 const SPACE_ARCHIVE_EXTERNAL_URL = "https://archive.org/details/entregate-al-sueno";
 
 type VisualModeId = "aurora" | "deep-night" | "soft-glass";
@@ -75,7 +82,7 @@ const moods: Mood[] = [
   },
 ];
 
-const revealIds = ["hero", "mood", "carousel", "favorites", "upcoming", "mascot", "tip"] as const;
+const revealIds = ["hero", "mood", "carousel", "favorites", "upcoming"] as const;
 
 const rabbitFrames: RabbitFrame[] = [
   [
@@ -170,35 +177,6 @@ const rabbitFrames: RabbitFrame[] = [
   ],
 ];
 
-const mascotGuideSteps = [
-  {
-    id: "start",
-    title: "Inicio rápido",
-    text: "El conejo te sugiere 3 min de reset para entrar suave al estudio.",
-    cta: "Pulsa Reproducir en el player principal.",
-  },
-  {
-    id: "mood",
-    title: "Foco por mood",
-    text: "Si eliges un mood, el conejo te recuerda una sesión ideal para ese estado.",
-    cta: "Prueba Respira o Enfócate en los chips.",
-  },
-  {
-    id: "streak",
-    title: "Mini reto",
-    text: "Haz 1 sesión diaria y desbloquea una racha simbólica de la mascota.",
-    cta: "Empieza con una sesión corta hoy.",
-  },
-  {
-    id: "close",
-    title: "Cierre tranquilo",
-    text: "Al terminar, te invita a una pausa breve para bajar revoluciones.",
-    cta: "Cierra con Dormir mejor o Descarga.",
-  },
-] as const;
-
-type MascotGuideStepId = (typeof mascotGuideSteps)[number]["id"];
-
 function drawRabbitFrame(
   ctx: CanvasRenderingContext2D,
   frame: RabbitFrame,
@@ -280,6 +258,9 @@ const sessions: SpaceSession[] = [
     desc: "Transición suave para descansar de verdad.",
     moodId: "descarga",
     audioSrc: SPACE_ARCHIVE_STREAM_URL,
+    embedSrc: SPACE_ARCHIVE_EMBED_URL,
+    externalHref: SPACE_ARCHIVE_EXTERNAL_URL,
+    preferEmbed: true,
   },
   {
     id: "aterriza-mente",
@@ -360,7 +341,10 @@ function sameAudioSource(currentSrc: string, nextSrc: string) {
 }
 
 function resolveSessionIdFromSource(source: string) {
-  return sessions.find((session) => sameAudioSource(source, withBasePath(session.audioSrc)))?.id;
+  return sessions.find((session) => {
+    if (!session.audioSrc) return false;
+    return sameAudioSource(source, withBasePath(session.audioSrc));
+  })?.id;
 }
 
 function loadInitialActiveSessionId() {
@@ -369,10 +353,85 @@ function loadInitialActiveSessionId() {
   if (fromAudio) return fromAudio;
   try {
     const saved = window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
-    return sessions.some((session) => session.id === saved) ? (saved as string) : (sessions[0]?.id ?? "");
+    return sessions.some((session) => session.id === saved) ? (saved as string) : SPACE_ARCHIVE_SESSION_ID;
   } catch {
-    return sessions[0]?.id ?? "";
+    return SPACE_ARCHIVE_SESSION_ID;
   }
+}
+
+function loadInitialVolume() {
+  if (typeof window === "undefined") return 0.9;
+  try {
+    const raw = Number(window.localStorage.getItem(VOLUME_STORAGE_KEY));
+    if (!Number.isFinite(raw)) return 0.9;
+    return Math.min(1, Math.max(0, raw));
+  } catch {
+    return 0.9;
+  }
+}
+
+function loadInitialPlaybackRate() {
+  if (typeof window === "undefined") return 1;
+  try {
+    const raw = Number(window.localStorage.getItem(PLAYBACK_RATE_STORAGE_KEY));
+    if (!Number.isFinite(raw)) return 1;
+    return Math.min(1.5, Math.max(0.75, raw));
+  } catch {
+    return 1;
+  }
+}
+
+function loadInitialAutoAdvance() {
+  if (typeof window === "undefined") return true;
+  try {
+    const raw = window.localStorage.getItem(AUTO_ADVANCE_STORAGE_KEY);
+    return raw === null ? true : raw === "1";
+  } catch {
+    return true;
+  }
+}
+
+function setsEqual(a: Set<string>, b: Set<string>) {
+  if (a.size !== b.size) return false;
+  for (const value of a) {
+    if (!b.has(value)) return false;
+  }
+  return true;
+}
+
+function probeAudioSource(src: string, timeoutMs = 4000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = new Audio();
+    let settled = false;
+
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      probe.removeEventListener("loadedmetadata", onReady);
+      probe.removeEventListener("canplay", onReady);
+      probe.removeEventListener("error", onError);
+      resolve(ok);
+    };
+
+    const onReady = () => finish(true);
+    const onError = () => finish(false);
+
+    const timeoutId = window.setTimeout(() => {
+      finish(false);
+    }, timeoutMs);
+
+    const wrappedFinish = (ok: boolean) => {
+      window.clearTimeout(timeoutId);
+      finish(ok);
+    };
+
+    probe.addEventListener("loadedmetadata", () => wrappedFinish(true), { once: true });
+    probe.addEventListener("canplay", () => wrappedFinish(true), { once: true });
+    probe.addEventListener("error", () => wrappedFinish(false), { once: true });
+    probe.preload = "metadata";
+    probe.src = src;
+    probe.load();
+  });
 }
 
 export function SpaceClient() {
@@ -400,9 +459,13 @@ export function SpaceClient() {
   const [visualMode] = useState<VisualModeId>(() => loadVisualMode());
   const [parallaxY, setParallaxY] = useState<number>(() => getScrollY());
   const [playPulseToken, setPlayPulseToken] = useState(0);
-  const [guideStep, setGuideStep] = useState(0);
   const [dailyMascotCheckinDone, setDailyMascotCheckinDone] = useState<boolean>(() => loadDailyMascotCheckinDone());
   const sessionProgressRef = useRef<Record<string, number>>(sessionProgress);
+  const [realDurationBySession, setRealDurationBySession] = useState<Record<string, number>>({});
+  const [availableSessionIds, setAvailableSessionIds] = useState<Set<string>>(new Set([SPACE_ARCHIVE_SESSION_ID]));
+  const [volume, setVolume] = useState(() => loadInitialVolume());
+  const [playbackRate, setPlaybackRate] = useState(() => loadInitialPlaybackRate());
+  const [autoAdvance, setAutoAdvance] = useState(() => loadInitialAutoAdvance());
 
   const modeStyle = useMemo(() => {
     if (visualMode === "deep-night") {
@@ -561,45 +624,53 @@ export function SpaceClient() {
     return sessions.find((s) => s.id === activeId) ?? filteredSessions[0] ?? sessions[0];
   }, [activeId, filteredSessions]);
   const activeUsesArchiveSource = activeSession?.id === SPACE_ARCHIVE_SESSION_ID;
+  const activeUsesEmbed = Boolean(activeSession?.embedSrc && activeSession.preferEmbed);
 
   const playlist = useMemo(() => {
     if (filteredSessions.length === 0) return sessions;
     return filteredSessions;
   }, [filteredSessions]);
 
-  const activeIndex = useMemo(() => {
-    return playlist.findIndex((s) => s.id === activeSession?.id);
-  }, [playlist, activeSession?.id]);
-
-  const guideProgress = useMemo<Record<MascotGuideStepId, boolean>>(() => {
-    const closeProgress = activeSession ? sessionProgress[activeSession.id] ?? 0 : 0;
-    return {
-      start: playing || elapsedSec > 0,
-      mood: selectedMood !== "all",
-      streak: dailyMascotCheckinDone,
-      close: activeSession?.moodId === "descarga" && closeProgress > 0,
-    };
-  }, [activeSession, dailyMascotCheckinDone, elapsedSec, playing, selectedMood, sessionProgress]);
-
-  const mascotContextMessage = useMemo(() => {
-    if (playing && activeSession) {
-      return `Buenísimo. Mantén el ritmo con \"${activeSession.title}\".`;
-    }
-    if (selectedMood === "respira") {
-      return "Mood Respira activo: ideal para aterrizar antes de estudiar.";
-    }
-    if (selectedMood === "enfocate") {
-      return "Mood Enfócate activo: usa una sesión corta y entra en flow.";
-    }
-    if (selectedMood === "descarga") {
-      return "Mood Descarga activo: perfecto para cerrar el día con calma.";
-    }
-    return "Tip del conejo: elige un mood y pulsa reproducir para completar la guía rápida.";
-  }, [activeSession, playing, selectedMood]);
-
   useEffect(() => {
     sessionProgressRef.current = sessionProgress;
   }, [sessionProgress]);
+
+  useEffect(() => {
+    let canceled = false;
+    const localSessions = sessions.filter((session) => session.audioSrc && !session.audioSrc.startsWith("http"));
+
+    const detectAvailability = async () => {
+      const checks = await Promise.all(
+        localSessions.map(async (session) => {
+          const ok = await probeAudioSource(withBasePath(session.audioSrc!));
+          return [session.id, ok] as const;
+        }),
+      );
+      if (canceled) return;
+
+      const nextAvailable = new Set<string>([SPACE_ARCHIVE_SESSION_ID]);
+      checks.forEach(([id, ok]) => {
+        if (ok) nextAvailable.add(id);
+      });
+      sessions.forEach((session) => {
+        if (session.embedSrc) nextAvailable.add(session.id);
+      });
+
+      setAvailableSessionIds((prev) => (setsEqual(prev, nextAvailable) ? prev : nextAvailable));
+      setActiveId((prev) => {
+        if (nextAvailable.has(prev)) return prev;
+        const fromAudio = resolveSessionIdFromSource(audioRef.current?.currentSrc ?? "");
+        if (fromAudio && nextAvailable.has(fromAudio)) return fromAudio;
+        if (nextAvailable.has(SPACE_ARCHIVE_SESSION_ID)) return SPACE_ARCHIVE_SESSION_ID;
+        return sessions[0]?.id ?? prev;
+      });
+    };
+
+    void detectAvailability();
+    return () => {
+      canceled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -609,6 +680,9 @@ export function SpaceClient() {
       const mediaDuration = Number.isFinite(audio.duration) ? Math.floor(audio.duration) : 0;
       setDurationSec(mediaDuration > 0 ? mediaDuration : activeSession?.approxLengthSec ?? 0);
       const linkedSessionId = resolveSessionIdFromSource(audio.currentSrc) ?? activeSession?.id;
+      if (linkedSessionId && mediaDuration > 0) {
+        setRealDurationBySession((prev) => (prev[linkedSessionId] === mediaDuration ? prev : { ...prev, [linkedSessionId]: mediaDuration }));
+      }
       const saved = linkedSessionId ? sessionProgressRef.current[linkedSessionId] ?? 0 : 0;
       if (saved > 0 && saved < audio.duration) {
         audio.currentTime = saved;
@@ -647,6 +721,30 @@ export function SpaceClient() {
       const linkedSessionId = resolveSessionIdFromSource(audio.currentSrc) ?? activeSession?.id;
       if (linkedSessionId) {
         setSessionProgress((prev) => ({ ...prev, [linkedSessionId]: 0 }));
+        if (autoAdvance) {
+          const availablePlaylist = playlist.filter((session) => availableSessionIds.has(session.id));
+          const currentIndex = availablePlaylist.findIndex((session) => session.id === linkedSessionId);
+          if (currentIndex >= 0 && currentIndex < availablePlaylist.length - 1) {
+            const next = availablePlaylist[currentIndex + 1];
+            if (next?.audioSrc) {
+              setActiveId(next.id);
+              setPlaybackError(null);
+              const nextSrc = withBasePath(next.audioSrc);
+              if (!sameAudioSource(audio.currentSrc, nextSrc)) {
+                audio.src = nextSrc;
+                audio.load();
+                setElapsedSec(sessionProgressRef.current[next.id] ?? 0);
+                setDurationSec(next.approxLengthSec);
+              }
+              void audio.play().then(() => {
+                setPlaying(true);
+              }).catch(() => {
+                setPlaying(false);
+                setPlaybackError("No se pudo iniciar el auto-avance. Puedes continuar manualmente.");
+              });
+            }
+          }
+        }
       }
     };
 
@@ -674,7 +772,7 @@ export function SpaceClient() {
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
     };
-  }, [activeSession, activeUsesArchiveSource, dailyMascotCheckinDone]);
+  }, [activeSession, activeUsesArchiveSource, autoAdvance, availableSessionIds, dailyMascotCheckinDone, playlist]);
 
   useEffect(() => {
     try {
@@ -700,16 +798,52 @@ export function SpaceClient() {
     }
   }, [activeId]);
 
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) audio.volume = volume;
+    try {
+      window.localStorage.setItem(VOLUME_STORAGE_KEY, String(volume));
+    } catch {
+      return;
+    }
+  }, [volume]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) audio.playbackRate = playbackRate;
+    try {
+      window.localStorage.setItem(PLAYBACK_RATE_STORAGE_KEY, String(playbackRate));
+    } catch {
+      return;
+    }
+  }, [playbackRate]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(AUTO_ADVANCE_STORAGE_KEY, autoAdvance ? "1" : "0");
+    } catch {
+      return;
+    }
+  }, [autoAdvance]);
+
   const progress = durationSec > 0 ? Math.min(100, Math.round((elapsedSec / durationSec) * 100)) : 0;
 
   const toggleFavorite = (id: string) => {
     setFavoriteIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
+  const isSessionAvailable = (sessionId: string) => availableSessionIds.has(sessionId);
+
+  const displayDurationForSession = (session: SpaceSession) => {
+    if (!isSessionAvailable(session.id)) return "Sin audio aún";
+    const realDuration = realDurationBySession[session.id];
+    return fmt(realDuration ?? session.approxLengthSec);
+  };
+
   const ensureAudioSourceForSession = (sessionId: string) => {
     const audio = audioRef.current;
     const targetSession = sessions.find((session) => session.id === sessionId);
-    if (!audio || !targetSession) return null;
+    if (!audio || !targetSession || !targetSession.audioSrc) return null;
 
     const nextSrc = withBasePath(targetSession.audioSrc);
     if (!sameAudioSource(audio.currentSrc, nextSrc)) {
@@ -723,9 +857,29 @@ export function SpaceClient() {
   };
 
   const startSession = (sessionId: string, options?: { autoplay?: boolean }) => {
+    if (!isSessionAvailable(sessionId)) {
+      setActiveId(sessionId);
+      setPlaying(false);
+      setPlaybackError("Esta sesión estará disponible cuando cargues su audio en la biblioteca personalizada.");
+      return;
+    }
+
     const shouldAutoplay = options?.autoplay ?? false;
     setActiveId(sessionId);
     setPlaybackError(null);
+
+    const targetSession = sessions.find((session) => session.id === sessionId);
+    if (targetSession?.embedSrc && targetSession.preferEmbed) {
+      const audio = audioRef.current;
+      audio?.pause();
+      setPlaying(false);
+      setElapsedSec(0);
+      setDurationSec(targetSession.approxLengthSec);
+      if (shouldAutoplay) {
+        setPlaybackError("Esta sesión usa reproductor embebido. Presiona play dentro del iframe.");
+      }
+      return;
+    }
 
     const prepared = ensureAudioSourceForSession(sessionId);
     if (!prepared) return;
@@ -750,6 +904,10 @@ export function SpaceClient() {
 
   const togglePlayback = async () => {
     if (!activeSession) return;
+    if (activeUsesEmbed) {
+      setPlaybackError("Esta sesión usa reproductor embebido. Presiona play dentro del iframe.");
+      return;
+    }
     const prepared = ensureAudioSourceForSession(activeSession.id);
     if (!prepared) return;
     const { audio } = prepared;
@@ -773,23 +931,25 @@ export function SpaceClient() {
   };
 
   const playPrev = () => {
-    if (activeIndex <= 0) return;
-    const prev = playlist[activeIndex - 1];
+    const availablePlaylist = playlist.filter((session) => isSessionAvailable(session.id));
+    const currentIndex = availablePlaylist.findIndex((session) => session.id === activeSession?.id);
+    if (currentIndex <= 0) return;
+    const prev = availablePlaylist[currentIndex - 1];
     if (!prev) return;
     startSession(prev.id, { autoplay: true });
   };
 
   const playNext = () => {
-    if (activeIndex < 0 || activeIndex >= playlist.length - 1) return;
-    const next = playlist[activeIndex + 1];
+    const availablePlaylist = playlist.filter((session) => isSessionAvailable(session.id));
+    const currentIndex = availablePlaylist.findIndex((session) => session.id === activeSession?.id);
+    if (currentIndex < 0 || currentIndex >= availablePlaylist.length - 1) return;
+    const next = availablePlaylist[currentIndex + 1];
     if (!next) return;
     startSession(next.id, { autoplay: true });
   };
 
   const favoriteSessions = sessions.filter((s) => favoriteIds.includes(s.id));
   const stickyHeaderSolid = parallaxY > 24;
-  const currentGuide = mascotGuideSteps[guideStep];
-  const currentGuideDone = guideProgress[currentGuide.id];
 
   const revealClass = (id: string) => {
     return revealedSections[id]
@@ -904,11 +1064,84 @@ export function SpaceClient() {
             <span>{fmt(durationSec)}</span>
           </div>
         </>
+        {activeUsesEmbed ? (
+          <div className={`mt-4 rounded-2xl border p-3 ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+            <div className={`mb-2 text-[11px] ${modeStyle.textSoft}`}>
+              Reproductor embebido para audio pesado. El audio se sirve desde fuente externa.
+            </div>
+            <div className="overflow-hidden rounded-xl border border-white/15 bg-black/25">
+              <iframe
+                src={activeSession?.embedSrc}
+                width="100%"
+                height="90"
+                frameBorder="0"
+                allow="autoplay; encrypted-media"
+                title={`Embed ${activeSession?.title ?? "audio"}`}
+              />
+            </div>
+            {activeSession?.externalHref ? (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.open(activeSession.externalHref, "_blank", "noopener,noreferrer");
+                  }}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${modeStyle.secondaryButton}`}
+                >
+                  Abrir fuente externa
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <label className={`space-y-1 text-xs ${modeStyle.textSoft}`}>
+            <span>Volumen ({Math.round(volume * 100)}%)</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(volume * 100)}
+              disabled={activeUsesEmbed}
+              onChange={(event) => {
+                setVolume(Number(event.target.value) / 100);
+              }}
+              className="w-full"
+            />
+          </label>
+          <label className={`space-y-1 text-xs ${modeStyle.textSoft}`}>
+            <span>Velocidad</span>
+            <select
+              value={String(playbackRate)}
+              disabled={activeUsesEmbed}
+              onChange={(event) => {
+                setPlaybackRate(Number(event.target.value));
+              }}
+              className={`w-full rounded-xl border px-3 py-2 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}
+            >
+              <option value="0.8">0.8x</option>
+              <option value="1">1.0x</option>
+              <option value="1.25">1.25x</option>
+              <option value="1.5">1.5x</option>
+            </select>
+          </label>
+          <label className={`inline-flex items-center gap-2 self-end rounded-xl border px-3 py-2 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+            <input
+              type="checkbox"
+              checked={autoAdvance}
+              disabled={activeUsesEmbed}
+              onChange={(event) => {
+                setAutoAdvance(event.target.checked);
+              }}
+            />
+            Auto-avance
+          </label>
+        </div>
         <div className="mt-4 flex items-center gap-2">
           <button
             type="button"
             onClick={playPrev}
-            disabled={activeIndex <= 0}
+            disabled={playlist.filter((session) => isSessionAvailable(session.id)).findIndex((session) => session.id === activeSession?.id) <= 0}
             className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
           >
             <SkipBack className="h-3.5 w-3.5" />
@@ -917,7 +1150,11 @@ export function SpaceClient() {
           <button
             type="button"
             onClick={playNext}
-            disabled={activeIndex < 0 || activeIndex >= playlist.length - 1}
+            disabled={(() => {
+              const availablePlaylist = playlist.filter((session) => isSessionAvailable(session.id));
+              const index = availablePlaylist.findIndex((session) => session.id === activeSession?.id);
+              return index < 0 || index >= availablePlaylist.length - 1;
+            })()}
             className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
           >
             Siguiente
@@ -994,6 +1231,7 @@ export function SpaceClient() {
           {filteredSessions.map((session) => {
             const isFav = favoriteIds.includes(session.id);
             const isActive = activeSession?.id === session.id;
+            const isAvailable = isSessionAvailable(session.id);
             return (
               <article
                 key={session.id}
@@ -1004,9 +1242,14 @@ export function SpaceClient() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold sm:text-base">{session.title}</div>
-                    <div className={`text-xs ${modeStyle.textSoft}`}>{session.type} · {fmt(session.approxLengthSec)} · {session.moodId}</div>
+                    <div className={`text-xs ${modeStyle.textSoft}`}>{session.type} · {displayDurationForSession(session)} · {session.moodId}</div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {!isAvailable ? (
+                      <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
+                        Próximamente
+                      </span>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => toggleFavorite(session.id)}
@@ -1022,6 +1265,7 @@ export function SpaceClient() {
                       onClick={() => {
                         startSession(session.id, { autoplay: true });
                       }}
+                      disabled={!isAvailable}
                       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${modeStyle.primaryButton}`}
                     >
                       <Play className="h-3.5 w-3.5" />
@@ -1034,6 +1278,7 @@ export function SpaceClient() {
                   <button
                     type="button"
                     onClick={() => startSession(session.id)}
+                    disabled={!isAvailable}
                     className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${modeStyle.primaryButton}`}
                   >
                     Seleccionar
@@ -1076,7 +1321,7 @@ export function SpaceClient() {
                     <div className="text-sm font-semibold">{session.title}</div>
                     <div className={`text-xs ${modeStyle.textSoft}`}>{session.type}</div>
                   </div>
-                  <span className={`text-xs ${modeStyle.textSoft}`}>{fmt(session.approxLengthSec)}</span>
+                  <span className={`text-xs ${modeStyle.textSoft}`}>{displayDurationForSession(session)}</span>
                 </button>
               ))}
             </div>
@@ -1096,78 +1341,17 @@ export function SpaceClient() {
             </div>
             <h3 className="text-xl font-semibold">Biblioteca de audios personalizada</h3>
             <p className={`text-sm ${modeStyle.textSoft}`}>
-              El reproductor ya está conectado a archivos reales. Solo coloca tus audios en <code>public/audio/space</code> con estos nombres:
+              Se detectan automáticamente los audios locales en <code>public/audio/space</code> y se activan en sesiones disponibles.
               <br />
               <span className={modeStyle.textMuted}>reset-express.mp3, foco-profundo.mp3, dormir-mejor.mp3, aterriza-mente.mp3, modo-examen.mp3</span>
             </p>
             <div className={`rounded-2xl border border-dashed p-4 text-xs ${modeStyle.border} ${modeStyle.surface} ${modeStyle.textSoft}`}>
-              Próximo ajuste recomendado: volumen, velocidad y auto-avance para hacerlo aún más simple de usar.
+              Sesiones activas ahora: <span className="font-semibold">{availableSessionIds.size}</span>. También puedes usar volumen, velocidad y auto-avance desde el player principal.
             </div>
           </div>
         </article>
       </section>
 
-      <section
-        data-reveal-id="mascot"
-        className={`rounded-3xl border p-5 backdrop-blur-xl transition-all duration-700 ease-out ${modeStyle.border} ${modeStyle.softSurface} ${revealClass("mascot")}`}
-        style={{ transitionDelay: "250ms" }}
-      >
-        <div className="grid gap-4 md:grid-cols-[auto_1fr] md:items-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-cyan-100/30 bg-cyan-100/10 shadow-[0_10px_30px_-18px_rgba(155,245,255,0.8)]">
-            <canvas ref={rabbitCardCanvasRef} className="rabbit-card-canvas" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold">Mascota Space: conejito pixel</h3>
-            <p className={`mt-1 text-sm ${modeStyle.textSoft}`}>Podemos usarlo como guía rápida para que la sección sea más clara y entretenida.</p>
-            <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
-              {mascotContextMessage}
-            </div>
-            <div className={`mt-3 rounded-2xl border p-4 ${modeStyle.border} ${modeStyle.surface}`}>
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-xs font-semibold uppercase tracking-widest text-cyan-100/90">Guía rápida</div>
-                <div className={`text-xs ${modeStyle.textSoft}`}>
-                  Paso {guideStep + 1}/{mascotGuideSteps.length}
-                </div>
-              </div>
-              <h4 className="mt-2 text-sm font-semibold">{currentGuide.title}</h4>
-              <p className={`mt-1 text-xs ${modeStyle.textSoft}`}>{currentGuide.text}</p>
-              <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
-                {currentGuide.cta}
-              </div>
-              <div className={`mt-2 text-xs font-medium ${currentGuideDone ? "text-emerald-200" : modeStyle.textSoft}`}>
-                {currentGuideDone ? "Completado automáticamente" : "Pendiente"}
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setGuideStep((prev) => (prev === 0 ? mascotGuideSteps.length - 1 : prev - 1))}
-                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition ${modeStyle.secondaryButton}`}
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  Anterior
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGuideStep((prev) => (prev + 1) % mascotGuideSteps.length)}
-                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs transition ${modeStyle.primaryButton}`}
-                >
-                  Siguiente
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <style jsx>{`
-        .rabbit-card-canvas {
-          image-rendering: pixelated;
-          image-rendering: crisp-edges;
-          transform: scale(0.62);
-          filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.2));
-        }
-      `}</style>
     </div>
   );
 }
