@@ -584,13 +584,13 @@ export function ResourcesClient() {
                       <div className="relative">
                         <iframe
                           title="pdf-preview"
-                          src={`${previewUrl}#page=${readerPage}&toolbar=1&navpanes=0&scrollbar=1&view=FitH`}
+                          src={`${previewUrl}#page=${readerPage}&toolbar=1&navpanes=0&scrollbar=1`}
                           className="h-[640px] w-full"
                           loading="lazy"
                           onLoad={() => setPreviewLoading(false)}
                         />
                         {previewLoading ? (
-                          <div className="absolute inset-0 flex items-center justify-center bg-background/70 text-xs text-foreground/70">
+                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/70 text-xs text-foreground/70">
                             Cargando vista previa...
                           </div>
                         ) : null}
