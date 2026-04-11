@@ -398,34 +398,36 @@ function setsEqual(a: Set<string>, b: Set<string>) {
   return true;
 }
 
-function probeAudioSource(src: string, timeoutMs = 4000): Promise<boolean> {
+function probeAudioMetadata(src: string, timeoutMs = 4000): Promise<{ ok: boolean; durationSec: number }> {
   return new Promise((resolve) => {
     const probe = new Audio();
     let settled = false;
 
-    const finish = (ok: boolean) => {
+    const finish = (ok: boolean, durationSec = 0) => {
       if (settled) return;
       settled = true;
-      probe.removeEventListener("loadedmetadata", onReady);
-      probe.removeEventListener("canplay", onReady);
-      probe.removeEventListener("error", onError);
-      resolve(ok);
+      resolve({ ok, durationSec });
     };
 
-    const onReady = () => finish(true);
-    const onError = () => finish(false);
+    const onReady = () => {
+      const mediaDuration = Number.isFinite(probe.duration) ? Math.floor(probe.duration) : 0;
+      finish(true, mediaDuration > 0 ? mediaDuration : 0);
+    };
 
     const timeoutId = window.setTimeout(() => {
-      finish(false);
+      finish(false, 0);
     }, timeoutMs);
 
     const wrappedFinish = (ok: boolean) => {
       window.clearTimeout(timeoutId);
-      finish(ok);
+      if (!ok) {
+        finish(false, 0);
+        return;
+      }
+      onReady();
     };
 
     probe.addEventListener("loadedmetadata", () => wrappedFinish(true), { once: true });
-    probe.addEventListener("canplay", () => wrappedFinish(true), { once: true });
     probe.addEventListener("error", () => wrappedFinish(false), { once: true });
     probe.preload = "metadata";
     probe.src = src;
@@ -642,19 +644,29 @@ export function SpaceClient() {
     const detectAvailability = async () => {
       const checks = await Promise.all(
         localSessions.map(async (session) => {
-          const ok = await probeAudioSource(withBasePath(session.audioSrc!));
-          return [session.id, ok] as const;
+          const result = await probeAudioMetadata(withBasePath(session.audioSrc!));
+          return [session.id, result] as const;
         }),
       );
       if (canceled) return;
 
       const nextAvailable = new Set<string>([SPACE_ARCHIVE_SESSION_ID]);
-      checks.forEach(([id, ok]) => {
-        if (ok) nextAvailable.add(id);
+      const detectedDurations: Record<string, number> = {};
+      checks.forEach(([id, result]) => {
+        if (result.ok) {
+          nextAvailable.add(id);
+        }
+        if (result.durationSec > 0) {
+          detectedDurations[id] = result.durationSec;
+        }
       });
       sessions.forEach((session) => {
         if (session.embedSrc) nextAvailable.add(session.id);
       });
+
+      if (Object.keys(detectedDurations).length > 0) {
+        setRealDurationBySession((prev) => ({ ...prev, ...detectedDurations }));
+      }
 
       setAvailableSessionIds((prev) => (setsEqual(prev, nextAvailable) ? prev : nextAvailable));
       setActiveId((prev) => {
@@ -1142,20 +1154,20 @@ export function SpaceClient() {
         className={`space-y-4 transition-all duration-700 ease-out ${revealClass("mood")}`}
         style={{ transitionDelay: "70ms" }}
       >
-        <div className="grid gap-2 md:grid-cols-[1fr_190px_150px]">
-          <label className={`flex items-center gap-2 rounded-2xl border px-3 py-2 ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+        <div className="grid gap-3 md:grid-cols-[1fr_220px_170px]">
+          <label className={`flex items-center gap-3 rounded-2xl px-4 py-3 ${modeStyle.softSurfaceAlt}`}>
             <Search className={`h-4 w-4 ${modeStyle.textSoft}`} />
             <input
               value={sessionQuery}
               onChange={(event) => setSessionQuery(event.target.value)}
               placeholder="Buscar sesión..."
-              className="w-full bg-transparent text-sm outline-none placeholder:text-slate-300/50"
+              className="w-full bg-transparent text-base outline-none placeholder:text-slate-300/50"
             />
           </label>
           <select
             value={selectedMood}
             onChange={(event) => setSelectedMood(event.target.value)}
-            className={`rounded-2xl border px-3 py-2 text-sm outline-none ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}
+            className={`rounded-2xl px-4 py-3 text-base outline-none ${modeStyle.softSurfaceAlt}`}
           >
             <option value="all">Todos</option>
             {moods.map((mood) => (
@@ -1165,15 +1177,15 @@ export function SpaceClient() {
           <button
             type="button"
             onClick={() => setFavoritesOnly((prev) => !prev)}
-            className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
-              favoritesOnly ? `${modeStyle.borderStrong} ${modeStyle.softSurfaceAlt}` : `${modeStyle.border} ${modeStyle.softSurface}`
+            className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-base font-semibold transition ${
+              favoritesOnly ? `${modeStyle.softSurfaceAlt}` : `${modeStyle.softSurface}`
             }`}
           >
             <Heart className={`h-4 w-4 ${favoritesOnly ? "fill-current" : ""}`} />
             Favoritos
           </button>
         </div>
-        <div className={`flex items-center gap-2 text-sm font-medium ${modeStyle.textMuted}`}>
+        <div className={`flex items-center gap-2 text-lg font-semibold ${modeStyle.textMuted}`}>
           <Sparkles className="h-4 w-4" />
           Elige cómo te sientes hoy
         </div>
@@ -1212,7 +1224,7 @@ export function SpaceClient() {
         className={`space-y-3 transition-all duration-700 ease-out ${revealClass("favorites")}`}
         style={{ transitionDelay: "95ms" }}
       >
-        <h3 className="text-base font-semibold">Recientes</h3>
+        <h3 className="text-xl font-semibold">Recientes</h3>
         {recentSessions.length === 0 ? (
           <div className={`rounded-2xl border px-4 py-3 text-sm ${modeStyle.border} ${modeStyle.softSurface} ${modeStyle.textSoft}`}>
             Todavía no hay sesiones recientes.
@@ -1249,7 +1261,7 @@ export function SpaceClient() {
         <div className="space-y-6">
           {groupedVisibleSessions.map((group) => (
             <div key={group.id} className="space-y-3">
-              <h3 className="text-lg font-semibold">{group.title}</h3>
+              <h3 className="text-2xl font-semibold">{group.title}</h3>
               <div className="flex gap-4 overflow-x-auto pb-2">
                 {group.items.map((session) => {
                   const isFav = favoriteIds.includes(session.id);
@@ -1258,7 +1270,7 @@ export function SpaceClient() {
                   return (
                     <article
                       key={session.id}
-                      className={`relative min-w-[210px] overflow-hidden rounded-3xl border ${modeStyle.border} ${modeStyle.softSurface}`}
+                      className={`relative min-w-[220px] overflow-hidden rounded-3xl ${modeStyle.softSurface}`}
                     >
                       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.24),transparent_58%)]" />
                       <div className="absolute inset-0 flex items-center justify-center">
@@ -1304,7 +1316,7 @@ export function SpaceClient() {
 
                       <div className="relative z-10 mt-24 bg-gradient-to-t from-slate-950/95 via-slate-950/72 to-transparent p-4">
                         <div className="text-[11px] uppercase tracking-wide text-cyan-50/70">{session.type}</div>
-                        <div className="mt-1 text-lg font-semibold leading-tight">{session.title}</div>
+                        <div className="mt-1 text-xl font-semibold leading-tight">{session.title}</div>
                         <div className="mt-1 text-xs text-cyan-50/75">{displayDurationForSession(session)}</div>
                       </div>
                     </article>
