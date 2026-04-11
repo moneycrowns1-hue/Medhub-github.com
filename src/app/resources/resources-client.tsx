@@ -584,7 +584,7 @@ export function ResourcesClient() {
                       <div className="relative">
                         <iframe
                           title="pdf-preview"
-                          src={previewUrl}
+                          src={`${previewUrl}#page=${readerPage}&toolbar=1&navpanes=0&scrollbar=1&view=FitH`}
                           className="h-[640px] w-full"
                           loading="lazy"
                           onLoad={() => setPreviewLoading(false)}
