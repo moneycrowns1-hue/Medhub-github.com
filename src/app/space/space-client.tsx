@@ -613,13 +613,17 @@ export function SpaceClient() {
     if (typeof window === "undefined") return;
 
     const shouldReduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+    const ua = window.navigator.userAgent;
+    const isIpad = /iPad/i.test(ua) || (/Macintosh/i.test(ua) && "ontouchend" in window);
+    const shouldSkipParallax = shouldReduceMotion || isCoarsePointer || isIpad;
     let ticking = false;
 
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
       window.requestAnimationFrame(() => {
-        if (!shouldReduceMotion) {
+        if (!shouldSkipParallax) {
           setParallaxY(getScrollY());
         }
         ticking = false;

@@ -69,13 +69,29 @@ function bindPreviewCacheCleanup() {
   });
 }
 
+function prefersLightPdfRenderProfile() {
+  if (typeof window === "undefined") return false;
+  const ua = window.navigator.userAgent;
+  const isIpad = /iPad/i.test(ua) || (/Macintosh/i.test(ua) && "ontouchend" in window);
+  const isCoarsePointer = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+  const lowDeviceMemory = typeof (navigator as Navigator & { deviceMemory?: number }).deviceMemory === "number"
+    ? ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4
+    : false;
+  return isIpad || isCoarsePointer || lowDeviceMemory;
+}
+
 async function renderPdfPages(blob: Blob): Promise<{ pages: string[]; pageCount: number }> {
   ensurePdfWorker();
   const data = await blob.arrayBuffer();
   const task = getDocument({ data });
   const pdf = await task.promise;
   const pages: string[] = [];
-  const targetWidth = 980;
+  const lightProfile = prefersLightPdfRenderProfile();
+  const viewportWidth = typeof window === "undefined" ? 1200 : Math.max(360, window.innerWidth);
+  const maxWidth = lightProfile ? 780 : 980;
+  const minWidth = lightProfile ? 540 : 680;
+  const targetWidth = Math.min(maxWidth, Math.max(minWidth, Math.floor(viewportWidth * 0.82)));
+  const jpegQuality = lightProfile ? 0.8 : 0.92;
 
   for (let p = 1; p <= pdf.numPages; p += 1) {
     const page = await pdf.getPage(p);
@@ -91,7 +107,7 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: string[]; pageCount:
       continue;
     }
     await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-    pages.push(canvas.toDataURL("image/jpeg", 0.92));
+    pages.push(canvas.toDataURL("image/jpeg", jpegQuality));
   }
 
   try {
@@ -296,6 +312,13 @@ export function ResourcesClient() {
     if (typeof window === "undefined") return;
     window.dispatchEvent(new CustomEvent(RABBIT_GUIDE_SPEAK_EVENT, { detail: payload }));
   };
+
+  const withBasePath = useCallback((path: string) => {
+    if (!path) return path;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    const basePath = process.env.NODE_ENV === "production" ? "/Medhub-github.com" : "";
+    return `${basePath}${path}`;
+  }, []);
 
   const normalizeToWindowRoute = useCallback((href: string): string | null => {
     if (typeof window === "undefined") return null;
@@ -513,7 +536,7 @@ export function ResourcesClient() {
         return;
       }
 
-      const r = await fetch("/api/ai/flashcards", {
+      const r = await fetch(withBasePath("/api/ai/flashcards"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -530,6 +553,10 @@ export function ResourcesClient() {
         | { notes?: AiNoteDraft[]; error?: string; details?: string };
       if (!r.ok) {
         const details = typeof data?.details === "string" ? data.details : "";
+        if (r.status === 404) {
+          setAiError("No se encontró el endpoint de IA (404). Si estás en GitHub Pages o build estático, la IA no está disponible ahí; usa la app en servidor Next.js.");
+          return;
+        }
         if (r.status === 429) {
           setAiError(
             `IA: límite de uso / cuota excedida (429). Revisá tu cuota en Google AI Studio y que tu API key esté activa.\n${details}`.trim(),
@@ -736,7 +763,7 @@ export function ResourcesClient() {
       </div>
 
       {loading ? (
-        <div className="grid gap-4 lg:grid-cols-[430px,minmax(0,1.2fr)]">
+        <div className="grid gap-4 xl:grid-cols-[430px,minmax(0,1.2fr)]">
           <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
             <div className="mb-3 flex items-center justify-between">
               <div>
@@ -757,7 +784,7 @@ export function ResourcesClient() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[430px,minmax(0,1.2fr)]">
+        <div className="grid gap-4 xl:grid-cols-[430px,minmax(0,1.2fr)]">
           <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
             <div className="mb-3 flex items-center justify-between">
               <div>
@@ -835,7 +862,7 @@ export function ResourcesClient() {
             </div>
             <div className="space-y-4 p-6">
               {selected ? (
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 lg:grid-cols-2">
                   <div className="space-y-1">
                     <div className="text-xs uppercase tracking-wider text-muted-foreground">Título</div>
                     <input
@@ -873,12 +900,12 @@ export function ResourcesClient() {
                   <div className="text-xs uppercase tracking-wider text-white/70">Vista previa</div>
                   <div className="mt-2 overflow-hidden rounded-xl border border-white/10">
                     {previewLoading ? (
-                      <div className="flex h-[640px] w-full flex-col items-center justify-center gap-2 text-xs text-foreground/75">
+                      <div className="flex h-[62svh] min-h-[420px] w-full flex-col items-center justify-center gap-2 text-xs text-foreground/75 md:h-[640px]">
                         <Loader2 className="h-5 w-5 animate-spin" />
                         <span>Cargando PDF completo...</span>
                       </div>
                     ) : previewError ? (
-                      <div className="flex h-[640px] w-full flex-col items-center justify-center gap-3 px-4 text-center text-sm text-foreground/75">
+                      <div className="flex h-[62svh] min-h-[420px] w-full flex-col items-center justify-center gap-3 px-4 text-center text-sm text-foreground/75 md:h-[640px]">
                         <p>{previewError}</p>
                         {previewUrl ? (
                           <a
@@ -896,7 +923,7 @@ export function ResourcesClient() {
                         <div className="border-b border-white/10 px-3 py-2 text-[11px] text-white/70">
                           Página actual detectada: <span className="font-semibold text-white">{readerPage}</span>
                         </div>
-                        <div ref={previewScrollRef} className="h-[600px] overflow-y-auto bg-black/35 p-2">
+                        <div ref={previewScrollRef} className="h-[58svh] min-h-[360px] overflow-y-auto bg-black/35 p-2 md:h-[600px]">
                           <div className="space-y-3">
                             {previewPages.map((pageSrc, idx) => (
                               <section
@@ -932,14 +959,14 @@ export function ResourcesClient() {
                         ) : null}
                       </div>
                     ) : (
-                      <div className="flex h-[640px] w-full items-center justify-center text-sm text-foreground/70">
+                      <div className="flex h-[62svh] min-h-[420px] w-full items-center justify-center text-sm text-foreground/70 md:h-[640px]">
                         No se pudo cargar el PDF.
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-3 grid gap-3 rounded-xl bg-white/7 p-3 md:grid-cols-3">
-                    <div className="space-y-1 md:col-span-2">
+                  <div className="mt-3 grid gap-3 rounded-xl bg-white/7 p-3 lg:grid-cols-3">
+                    <div className="space-y-1 lg:col-span-2">
                       <div className="text-xs uppercase tracking-wider text-foreground/70">Rango páginas para extracción</div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
@@ -1101,7 +1128,7 @@ export function ResourcesClient() {
                             </div>
                           </div>
 
-                          <div className="mt-2 grid gap-2 md:grid-cols-2">
+                          <div className="mt-2 grid gap-2 lg:grid-cols-2">
                             {chunks.map((c, idx) => {
                               const checked = selectedChunkIdxs.has(idx);
                               const label = c.match(/^\[Page\s+\d+\]/)?.[0] ?? `Chunk ${idx + 1}`;
@@ -1141,8 +1168,8 @@ export function ResourcesClient() {
                         </div>
                       ) : null}
 
-                      <div className="grid gap-3 rounded-xl bg-white/7 p-3 md:grid-cols-3">
-                        <div className="space-y-1 md:col-span-2">
+                      <div className="grid gap-3 rounded-xl bg-white/7 p-3 lg:grid-cols-3">
+                        <div className="space-y-1 lg:col-span-2">
                           <div className="text-xs uppercase tracking-wider text-foreground/70">Destino (SRS)</div>
                           <div className="flex flex-wrap gap-2">
                             <SubjectSelect value={subject} onChange={setSubject} allowAll />
@@ -1156,7 +1183,7 @@ export function ResourcesClient() {
                             Importa las tarjetas directamente a tu biblioteca de flashcards.
                           </div>
 
-                          <div className="mt-3 grid gap-2 md:grid-cols-2">
+                          <div className="mt-3 grid gap-2 lg:grid-cols-2">
                             <div className="space-y-1">
                               <div className="text-xs uppercase tracking-wider text-white/70">Modo IA</div>
                               <select
@@ -1231,7 +1258,7 @@ export function ResourcesClient() {
                                   {n.cards.map((c, cardIdx) => (
                                     <div
                                       key={cardIdx}
-                                      className="grid gap-2 rounded-lg border border-white/20 bg-white/8 p-3 md:grid-cols-[120px,1fr,1fr,auto]"
+                                      className="grid gap-2 rounded-lg border border-white/20 bg-white/8 p-3 lg:grid-cols-[120px,1fr,1fr,auto]"
                                     >
                                       <select
                                         value={c.type}
