@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { FileText, Filter, Loader2, Search, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
@@ -105,6 +105,8 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: string[]; pageCount:
 
 export function ResourcesClient() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filterSubject, setFilterSubject] = useState<string>("all");
@@ -282,6 +284,8 @@ export function ResourcesClient() {
   }, [items, query, filterSubject]);
 
   const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
+  const resumeQueryPdfId = searchParams.get("resumePdf");
+  const resumeQueryPageRaw = Number(searchParams.get("resumePage") ?? "");
   const selectedSubjectSlug =
     selected?.subjectSlug === "anatomia" ||
     selected?.subjectSlug === "histologia" ||
@@ -295,6 +299,34 @@ export function ResourcesClient() {
     window.dispatchEvent(new CustomEvent(RABBIT_GUIDE_SPEAK_EVENT, { detail: payload }));
   };
 
+  const normalizeToAppRoute = useCallback((href: string): string | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      const nextUrl = new URL(href, window.location.href);
+      if (nextUrl.origin !== window.location.origin) return null;
+
+      const currentWindowPath = window.location.pathname.replace(/\/+$/, "") || "/";
+      const currentAppPath = pathname.replace(/\/+$/, "") || "/";
+      const targetWindowPath = nextUrl.pathname.replace(/\/+$/, "") || "/";
+
+      let basePath = "";
+      if (currentAppPath !== "/" && currentWindowPath.endsWith(currentAppPath)) {
+        basePath = currentWindowPath.slice(0, currentWindowPath.length - currentAppPath.length);
+      }
+
+      let appTargetPath = targetWindowPath;
+      if (basePath && appTargetPath.startsWith(`${basePath}/`)) {
+        appTargetPath = appTargetPath.slice(basePath.length);
+      } else if (basePath && appTargetPath === basePath) {
+        appTargetPath = "/";
+      }
+
+      return `${appTargetPath}${nextUrl.search}${nextUrl.hash}`;
+    } catch {
+      return null;
+    }
+  }, [pathname]);
+
   useEffect(() => {
     if (!selected) return;
     const resume = getPdfResumeForResource(selected.id);
@@ -302,7 +334,31 @@ export function ResourcesClient() {
     initialPageAlignRef.current = nextPage;
     setReaderPage(nextPage);
     setCommittedReaderPage(nextPage);
+
+    speakRabbit({
+      title: "Retomemos lectura",
+      message: `${selected.title}: última página guardada ${nextPage}.`,
+      actions: [
+        {
+          href: `/resources?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${nextPage}`,
+          label: "Ir a esa página",
+          primary: true,
+        },
+      ],
+      durationMs: 5200,
+    });
   }, [selected]);
+
+  useEffect(() => {
+    if (!resumeQueryPdfId) return;
+    const target = items.find((x) => x.id === resumeQueryPdfId);
+    if (!target) return;
+    const page = Number.isFinite(resumeQueryPageRaw) ? Math.max(1, Math.floor(resumeQueryPageRaw)) : 1;
+    initialPageAlignRef.current = page;
+    setSelectedId(target.id);
+    setReaderPage(page);
+    setCommittedReaderPage(page);
+  }, [items, resumeQueryPdfId, resumeQueryPageRaw]);
 
   const scrollToPreviewPage = (page: number, behavior: ScrollBehavior = "smooth") => {
     const root = previewScrollRef.current;
@@ -393,13 +449,13 @@ export function ResourcesClient() {
       if (!(target instanceof HTMLAnchorElement)) return;
       const href = target.getAttribute("href");
       if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
-      const next = new URL(href, window.location.href);
-      const current = new URL(window.location.href);
-      if (next.origin !== current.origin) return;
-      if (next.pathname === current.pathname && next.search === current.search && next.hash === current.hash) return;
+      const appRoute = normalizeToAppRoute(href);
+      if (!appRoute) return;
+      const currentRoute = `${pathname}${window.location.search}${window.location.hash}`;
+      if (appRoute === currentRoute) return;
       event.preventDefault();
       event.stopPropagation();
-      setPendingLeaveHref(next.toString());
+      setPendingLeaveHref(appRoute);
       speakRabbit({
         title: "¿Guardamos tu avance?",
         message: `Vas por la página ${readerPage}. ¿Quieres guardar esa página antes de salir?`,
@@ -410,7 +466,7 @@ export function ResourcesClient() {
 
     document.addEventListener("click", onDocumentClick, true);
     return () => document.removeEventListener("click", onDocumentClick, true);
-  }, [hasPendingReaderChanges, pendingLeaveHref, readerPage]);
+  }, [hasPendingReaderChanges, normalizeToAppRoute, pendingLeaveHref, readerPage, pathname]);
 
   const resolvePendingLeave = (saveCurrentPage: boolean) => {
     const targetHref = pendingLeaveHref;
@@ -428,9 +484,7 @@ export function ResourcesClient() {
     }
 
     if (targetHref) {
-      const next = new URL(targetHref, window.location.href);
-      const route = `${next.pathname}${next.search}${next.hash}`;
-      router.push(route);
+      router.push(targetHref);
     }
   };
 
@@ -595,6 +649,14 @@ export function ResourcesClient() {
     setBusy(true);
     setExtractError(null);
     try {
+      const start = Math.max(1, Math.floor(selected.pageStart || 1));
+      const end = Math.max(start, Math.floor(selected.pageEnd || start));
+
+      if (start !== selected.pageStart || end !== selected.pageEnd) {
+        setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, pageStart: start, pageEnd: end } : x)));
+        await updatePdfResourceMeta(selected.id, { pageStart: start, pageEnd: end });
+      }
+
       const blob = await getPdfResourceBlob(selectedId);
       if (!blob) {
         setExtractError("No se pudo leer el archivo.");
@@ -602,8 +664,8 @@ export function ResourcesClient() {
       }
       const { text, pageCount: pc } = await extractPdfTextFromBlob({
         blob,
-        pageStart: selected.pageStart,
-        pageEnd: selected.pageEnd,
+        pageStart: start,
+        pageEnd: end,
       });
       setPageCount(pc);
       setExtractedText(text);

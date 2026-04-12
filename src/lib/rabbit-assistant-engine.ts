@@ -100,6 +100,9 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   const isStudyRoute = pathname.startsWith("/study/");
   const pomodoroText = `Pomodoro: ${phaseLabel(pomodoroState.phase)}`;
   const resumePdfLabel = state.lastPdfTitle ? `${state.lastPdfTitle}${state.lastPdfPage ? ` · p. ${state.lastPdfPage}` : ""}` : null;
+  const resumePdfHref = state.lastPdfResourceId
+    ? `/resources?resumePdf=${encodeURIComponent(state.lastPdfResourceId)}&resumePage=${Math.max(1, Math.floor(state.lastPdfPage || 1))}`
+    : null;
   const resumeDeckLabel = state.lastSrsDeckName ?? null;
   const dayStamp = new Date().toISOString().slice(0, 10);
   const baseSeed = [dayStamp, pathname, state.routinePhase, pomodoroState.phase, String(todayStats.blocksCompleted), String(clinicalReminderTick)].join("|");
@@ -143,6 +146,18 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
       actions: [
         { href: "/space", label: "Seguir en Space", primary: true },
         { href: "/resources", label: "Ir a Biblioteca" },
+      ],
+    };
+  }
+
+  if (pathname.startsWith("/resources") && resumePdfLabel) {
+    return {
+      title: "Lectura activa en Recursos",
+      message: `Último punto guardado: ${resumePdfLabel}. Si quieres, te llevo directo a esa página.`,
+      status: `${pomodoroText} · ${phaseStatus} · Lectura`,
+      actions: [
+        resumePdfHref ? { href: resumePdfHref, label: "Ir a mi página", primary: true } : { href: "/resources", label: "Abrir biblioteca", primary: true },
+        { href: "/srs", label: "Repasar SRS" },
       ],
     };
   }
@@ -229,7 +244,9 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
       status: `${pomodoroText} · ${phaseStatus} · Reanudar`,
       actions: [
         { href: `/study/${resume.slug}`, label: "Retomar módulo", primary: true },
-        resumePdfLabel ? { href: "/resources", label: "Retomar lectura" } : { href: "/#pomodoro", label: "Preparar Pomodoro" },
+        resumePdfLabel
+          ? { href: resumePdfHref ?? "/resources", label: "Retomar lectura" }
+          : { href: "/#pomodoro", label: "Preparar Pomodoro" },
       ],
     };
   }
