@@ -378,6 +378,7 @@ export function ResourcesClient() {
   const commitReaderProgress = (page: number, notifyMessage: string) => {
     if (!selected) return;
     const safe = Math.max(1, Math.floor(page || 1));
+    const resumeHref = `/resources?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${safe}`;
     markPdfProgress({
       resourceId: selected.id,
       title: selected.title,
@@ -389,6 +390,7 @@ export function ResourcesClient() {
       title: "Lectura guardada",
       message: `${selected.title}: retomamos en la página ${safe}.`,
       status: notifyMessage,
+      actions: [{ href: resumeHref, label: "Ir a mi página", primary: true }],
       durationMs: 4200,
     });
   };

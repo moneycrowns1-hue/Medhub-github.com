@@ -31,7 +31,11 @@ export async function extractPdfTextFromBlob(input: {
   for (let p = start; p <= end; p += 1) {
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
-    const pageText = content.items
+    const items = Array.isArray((content as { items?: unknown }).items)
+      ? ((content as { items: unknown[] }).items)
+      : [];
+
+    const pageText = items
       .map((it) => {
         const anyIt = it as unknown as { str?: string };
         return typeof anyIt.str === "string" ? anyIt.str : "";
