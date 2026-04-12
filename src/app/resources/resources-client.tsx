@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { FileText, Filter, Loader2, Search, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
@@ -89,7 +90,7 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: string[]; pageCount:
       pages.push("");
       continue;
     }
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
     pages.push(canvas.toDataURL("image/jpeg", 0.92));
   }
 
@@ -103,6 +104,7 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: string[]; pageCount:
 }
 
 export function ResourcesClient() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filterSubject, setFilterSubject] = useState<string>("all");
@@ -135,6 +137,7 @@ export function ResourcesClient() {
   const [notices, setNotices] = useState<InAppNotice[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const previewScrollRef = useRef<HTMLDivElement | null>(null);
+  const initialPageAlignRef = useRef<number | null>(null);
 
   const pushNotice = (title: string, body: string) => {
     const id = `res_notice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -296,6 +299,7 @@ export function ResourcesClient() {
     if (!selected) return;
     const resume = getPdfResumeForResource(selected.id);
     const nextPage = resume ?? selected.pageStart ?? 1;
+    initialPageAlignRef.current = nextPage;
     setReaderPage(nextPage);
     setCommittedReaderPage(nextPage);
   }, [selected]);
@@ -309,7 +313,7 @@ export function ResourcesClient() {
   };
 
   const jumpToPage = (next: number, behavior: ScrollBehavior = "smooth") => {
-    const maxPage = pageCount ?? previewPages.length || 1;
+    const maxPage = (pageCount ?? previewPages.length) || 1;
     const safe = clamp(Math.floor(next || 1), 1, maxPage);
     setReaderPage(safe);
     scrollToPreviewPage(safe, behavior);
@@ -364,11 +368,13 @@ export function ResourcesClient() {
 
   useEffect(() => {
     if (!previewPages.length) return;
+    const pageToAlign = initialPageAlignRef.current ?? 1;
     const id = window.requestAnimationFrame(() => {
-      scrollToPreviewPage(readerPage, "auto");
+      scrollToPreviewPage(pageToAlign, "auto");
     });
+    initialPageAlignRef.current = null;
     return () => window.cancelAnimationFrame(id);
-  }, [previewPages, selectedId, readerPage]);
+  }, [previewPages, selectedId]);
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -422,7 +428,9 @@ export function ResourcesClient() {
     }
 
     if (targetHref) {
-      window.location.assign(targetHref);
+      const next = new URL(targetHref, window.location.href);
+      const route = `${next.pathname}${next.search}${next.hash}`;
+      router.push(route);
     }
   };
 
@@ -894,8 +902,10 @@ export function ResourcesClient() {
                               setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, pageStart: n } : x)));
                             }}
                             onBlur={(e) => {
-                              const n = Math.max(1, Math.floor(Number(e.target.value)));
-                              void updateMeta({ pageStart: n });
+                              const start = Math.max(1, Math.floor(Number(e.target.value)));
+                              const end = Math.max(start, Math.floor(selected.pageEnd || start));
+                              setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, pageStart: start, pageEnd: end } : x)));
+                              void updateMeta({ pageStart: start, pageEnd: end });
                             }}
                             className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
                           />
@@ -912,8 +922,10 @@ export function ResourcesClient() {
                               setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, pageEnd: n } : x)));
                             }}
                             onBlur={(e) => {
-                              const n = Math.max(1, Math.floor(Number(e.target.value)));
-                              void updateMeta({ pageEnd: n });
+                              const end = Math.max(1, Math.floor(Number(e.target.value)));
+                              const start = Math.min(Math.max(1, Math.floor(selected.pageStart || 1)), end);
+                              setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, pageStart: start, pageEnd: end } : x)));
+                              void updateMeta({ pageStart: start, pageEnd: end });
                             }}
                             className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
                           />
@@ -952,7 +964,7 @@ export function ResourcesClient() {
                           size="sm"
                           className="border-white/25 bg-white/10 text-white hover:bg-white/15"
                           onClick={() => jumpToPage(readerPage + 1)}
-                          disabled={readerPage >= (pageCount ?? previewPages.length || 1)}
+                          disabled={readerPage >= ((pageCount ?? previewPages.length) || 1)}
                         >
                           +1
                         </Button>
