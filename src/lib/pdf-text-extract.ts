@@ -29,24 +29,28 @@ export async function extractPdfTextFromBlob(input: {
 
   const chunks: string[] = [];
   for (let p = start; p <= end; p += 1) {
-    const page = await pdf.getPage(p);
-    const content = await page.getTextContent();
-    const items = Array.isArray((content as { items?: unknown }).items)
-      ? ((content as { items: unknown[] }).items)
-      : [];
+    try {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const items = Array.isArray((content as { items?: unknown }).items)
+        ? (content as { items: unknown[] }).items
+        : [];
 
-    const pageText = items
-      .map((it) => {
-        const anyIt = it as unknown as { str?: string };
-        return typeof anyIt.str === "string" ? anyIt.str : "";
-      })
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
+      const pageText = items
+        .map((it) => {
+          const anyIt = it as unknown as { str?: string };
+          return typeof anyIt.str === "string" ? anyIt.str : "";
+        })
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
 
-    if (pageText) {
-      chunks.push(`\n\n[Page ${p}]\n${pageText}`);
-    } else {
+      if (pageText) {
+        chunks.push(`\n\n[Page ${p}]\n${pageText}`);
+      } else {
+        chunks.push(`\n\n[Page ${p}]\n`);
+      }
+    } catch {
       chunks.push(`\n\n[Page ${p}]\n`);
     }
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 import { FileText, Filter, Loader2, Search, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
@@ -104,8 +104,6 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: string[]; pageCount:
 }
 
 export function ResourcesClient() {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -299,33 +297,18 @@ export function ResourcesClient() {
     window.dispatchEvent(new CustomEvent(RABBIT_GUIDE_SPEAK_EVENT, { detail: payload }));
   };
 
-  const normalizeToAppRoute = useCallback((href: string): string | null => {
+  const normalizeToWindowRoute = useCallback((href: string): string | null => {
     if (typeof window === "undefined") return null;
     try {
       const nextUrl = new URL(href, window.location.href);
       if (nextUrl.origin !== window.location.origin) return null;
 
-      const currentWindowPath = window.location.pathname.replace(/\/+$/, "") || "/";
-      const currentAppPath = pathname.replace(/\/+$/, "") || "/";
       const targetWindowPath = nextUrl.pathname.replace(/\/+$/, "") || "/";
-
-      let basePath = "";
-      if (currentAppPath !== "/" && currentWindowPath.endsWith(currentAppPath)) {
-        basePath = currentWindowPath.slice(0, currentWindowPath.length - currentAppPath.length);
-      }
-
-      let appTargetPath = targetWindowPath;
-      if (basePath && appTargetPath.startsWith(`${basePath}/`)) {
-        appTargetPath = appTargetPath.slice(basePath.length);
-      } else if (basePath && appTargetPath === basePath) {
-        appTargetPath = "/";
-      }
-
-      return `${appTargetPath}${nextUrl.search}${nextUrl.hash}`;
+      return `${targetWindowPath}${nextUrl.search}${nextUrl.hash}`;
     } catch {
       return null;
     }
-  }, [pathname]);
+  }, []);
 
   useEffect(() => {
     if (!selected) return;
@@ -451,13 +434,13 @@ export function ResourcesClient() {
       if (!(target instanceof HTMLAnchorElement)) return;
       const href = target.getAttribute("href");
       if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
-      const appRoute = normalizeToAppRoute(href);
-      if (!appRoute) return;
-      const currentRoute = `${pathname}${window.location.search}${window.location.hash}`;
-      if (appRoute === currentRoute) return;
+      const targetRoute = normalizeToWindowRoute(href);
+      if (!targetRoute) return;
+      const currentRoute = `${window.location.pathname.replace(/\/+$/, "") || "/"}${window.location.search}${window.location.hash}`;
+      if (targetRoute === currentRoute) return;
       event.preventDefault();
       event.stopPropagation();
-      setPendingLeaveHref(appRoute);
+      setPendingLeaveHref(targetRoute);
       speakRabbit({
         title: "¿Guardamos tu avance?",
         message: `Vas por la página ${readerPage}. ¿Quieres guardar esa página antes de salir?`,
@@ -468,7 +451,7 @@ export function ResourcesClient() {
 
     document.addEventListener("click", onDocumentClick, true);
     return () => document.removeEventListener("click", onDocumentClick, true);
-  }, [hasPendingReaderChanges, normalizeToAppRoute, pendingLeaveHref, readerPage, pathname]);
+  }, [hasPendingReaderChanges, normalizeToWindowRoute, pendingLeaveHref, readerPage]);
 
   const resolvePendingLeave = (saveCurrentPage: boolean) => {
     const targetHref = pendingLeaveHref;
@@ -485,9 +468,7 @@ export function ResourcesClient() {
       });
     }
 
-    if (targetHref) {
-      router.push(targetHref);
-    }
+    if (targetHref) window.location.assign(targetHref);
   };
 
   const onPickFile = async (file: File) => {
@@ -664,11 +645,13 @@ export function ResourcesClient() {
         setExtractError("No se pudo leer el archivo.");
         return;
       }
-      const { text, pageCount: pc } = await extractPdfTextFromBlob({
+      const extracted = await extractPdfTextFromBlob({
         blob,
         pageStart: start,
         pageEnd: end,
       });
+      const text = typeof extracted?.text === "string" ? extracted.text : "";
+      const pc = Number.isFinite(extracted?.pageCount) ? Math.max(1, Math.floor(extracted.pageCount)) : null;
       setPageCount(pc);
       setExtractedText(text);
 
@@ -919,8 +902,13 @@ export function ResourcesClient() {
                               <section
                                 key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
                                 data-preview-page={idx + 1}
-                                className="overflow-hidden rounded-lg border border-white/10 bg-white"
+                                className={`relative overflow-hidden rounded-lg border bg-white transition ${
+                                  readerPage === idx + 1 ? "border-cyan-300 ring-2 ring-cyan-300/70" : "border-white/10"
+                                }`}
                               >
+                                <div className="pointer-events-none absolute right-2 top-2 z-10 rounded-md bg-black/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+                                  Pág. {idx + 1}{readerPage === idx + 1 ? " · actual" : ""}
+                                </div>
                                 {pageSrc ? (
                                   <img
                                     src={pageSrc}
