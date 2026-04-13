@@ -35,7 +35,14 @@ export type RabbitGuideCard = {
 function parseStudySubjectFromPath(pathname: string): SubjectSlug | null {
   if (!pathname.startsWith("/study/")) return null;
   const slug = pathname.slice("/study/".length).split("/")[0];
-  if (slug === "anatomia" || slug === "histologia" || slug === "embriologia" || slug === "biologia-celular") {
+  if (
+    slug === "anatomia" ||
+    slug === "histologia" ||
+    slug === "embriologia" ||
+    slug === "biologia-celular" ||
+    slug === "ingles" ||
+    slug === "trabajo-online"
+  ) {
     return slug;
   }
   return null;
@@ -108,6 +115,38 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   const baseSeed = [dayStamp, pathname, state.routinePhase, pomodoroState.phase, String(todayStats.blocksCompleted), String(clinicalReminderTick)].join("|");
   const phaseStatus = `Fase: ${ROUTINE_PHASE_LABELS[state.routinePhase]}`;
   const hasClinicalTasks = clinicalTodayTasks + clinicalPendingTasks > 0;
+  const englishShadowingCta = {
+    title: "Bloque de Inglés activo",
+    message: "Hoy toca shadowing: 1) escucha 60-90s, 2) repite con ritmo y entonación, 3) graba 1 intento y corrige 3 frases.",
+    status: `${pomodoroText} · ${phaseStatus} · Speaking`,
+    actions: [
+      { href: "/study/ingles", label: "Abrir Inglés", primary: true },
+      { href: "/resources", label: "Ir a recursos de audio" },
+    ] as RabbitGuideSpeechAction[],
+  };
+
+  const closureNextStepLine =
+    tomorrowPlan.primary === "ingles" || tomorrowPlan.secondary === "ingles"
+      ? "Próximo paso Inglés: 10-15 min de shadowing + 1 mini grabación para feedback."
+      : tomorrowPlan.primary === "trabajo-online" || tomorrowPlan.secondary === "trabajo-online"
+        ? "Próximo paso Trabajo Online: publica 1 pieza corta y registra 1 métrica clave."
+        : "Próximo paso: prepara el primer bloque con objetivo y recurso principal.";
+
+  const closurePrimaryAction =
+    tomorrowPlan.primary === "ingles" || tomorrowPlan.secondary === "ingles"
+      ? { href: "/study/ingles", label: "Preparar Inglés", primary: true }
+      : tomorrowPlan.primary === "trabajo-online" || tomorrowPlan.secondary === "trabajo-online"
+        ? { href: "/study/trabajo-online", label: "Preparar Trabajo Online", primary: true }
+        : { href: "/day", label: "Preparar mañana", primary: true };
+  const onlineWorkCta = {
+    title: "Bloque de Trabajo Online activo",
+    message: "Enfoque de hoy: crear, publicar y medir. Saca una pieza corta, publícala y anota una métrica clave para iterar.",
+    status: `${pomodoroText} · ${phaseStatus} · Publicación`,
+    actions: [
+      { href: "/study/trabajo-online", label: "Abrir Trabajo Online", primary: true },
+      { href: "/day", label: "Ver checklist de ejecución" },
+    ] as RabbitGuideSpeechAction[],
+  };
 
   if (todayStats.routineCompleted) {
     const summary = [
@@ -121,18 +160,18 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
       message: pickVariant(
         byPersonality(personality, {
           balanced: [
-            `Gran jornada. Resumen: ${summary}. Mañana abrimos con ${SUBJECTS[tomorrowPlan.primary].name} y luego ${SUBJECTS[tomorrowPlan.secondary].name}.`,
-            `Cierre impecable. Hoy hiciste ${summary}. Mañana seguimos con ${SUBJECTS[tomorrowPlan.primary].name} y después ${SUBJECTS[tomorrowPlan.secondary].name}.`,
+            `Gran jornada. Resumen: ${summary}. Mañana abrimos con ${SUBJECTS[tomorrowPlan.primary].name} y luego ${SUBJECTS[tomorrowPlan.secondary].name}. ${closureNextStepLine}`,
+            `Cierre impecable. Hoy hiciste ${summary}. Mañana seguimos con ${SUBJECTS[tomorrowPlan.primary].name} y después ${SUBJECTS[tomorrowPlan.secondary].name}. ${closureNextStepLine}`,
           ],
-          calm: [`Buen cierre, sin prisa: ${summary}. Mañana avanzamos con ${SUBJECTS[tomorrowPlan.primary].name}.`],
-          active: [`Día cerrado con fuerza: ${summary}. Mañana arrancamos con ${SUBJECTS[tomorrowPlan.primary].name}.`],
+          calm: [`Buen cierre, sin prisa: ${summary}. Mañana avanzamos con ${SUBJECTS[tomorrowPlan.primary].name}. ${closureNextStepLine}`],
+          active: [`Día cerrado con fuerza: ${summary}. Mañana arrancamos con ${SUBJECTS[tomorrowPlan.primary].name}. ${closureNextStepLine}`],
         }),
         `${baseSeed}|routine-completed`,
       ),
       status: `${pomodoroText} · ${phaseStatus} · Día al 100%`,
       actions: [
-        { href: "/stats", label: "Ver resumen", primary: true },
-        { href: "/day", label: "Preparar mañana" },
+        closurePrimaryAction,
+        { href: "/stats", label: "Ver resumen" },
       ],
     };
   }
@@ -186,6 +225,12 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   }
 
   if (isStudyRoute && pomodoroState.phase === "idle") {
+    if (active?.slug === "ingles") {
+      return englishShadowingCta;
+    }
+    if (active?.slug === "trabajo-online") {
+      return onlineWorkCta;
+    }
     return {
       title: "Primero Pomodoro",
       message: active
@@ -200,6 +245,12 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   }
 
   if (state.routinePhase === "study_selected") {
+    if (active?.slug === "ingles") {
+      return englishShadowingCta;
+    }
+    if (active?.slug === "trabajo-online") {
+      return onlineWorkCta;
+    }
     return {
       title: "Inicio de estudio",
       message: active

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { RotateCw } from "lucide-react";
 
@@ -61,6 +61,7 @@ export function SrsClient() {
     }
   });
   const cardBtnRef = useRef<HTMLButtonElement | null>(null);
+  const stateRef = useRef<SrsSessionState | null>(state);
 
   useEffect(() => {
     try {
@@ -76,6 +77,10 @@ export function SrsClient() {
 
   useEffect(() => {
     if (state) saveSession(state);
+  }, [state]);
+
+  useEffect(() => {
+    stateRef.current = state;
   }, [state]);
 
   const decksForSubject = useMemo(() => {
@@ -99,17 +104,17 @@ export function SrsClient() {
 
   const ioDeck = useMemo(() => lib.decks.find((d) => d.id === "deck-io") ?? null, [lib.decks]);
 
-  const startDeck = () => {
+  const startDeck = useCallback(() => {
     const q = [...cardsForSession];
     const s = freshSession(resolvedDeckId, q);
     setState(s);
     cardBtnRef.current?.focus();
-  };
+  }, [cardsForSession, resolvedDeckId]);
 
-  const restart = () => {
+  const restart = useCallback(() => {
     clearSession();
     startDeck();
-  };
+  }, [startDeck]);
 
   const handleSelectDeck = (nextDeckId: string) => {
     if (state && state.deckId !== nextDeckId) {
@@ -129,13 +134,17 @@ export function SrsClient() {
 
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
-  const reveal = () => setState((p) => (p ? { ...p, revealed: true } : p));
-  const flip = () => {
-    if (!state || state.done || !card) return;
-    setState((p) => (p ? { ...p, revealed: !p.revealed } : p));
-  };
+  const reveal = useCallback(() => setState((p) => (p ? { ...p, revealed: true } : p)), []);
+  const flip = useCallback(() => {
+    setState((p) => {
+      if (!p || p.done) return p;
+      const currentCard = p.queue[p.currentIndex] ?? null;
+      if (!currentCard) return p;
+      return { ...p, revealed: !p.revealed };
+    });
+  }, []);
 
-  const goNext = (opts?: { rating?: SrsRating; requeueCurrent?: boolean }) => {
+  const goNext = useCallback((opts?: { rating?: SrsRating; requeueCurrent?: boolean }) => {
     setSlide("next");
     window.setTimeout(() => {
       setState((p) => {
@@ -171,19 +180,21 @@ export function SrsClient() {
       setSlide("none");
       cardBtnRef.current?.focus();
     }, 170);
-  };
+  }, []);
 
-  const rate = (r: SrsRating) => {
-    if (!state?.revealed) return;
-    if (card) {
-      const wasNew = card.state === "new";
-      setLib((prev) => applyReview(prev, card.id, r));
+  const rate = useCallback((r: SrsRating) => {
+    const snapshot = stateRef.current;
+    if (!snapshot?.revealed) return;
+    const currentCard = snapshot.queue[snapshot.currentIndex] ?? null;
+    if (currentCard) {
+      const wasNew = currentCard.state === "new";
+      setLib((prev) => applyReview(prev, currentCard.id, r));
       incrementStat("srsReviewed", 1);
       if (r === "good" || r === "easy") incrementStat("srsCorrect", 1);
       if (wasNew) incrementStat("srsNew", 1);
     }
     goNext({ rating: r, requeueCurrent: r === "again" });
-  };
+  }, [goNext]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -216,7 +227,9 @@ export function SrsClient() {
       selectedDeck.subjectSlug === "anatomia" ||
       selectedDeck.subjectSlug === "histologia" ||
       selectedDeck.subjectSlug === "embriologia" ||
-      selectedDeck.subjectSlug === "biologia-celular"
+      selectedDeck.subjectSlug === "biologia-celular" ||
+      selectedDeck.subjectSlug === "ingles" ||
+      selectedDeck.subjectSlug === "trabajo-online"
         ? selectedDeck.subjectSlug
         : null;
     markSrsDeckVisited({

@@ -83,6 +83,7 @@ export async function POST(req: Request) {
         language?: string;
         topic?: string;
         mode?: "flashcards" | "exam";
+        subjectSlug?: string;
       };
 
   const text = typeof body?.text === "string" ? body.text.trim() : "";
@@ -95,6 +96,7 @@ export async function POST(req: Request) {
 
   const topic = typeof body?.topic === "string" ? body.topic.trim() : "";
   const mode = body?.mode === "exam" ? "exam" : "flashcards";
+  const subjectSlug = typeof body?.subjectSlug === "string" ? body.subjectSlug.trim() : "";
 
   if (!text) {
     return NextResponse.json({ error: "Texto vacío" }, { status: 400 });
@@ -109,6 +111,21 @@ BACK: la respuesta correcta (ej: "Respuesta: B") + explicación breve + por qué
 Para cloze usa {{c1::...}} y evita cloze largos.`;
 
   const topicLine = topic ? `TEMA/FOCO: ${topic}` : "TEMA/FOCO: (no especificado)";
+  const subjectLine = subjectSlug
+    ? `MATERIA OBJETIVO: ${subjectSlug}`
+    : "MATERIA OBJETIVO: (general)";
+  const specializationLine =
+    subjectSlug === "ingles"
+      ? `ESPECIALIZACIÓN INGLÉS:
+- Prioriza speaking y shadowing.
+- Incluye collocations, chunks y preguntas/respuestas naturales.
+- Evita traducciones literales; usa frases de uso real.`
+      : subjectSlug === "trabajo-online"
+        ? `ESPECIALIZACIÓN TRABAJO ONLINE:
+- Prioriza frameworks accionables: crear, publicar, distribuir, monetizar.
+- Incluye métricas, CTA y sistemas repetibles.
+- Mantén foco práctico y orientado a ejecución.`
+        : "ESPECIALIZACIÓN: (sin especialización adicional).";
 
   const prompt = `Vas a crear material de estudio a partir de un PDF para un estudiante de medicina.
 
@@ -139,6 +156,10 @@ CALIDAD:
 ${modeLine}
 
 ${topicLine}
+
+${subjectLine}
+
+${specializationLine}
 
 TEXTO FUENTE:
 ${text}`;

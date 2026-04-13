@@ -229,7 +229,14 @@ function sanitizeTransitionHistory(value: unknown): RabbitGuideTransitionRecord[
 }
 
 function isSubjectSlug(value: unknown): value is SubjectSlug {
-  return value === "anatomia" || value === "histologia" || value === "embriologia" || value === "biologia-celular";
+  return (
+    value === "anatomia" ||
+    value === "histologia" ||
+    value === "embriologia" ||
+    value === "biologia-celular" ||
+    value === "ingles" ||
+    value === "trabajo-online"
+  );
 }
 
 function sanitizeGuideState(value: unknown): RabbitGuideState {

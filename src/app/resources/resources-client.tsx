@@ -280,6 +280,14 @@ export function ResourcesClient() {
   }, [chunks, selectedChunkIdxs, extractedText]);
 
   useEffect(() => {
+    const requestedSubject = searchParams.get("subject");
+    if (!requestedSubject) return;
+    if (!(requestedSubject in SUBJECTS)) return;
+    setFilterSubject(requestedSubject);
+    setSubject(requestedSubject);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!srsLib) return;
     const decks = srsLib.decks.filter((d) => (subject === "all" ? true : d.subjectSlug === subject));
     if (!decks.some((d) => d.id === deckId) && decks[0]) setDeckId(decks[0].id);
@@ -297,6 +305,16 @@ export function ResourcesClient() {
     return list.filter((i) => `${i.title}`.toLowerCase().includes(q));
   }, [items, query, filterSubject]);
 
+  useEffect(() => {
+    if (!filtered.length) {
+      if (selectedId !== null) setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !filtered.some((i) => i.id === selectedId)) {
+      setSelectedId(filtered[0]?.id ?? null);
+    }
+  }, [filtered, selectedId]);
+
   const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
   const resumeQueryPdfId = searchParams.get("resumePdf");
   const resumeQueryPageRaw = Number(searchParams.get("resumePage") ?? "");
@@ -304,7 +322,9 @@ export function ResourcesClient() {
     selected?.subjectSlug === "anatomia" ||
     selected?.subjectSlug === "histologia" ||
     selected?.subjectSlug === "embriologia" ||
-    selected?.subjectSlug === "biologia-celular"
+    selected?.subjectSlug === "biologia-celular" ||
+    selected?.subjectSlug === "ingles" ||
+    selected?.subjectSlug === "trabajo-online"
       ? (selected.subjectSlug as SubjectSlug)
       : null;
 
@@ -528,6 +548,8 @@ export function ResourcesClient() {
     setAiBusy(true);
     setAiError(null);
     const safeMaxCards = clamp(Math.floor(Number(maxCards) || 25), 5, 80);
+    const aiSubjectSlug = subject === "all" ? selectedSubjectSlug ?? "histologia" : subject;
+    const aiLanguage = aiSubjectSlug === "ingles" ? "en" : "es";
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 30000);
     try {
@@ -542,9 +564,10 @@ export function ResourcesClient() {
         body: JSON.stringify({
           text: selectedTextForAi,
           maxCards: safeMaxCards,
-          language: "es",
+          language: aiLanguage,
           topic,
           mode: aiMode,
+          subjectSlug: aiSubjectSlug,
         }),
         signal: controller.signal,
       });

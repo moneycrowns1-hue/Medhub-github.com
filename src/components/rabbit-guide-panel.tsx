@@ -38,7 +38,14 @@ import type { SubjectSlug } from "@/lib/subjects";
 function parseStudySubjectFromPath(pathname: string): SubjectSlug | null {
   if (!pathname.startsWith("/study/")) return null;
   const slug = pathname.slice("/study/".length).split("/")[0];
-  if (slug === "anatomia" || slug === "histologia" || slug === "embriologia" || slug === "biologia-celular") {
+  if (
+    slug === "anatomia" ||
+    slug === "histologia" ||
+    slug === "embriologia" ||
+    slug === "biologia-celular" ||
+    slug === "ingles" ||
+    slug === "trabajo-online"
+  ) {
     return slug;
   }
   return null;

@@ -11,6 +11,8 @@ import {
   FileText,
   GraduationCap,
   Layers,
+  Mic,
+  Megaphone,
   Sparkles,
 } from "lucide-react";
 
@@ -43,6 +45,38 @@ type Props = {
   subject: SubjectDefinition;
 };
 
+function trackActionBySubject(subject: SubjectDefinition): {
+  href: string;
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+} {
+  if (subject.slug === "ingles") {
+    return {
+      href: "/resources?subject=ingles",
+      title: "Sprint de shadowing",
+      subtitle: "Audio, repetición y speaking",
+      icon: <Mic className="h-5 w-5" />,
+    };
+  }
+
+  if (subject.slug === "trabajo-online") {
+    return {
+      href: "/resources?subject=trabajo-online",
+      title: "Pipeline de publicación",
+      subtitle: "Crear, publicar y medir",
+      icon: <Megaphone className="h-5 w-5" />,
+    };
+  }
+
+  return {
+    href: "/",
+    title: "Dashboard",
+    subtitle: "Volver al inicio",
+    icon: <Sparkles className="h-5 w-5" />,
+  };
+}
+
 export function StudyClient({ subject }: Props) {
   const [pdfs, setPdfs] = useState<PdfResource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +100,7 @@ export function StudyClient({ subject }: Props) {
   }, [srsLib, subjectDecks]);
 
   const stats = useMemo(() => algoStats(subjectCards), [subjectCards]);
+  const trackAction = useMemo(() => trackActionBySubject(subject), [subject]);
 
   const refreshPdfs = useCallback(
     async (withLoading = false) => {
@@ -299,7 +334,7 @@ export function StudyClient({ subject }: Props) {
           </Link>
 
           <Link
-            href="/resources"
+            href={`/resources?subject=${encodeURIComponent(subject.slug)}`}
             className="group flex items-center gap-4 rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:bg-white/10"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
@@ -312,15 +347,15 @@ export function StudyClient({ subject }: Props) {
           </Link>
 
           <Link
-            href="/"
+            href={trackAction.href}
             className="group flex items-center gap-4 rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:bg-white/10"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
-              <Sparkles className="h-5 w-5" />
+              {trackAction.icon}
             </div>
             <div>
-              <div className="text-sm font-semibold">Dashboard</div>
-              <div className="text-xs text-foreground/65">Volver al inicio</div>
+              <div className="text-sm font-semibold">{trackAction.title}</div>
+              <div className="text-xs text-foreground/65">{trackAction.subtitle}</div>
             </div>
           </Link>
         </div>
