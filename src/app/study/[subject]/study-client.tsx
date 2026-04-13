@@ -22,7 +22,7 @@ import {
   listPdfResources,
   RESOURCES_UPDATED_EVENT,
   type PdfResource,
-} from "@/lib/resources-pdf-store";
+} from "@/lib/resources-service";
 import { algoStats } from "@/lib/srs-algo";
 import { loadSrsLibrary, SRS_UPDATED_EVENT } from "@/lib/srs-storage";
 import type { SubjectDefinition } from "@/lib/subjects";

@@ -2,7 +2,8 @@ import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 
 export type ReadingTopic =
   | "Lenguaje, Redacción y Oratoria"
-  | "Libros cultos y Estrategia";
+  | "Libros cultos y Estrategia"
+  | "Descanso";
 
 export type DayPlan = {
   dayOfWeek: number; // 0=Sunday .. 6=Saturday
@@ -10,6 +11,10 @@ export type DayPlan = {
   secondary: SubjectSlug;
   reading: ReadingTopic;
   label: string;
+  primaryLabel?: string;
+  secondaryLabel?: string;
+  focusNote?: string;
+  isRestDay?: boolean;
 };
 
 const WEEKLY_SCHEDULE: Record<number, DayPlan> = {
@@ -17,28 +22,28 @@ const WEEKLY_SCHEDULE: Record<number, DayPlan> = {
     dayOfWeek: 1,
     label: "Lunes",
     primary: "anatomia",
-    secondary: "ingles",
+    secondary: "histologia",
     reading: "Lenguaje, Redacción y Oratoria",
   },
   2: {
     dayOfWeek: 2,
     label: "Martes",
     primary: "histologia",
-    secondary: "trabajo-online",
+    secondary: "anatomia",
     reading: "Libros cultos y Estrategia",
   },
   3: {
     dayOfWeek: 3,
     label: "Miércoles",
     primary: "biologia-celular",
-    secondary: "ingles",
+    secondary: "histologia",
     reading: "Lenguaje, Redacción y Oratoria",
   },
   4: {
     dayOfWeek: 4,
     label: "Jueves",
     primary: "embriologia",
-    secondary: "trabajo-online",
+    secondary: "biologia-celular",
     reading: "Libros cultos y Estrategia",
   },
   5: {
@@ -47,20 +52,30 @@ const WEEKLY_SCHEDULE: Record<number, DayPlan> = {
     primary: "anatomia",
     secondary: "embriologia",
     reading: "Libros cultos y Estrategia",
+    primaryLabel: "Repaso fuerte Anatomía",
+    secondaryLabel: "Repaso fuerte Embriología",
+    focusNote: "Repaso fuerte de Anatomía + Embriología.",
   },
   6: {
     dayOfWeek: 6,
     label: "Sábado",
-    primary: "ingles",
-    secondary: "histologia",
+    primary: "anatomia",
+    secondary: "embriologia",
     reading: "Lenguaje, Redacción y Oratoria",
+    primaryLabel: "Repaso universal",
+    secondaryLabel: "Evaluación / Preguntas / Flashcards",
+    focusNote: "2h Anatomía · 1h Histología · 1h Biología Celular · 2h Embriología · 1h Evaluación/Preguntas/Flashcards.",
   },
   0: {
     dayOfWeek: 0,
     label: "Domingo",
-    primary: "trabajo-online",
-    secondary: "anatomia",
-    reading: "Libros cultos y Estrategia",
+    primary: "anatomia",
+    secondary: "histologia",
+    reading: "Descanso",
+    primaryLabel: "Descanso",
+    secondaryLabel: "Recuperación",
+    focusNote: "Domingo de descanso.",
+    isRestDay: true,
   },
 };
 
@@ -72,8 +87,10 @@ export function getPlanForDate(date: Date = new Date()): DayPlan {
 export function formatPlanSummary(plan: DayPlan) {
   return {
     dayLabel: plan.label,
-    primaryName: SUBJECTS[plan.primary].name,
-    secondaryName: SUBJECTS[plan.secondary].name,
+    primaryName: plan.primaryLabel ?? SUBJECTS[plan.primary].name,
+    secondaryName: plan.secondaryLabel ?? SUBJECTS[plan.secondary].name,
     reading: plan.reading,
+    focusNote: plan.focusNote,
+    isRestDay: Boolean(plan.isRestDay),
   };
 }

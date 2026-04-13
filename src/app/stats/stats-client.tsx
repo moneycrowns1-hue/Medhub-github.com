@@ -27,7 +27,7 @@ import {
 } from "@/lib/stats-store";
 import { loadSrsLibrary, SRS_UPDATED_EVENT } from "@/lib/srs-storage";
 import { algoStats } from "@/lib/srs-algo";
-import { listPdfResources, RESOURCES_UPDATED_EVENT } from "@/lib/resources-pdf-store";
+import { listPdfResources, RESOURCES_UPDATED_EVENT } from "@/lib/resources-service";
 import { isoDate, parseIsoDateLocal } from "@/lib/dates";
 
 type TrackSlug = "ingles" | "trabajo-online";

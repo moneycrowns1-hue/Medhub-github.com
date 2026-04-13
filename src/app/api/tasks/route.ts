@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { PrismaClient } from "@prisma/client";
 
 import { endOfDay, isoDate, parseIsoDateLocal, startOfDay } from "@/lib/dates";
-import { getPlanForDate } from "@/lib/schedule";
+import { formatPlanSummary, getPlanForDate } from "@/lib/schedule";
 import { SUBJECTS } from "@/lib/subjects";
 
 export const dynamic = "force-static";
@@ -49,8 +49,12 @@ function ensureFallbackDefaultTasksForDate(date: Date) {
   if (existing.length > 0) return;
 
   const plan = getPlanForDate(date);
-  const primaryName = SUBJECTS[plan.primary]?.name ?? plan.primary;
-  const secondaryName = SUBJECTS[plan.secondary]?.name ?? plan.secondary;
+  const summary = formatPlanSummary(plan);
+  if (summary.isRestDay) {
+    return;
+  }
+  const primaryName = summary.primaryName;
+  const secondaryName = summary.secondaryName;
   const dayStart = startOfDay(date);
   const now = new Date();
 
@@ -213,6 +217,10 @@ async function ensureDefaultTasksForDate(prisma: PrismaClient, date: Date) {
   await ensureSubjects(prisma);
 
   const plan = getPlanForDate(date);
+  const summary = formatPlanSummary(plan);
+  if (summary.isRestDay) {
+    return;
+  }
   const primary = await prisma.subject.findUnique({ where: { slug: plan.primary } });
   const secondary = await prisma.subject.findUnique({
     where: { slug: plan.secondary },
@@ -224,7 +232,7 @@ async function ensureDefaultTasksForDate(prisma: PrismaClient, date: Date) {
         date: dayStart,
         status: "TODAY",
         sortOrder: 1,
-        title: `Bloque 1 — ${primary?.name ?? plan.primary}`,
+        title: `Bloque 1 — ${summary.primaryName}`,
         meta: "2h",
         subjectId: primary?.id,
       },
@@ -246,7 +254,7 @@ async function ensureDefaultTasksForDate(prisma: PrismaClient, date: Date) {
         date: dayStart,
         status: "PENDING",
         sortOrder: 4,
-        title: `Bloque 2 — ${primary?.name ?? plan.primary}`,
+        title: `Bloque 2 — ${summary.primaryName}`,
         meta: "2h",
         subjectId: primary?.id,
       },
@@ -254,7 +262,7 @@ async function ensureDefaultTasksForDate(prisma: PrismaClient, date: Date) {
         date: dayStart,
         status: "PENDING",
         sortOrder: 5,
-        title: `Bloque 3 — ${secondary?.name ?? plan.secondary}`,
+        title: `Bloque 3 — ${summary.secondaryName}`,
         meta: "1h",
         subjectId: secondary?.id,
       },

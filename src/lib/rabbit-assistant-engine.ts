@@ -1,4 +1,4 @@
-import { getPlanForDate } from "@/lib/schedule";
+import { formatPlanSummary, getPlanForDate } from "@/lib/schedule";
 import { phaseLabel, type PomodoroState } from "@/lib/pomodoro";
 import type { DailyStats } from "@/lib/stats-store";
 import type { RabbitPersonality } from "@/lib/rabbit-personality";
@@ -98,6 +98,8 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   } = ctx;
   const todayPlan = getPlanForDate(new Date());
   const tomorrowPlan = getPlanForDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  const todaySummary = formatPlanSummary(todayPlan);
+  const tomorrowSummary = formatPlanSummary(tomorrowPlan);
   const primary = SUBJECTS[todayPlan.primary];
   const secondary = SUBJECTS[todayPlan.secondary];
 
@@ -126,14 +128,18 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   };
 
   const closureNextStepLine =
-    tomorrowPlan.primary === "ingles" || tomorrowPlan.secondary === "ingles"
+    tomorrowSummary.isRestDay
+      ? "Mañana toca descanso: prioriza recuperación y prepara el lunes con calma."
+      : tomorrowPlan.primary === "ingles" || tomorrowPlan.secondary === "ingles"
       ? "Próximo paso Inglés: 10-15 min de shadowing + 1 mini grabación para feedback."
       : tomorrowPlan.primary === "trabajo-online" || tomorrowPlan.secondary === "trabajo-online"
         ? "Próximo paso Trabajo Online: publica 1 pieza corta y registra 1 métrica clave."
         : "Próximo paso: prepara el primer bloque con objetivo y recurso principal.";
 
   const closurePrimaryAction =
-    tomorrowPlan.primary === "ingles" || tomorrowPlan.secondary === "ingles"
+    tomorrowSummary.isRestDay
+      ? { href: "/day", label: "Ver día de descanso", primary: true }
+      : tomorrowPlan.primary === "ingles" || tomorrowPlan.secondary === "ingles"
       ? { href: "/study/ingles", label: "Preparar Inglés", primary: true }
       : tomorrowPlan.primary === "trabajo-online" || tomorrowPlan.secondary === "trabajo-online"
         ? { href: "/study/trabajo-online", label: "Preparar Trabajo Online", primary: true }
@@ -160,11 +166,11 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
       message: pickVariant(
         byPersonality(personality, {
           balanced: [
-            `Gran jornada. Resumen: ${summary}. Mañana abrimos con ${SUBJECTS[tomorrowPlan.primary].name} y luego ${SUBJECTS[tomorrowPlan.secondary].name}. ${closureNextStepLine}`,
-            `Cierre impecable. Hoy hiciste ${summary}. Mañana seguimos con ${SUBJECTS[tomorrowPlan.primary].name} y después ${SUBJECTS[tomorrowPlan.secondary].name}. ${closureNextStepLine}`,
+            `Gran jornada. Resumen: ${summary}. Mañana abrimos con ${tomorrowSummary.primaryName} y luego ${tomorrowSummary.secondaryName}. ${closureNextStepLine}`,
+            `Cierre impecable. Hoy hiciste ${summary}. Mañana seguimos con ${tomorrowSummary.primaryName} y después ${tomorrowSummary.secondaryName}. ${closureNextStepLine}`,
           ],
-          calm: [`Buen cierre, sin prisa: ${summary}. Mañana avanzamos con ${SUBJECTS[tomorrowPlan.primary].name}. ${closureNextStepLine}`],
-          active: [`Día cerrado con fuerza: ${summary}. Mañana arrancamos con ${SUBJECTS[tomorrowPlan.primary].name}. ${closureNextStepLine}`],
+          calm: [`Buen cierre, sin prisa: ${summary}. Mañana avanzamos con ${tomorrowSummary.primaryName}. ${closureNextStepLine}`],
+          active: [`Día cerrado con fuerza: ${summary}. Mañana arrancamos con ${tomorrowSummary.primaryName}. ${closureNextStepLine}`],
         }),
         `${baseSeed}|routine-completed`,
       ),
@@ -264,7 +270,7 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   if (state.routinePhase === "pomodoro_active") {
     return {
       title: "Siguiente: Plan del día",
-      message: `Pomodoro activo. Revisemos el plan y la ruta ${primary.name} → ${secondary.name}.`,
+      message: `Pomodoro activo. Revisemos el plan y la ruta ${todaySummary.primaryName} → ${todaySummary.secondaryName}.`,
       status: `${pomodoroText} · ${phaseStatus} · Dirección`,
       actions: [
         { href: "/day", label: "Ir al plan", primary: true },
@@ -304,11 +310,17 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
 
   return {
     title: "Conejo guía activo",
-    message: `Ruta sugerida: ${primary.name} → ${secondary.name}.`,
+    message: todaySummary.isRestDay
+      ? "Hoy es descanso. Mantén solo recuperación suave y planificación ligera."
+      : `Ruta sugerida: ${todaySummary.primaryName} → ${todaySummary.secondaryName}.`,
     status: `${pomodoroText} · ${phaseStatus} · Due hoy: ${srsDueToday}`,
     actions: [
-      { href: `/study/${primary.slug}`, label: `Primaria: ${primary.name}`, primary: true },
-      { href: `/study/${secondary.slug}`, label: `Secundaria: ${secondary.name}` },
+      todaySummary.isRestDay
+        ? { href: "/day", label: "Ver plan de descanso", primary: true }
+        : { href: `/study/${primary.slug}`, label: `Primaria: ${todaySummary.primaryName}`, primary: true },
+      todaySummary.isRestDay
+        ? { href: "/resources", label: "Lectura suave" }
+        : { href: `/study/${secondary.slug}`, label: `Secundaria: ${todaySummary.secondaryName}` },
     ],
   };
 }

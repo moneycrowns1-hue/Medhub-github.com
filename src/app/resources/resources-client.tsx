@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { FileText, Filter, Loader2, Search, Trash2, Upload } from "lucide-react";
+import { FileText, Filter, Loader2, Search, Star, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 
@@ -18,7 +18,7 @@ import {
   putPdfResource,
   type PdfResource,
   updatePdfResourceMeta,
-} from "@/lib/resources-pdf-store";
+} from "@/lib/resources-service";
 import { extractPdfTextFromBlob } from "@/lib/pdf-text-extract";
 import {
   importAiNotesToDeck,
@@ -37,6 +37,18 @@ type InAppNotice = {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function parseTagInput(value: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of value.split(",")) {
+    const next = part.trim().toLowerCase();
+    if (!next || seen.has(next)) continue;
+    seen.add(next);
+    out.push(next);
+  }
+  return out;
 }
 
 type PdfPreviewCacheEntry = {
@@ -124,6 +136,14 @@ export function ResourcesClient() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filterSubject, setFilterSubject] = useState<string>("all");
+  const [filterFolder, setFilterFolder] = useState("");
+  const [filterTag, setFilterTag] = useState("");
+  const [filterStarredOnly, setFilterStarredOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<"recent" | "title" | "size">("recent");
+  const [listMode, setListMode] = useState<"flat" | "folder">("flat");
+  const [bulkSelection, setBulkSelection] = useState<Set<string>>(() => new Set());
+  const [bulkFolderInput, setBulkFolderInput] = useState("");
+  const [bulkTagsInput, setBulkTagsInput] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [items, setItems] = useState<PdfResource[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -300,10 +320,155 @@ export function ResourcesClient() {
     } else if (filterSubject !== "all") {
       list = list.filter((i) => i.subjectSlug === filterSubject);
     }
+
+    if (filterStarredOnly) {
+      list = list.filter((i) => i.starred);
+    }
+
+    const folderQ = filterFolder.trim().toLowerCase();
+    if (folderQ) {
+      list = list.filter((i) => (i.folderPath ?? "").toLowerCase().includes(folderQ));
+    }
+
+    const tagQ = filterTag.trim().toLowerCase();
+    if (tagQ) {
+      list = list.filter((i) => i.tags.some((tag) => tag.includes(tagQ)));
+    }
+
     const q = query.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((i) => `${i.title}`.toLowerCase().includes(q));
-  }, [items, query, filterSubject]);
+    if (q) {
+      list = list.filter((i) => {
+        const haystack = [i.title, i.folderPath ?? "", i.tags.join(" ")].join(" ").toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+
+    const sorted = [...list];
+    if (sortBy === "title") {
+      sorted.sort((a, b) => a.title.localeCompare(b.title, "es", { sensitivity: "base" }));
+    } else if (sortBy === "size") {
+      sorted.sort((a, b) => b.sizeBytes - a.sizeBytes);
+    } else {
+      sorted.sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+    }
+
+    return sorted;
+  }, [items, query, filterSubject, filterStarredOnly, filterFolder, filterTag, sortBy]);
+
+  const folderSuggestions = useMemo(
+    () => [...new Set(items.map((i) => i.folderPath?.trim()).filter((x): x is string => !!x))].sort((a, b) => a.localeCompare(b, "es")),
+    [items],
+  );
+
+  const tagSuggestions = useMemo(
+    () => [...new Set(items.flatMap((i) => i.tags))].sort((a, b) => a.localeCompare(b, "es")),
+    [items],
+  );
+
+  const groupedFiltered = useMemo(() => {
+    const map = new Map<string, PdfResource[]>();
+    for (const item of filtered) {
+      const key = item.folderPath?.trim() || "Sin carpeta";
+      const bucket = map.get(key);
+      if (bucket) {
+        bucket.push(item);
+      } else {
+        map.set(key, [item]);
+      }
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => {
+        if (a === "Sin carpeta") return 1;
+        if (b === "Sin carpeta") return -1;
+        return a.localeCompare(b, "es", { sensitivity: "base" });
+      })
+      .map(([folder, docs]) => ({ folder, docs }));
+  }, [filtered]);
+
+  const bulkSelectedCount = bulkSelection.size;
+
+  const toggleBulkSelection = (id: string, checked: boolean) => {
+    setBulkSelection((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const clearBulkSelection = () => {
+    setBulkSelection(new Set());
+  };
+
+  useEffect(() => {
+    setBulkSelection((prev) => {
+      if (!prev.size) return prev;
+      const valid = new Set(items.map((i) => i.id));
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (valid.has(id)) next.add(id);
+      }
+      if (next.size === prev.size) return prev;
+      return next;
+    });
+  }, [items]);
+
+  const applyBulkFavorite = async (starred: boolean) => {
+    const ids = [...bulkSelection];
+    if (!ids.length) return;
+    setBusy(true);
+    try {
+      await Promise.all(ids.map((id) => updatePdfResourceMeta(id, { starred })));
+      const updatedAtMs = Date.now();
+      setItems((prev) => prev.map((x) => (bulkSelection.has(x.id) ? { ...x, starred, updatedAtMs } : x)));
+      pushNotice("Acción masiva", `${ids.length} PDF${ids.length === 1 ? "" : "s"} actualizado${ids.length === 1 ? "" : "s"}.`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const applyBulkFolder = async () => {
+    const ids = [...bulkSelection];
+    if (!ids.length) return;
+    setBusy(true);
+    try {
+      const nextFolderPath = bulkFolderInput.trim();
+      await Promise.all(ids.map((id) => updatePdfResourceMeta(id, { folderPath: nextFolderPath })));
+      const updatedAtMs = Date.now();
+      setItems((prev) => prev.map((x) => (bulkSelection.has(x.id) ? { ...x, folderPath: nextFolderPath || undefined, updatedAtMs } : x)));
+      pushNotice("Carpeta aplicada", `${ids.length} recurso${ids.length === 1 ? "" : "s"} movido${ids.length === 1 ? "" : "s"}.`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const applyBulkTagsMerge = async () => {
+    const ids = [...bulkSelection];
+    const addTags = parseTagInput(bulkTagsInput);
+    if (!ids.length || !addTags.length) return;
+    setBusy(true);
+    try {
+      const selectedItems = items.filter((x) => bulkSelection.has(x.id));
+      await Promise.all(
+        selectedItems.map((item) => {
+          const merged = [...new Set([...item.tags, ...addTags])];
+          return updatePdfResourceMeta(item.id, { tags: merged });
+        }),
+      );
+
+      const updatedAtMs = Date.now();
+      setItems((prev) =>
+        prev.map((x) => {
+          if (!bulkSelection.has(x.id)) return x;
+          const merged = [...new Set([...x.tags, ...addTags])];
+          return { ...x, tags: merged, updatedAtMs };
+        }),
+      );
+      pushNotice("Tags aplicados", `Se agregaron tags en ${ids.length} PDF${ids.length === 1 ? "" : "s"}.`);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!filtered.length) {
@@ -519,7 +684,15 @@ export function ResourcesClient() {
     setUploadError(null);
     try {
       const title = file.name.replace(/\.pdf$/i, "");
-      const subjectSlug = filterSubject !== "all" && filterSubject !== "unassigned" ? filterSubject : undefined;
+      const subjectSlug: SubjectSlug | undefined =
+        filterSubject === "anatomia" ||
+        filterSubject === "histologia" ||
+        filterSubject === "embriologia" ||
+        filterSubject === "biologia-celular" ||
+        filterSubject === "ingles" ||
+        filterSubject === "trabajo-online"
+          ? filterSubject
+          : undefined;
       const created = await putPdfResource({
         title,
         blob: file,
@@ -665,13 +838,14 @@ export function ResourcesClient() {
   };
 
   const updateMeta = async (
-    patch: Partial<Pick<PdfResource, "title" | "pageStart" | "pageEnd" | "subjectSlug">>,
+    patch: Partial<Pick<PdfResource, "title" | "pageStart" | "pageEnd" | "subjectSlug" | "starred" | "folderPath" | "tags">>,
   ) => {
     if (!selected) return;
     setBusy(true);
     try {
       await updatePdfResourceMeta(selected.id, patch);
-      setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, ...patch } : x)));
+      const updatedAtMs = Date.now();
+      setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, ...patch, updatedAtMs } : x)));
     } finally {
       setBusy(false);
     }
@@ -759,6 +933,44 @@ export function ResourcesClient() {
             </select>
           </div>
           <input
+            value={filterFolder}
+            onChange={(e) => setFilterFolder(e.target.value)}
+            placeholder="Carpeta"
+            list="resource-folder-suggestions"
+            className="h-9 rounded-xl border border-white/20 bg-white/8 px-3 text-xs text-white outline-none placeholder:text-white/45"
+          />
+          <input
+            value={filterTag}
+            onChange={(e) => setFilterTag(e.target.value)}
+            placeholder="Tag"
+            list="resource-tag-suggestions"
+            className="h-9 rounded-xl border border-white/20 bg-white/8 px-3 text-xs text-white outline-none placeholder:text-white/45"
+          />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "recent" | "title" | "size")}
+            className="h-9 rounded-xl border border-white/20 bg-white/8 px-3 text-xs text-white outline-none"
+          >
+            <option value="recent">Recientes</option>
+            <option value="title">Título</option>
+            <option value="size">Tamaño</option>
+          </select>
+          <Button
+            variant={filterStarredOnly ? "secondary" : "outline"}
+            className="h-9 rounded-xl border-white/25 bg-white/10 px-3 text-xs text-white hover:bg-white/15"
+            onClick={() => setFilterStarredOnly((prev) => !prev)}
+          >
+            <Star className={`h-3.5 w-3.5 ${filterStarredOnly ? "fill-current" : ""}`} />
+            Solo favoritos
+          </Button>
+          <Button
+            variant="outline"
+            className="h-9 rounded-xl border-white/25 bg-white/10 px-3 text-xs text-white hover:bg-white/15"
+            onClick={() => setListMode((prev) => (prev === "flat" ? "folder" : "flat"))}
+          >
+            {listMode === "flat" ? "Vista: Lista" : "Vista: Carpetas"}
+          </Button>
+          <input
             ref={fileRef}
             type="file"
             accept="application/pdf"
@@ -778,11 +990,80 @@ export function ResourcesClient() {
             {filtered.length} PDF{filtered.length === 1 ? "" : "s"}
           </div>
         </div>
+        {bulkSelectedCount > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/20 bg-white/8 px-3 py-2">
+            <span className="text-xs text-white/85">Seleccionados: {bulkSelectedCount}</span>
+            <Button
+              variant="outline"
+              className="h-8 rounded-lg border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
+              onClick={() => void applyBulkFavorite(true)}
+              disabled={busy}
+            >
+              Favorito
+            </Button>
+            <Button
+              variant="outline"
+              className="h-8 rounded-lg border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
+              onClick={() => void applyBulkFavorite(false)}
+              disabled={busy}
+            >
+              Quitar favorito
+            </Button>
+            <input
+              value={bulkFolderInput}
+              onChange={(e) => setBulkFolderInput(e.target.value)}
+              placeholder="Carpeta masiva"
+              list="resource-folder-suggestions"
+              className="h-8 rounded-lg border border-white/20 bg-white/8 px-2.5 text-xs text-white outline-none placeholder:text-white/45"
+            />
+            <Button
+              variant="outline"
+              className="h-8 rounded-lg border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
+              onClick={() => void applyBulkFolder()}
+              disabled={busy}
+            >
+              Aplicar carpeta
+            </Button>
+            <input
+              value={bulkTagsInput}
+              onChange={(e) => setBulkTagsInput(e.target.value)}
+              placeholder="Tags masivos"
+              list="resource-tag-suggestions"
+              className="h-8 rounded-lg border border-white/20 bg-white/8 px-2.5 text-xs text-white outline-none placeholder:text-white/45"
+            />
+            <Button
+              variant="outline"
+              className="h-8 rounded-lg border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
+              onClick={() => void applyBulkTagsMerge()}
+              disabled={busy}
+            >
+              Agregar tags
+            </Button>
+            <Button
+              variant="outline"
+              className="h-8 rounded-lg border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
+              onClick={clearBulkSelection}
+              disabled={busy}
+            >
+              Limpiar
+            </Button>
+          </div>
+        ) : null}
         {uploadError ? (
           <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             Error al subir PDF: {uploadError}
           </div>
         ) : null}
+        <datalist id="resource-folder-suggestions">
+          {folderSuggestions.map((folder) => (
+            <option key={folder} value={folder} />
+          ))}
+        </datalist>
+        <datalist id="resource-tag-suggestions">
+          {tagSuggestions.map((tag) => (
+            <option key={tag} value={tag} />
+          ))}
+        </datalist>
       </div>
 
       {loading ? (
@@ -819,56 +1100,102 @@ export function ResourcesClient() {
               </div>
             </div>
             <div className="space-y-2">
-              {filtered.map((i) => (
-                <div
-                  key={i.id}
-                  onClick={() => setSelectedId(i.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setSelectedId(i.id);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  className={`w-full rounded-2xl p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 ${
-                    i.id === selectedId ? "bg-white/18 ring-1 ring-white/35" : "bg-white/8 ring-1 ring-white/10"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white/85">
-                          <FileText className="h-4 w-4" />
-                        </span>
-                        <div className="truncate text-sm font-medium text-white">{i.title}</div>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/65">
-                        <span>{Math.round(i.sizeBytes / 1024)} KB · pp. {i.pageStart}–{i.pageEnd}</span>
-                        {i.subjectSlug && SUBJECTS[i.subjectSlug as keyof typeof SUBJECTS] ? (
-                          <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/90">
-                            {SUBJECTS[i.subjectSlug as keyof typeof SUBJECTS].name}
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/60">
-                            Sin materia
-                          </span>
-                        )}
+              {(listMode === "flat"
+                ? [{ folder: "", docs: filtered }]
+                : groupedFiltered
+              ).map((group) => (
+                <div key={group.folder || "flat"} className="space-y-2">
+                  {listMode === "folder" ? (
+                    <div className="rounded-xl border border-white/15 bg-white/6 px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-white/70">
+                      {group.folder} · {group.docs.length}
+                    </div>
+                  ) : null}
+                  {group.docs.map((i) => (
+                    <div
+                      key={i.id}
+                      onClick={() => setSelectedId(i.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedId(i.id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      className={`w-full rounded-2xl p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 ${
+                        i.id === selectedId ? "bg-white/18 ring-1 ring-white/35" : "bg-white/8 ring-1 ring-white/10"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={bulkSelection.has(i.id)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                toggleBulkSelection(i.id, e.target.checked);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-3.5 w-3.5 rounded border-white/30 bg-black/30"
+                            />
+                            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white/85">
+                              <FileText className="h-4 w-4" />
+                            </span>
+                            {i.starred ? <Star className="h-3.5 w-3.5 fill-current text-amber-300" /> : null}
+                            <div className="truncate text-sm font-medium text-white">{i.title}</div>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/65">
+                            <span>{Math.round(i.sizeBytes / 1024)} KB · pp. {i.pageStart}–{i.pageEnd}</span>
+                            {i.subjectSlug && SUBJECTS[i.subjectSlug as keyof typeof SUBJECTS] ? (
+                              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/90">
+                                {SUBJECTS[i.subjectSlug as keyof typeof SUBJECTS].name}
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/60">
+                                Sin materia
+                              </span>
+                            )}
+                            {i.folderPath ? (
+                              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] text-white/90">{i.folderPath}</span>
+                            ) : null}
+                            {i.tags.slice(0, 3).map((tag) => (
+                              <span key={tag} className="rounded-full bg-white/12 px-2 py-0.5 text-[10px] text-white/85">
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-white/25 bg-black/30 text-white hover:bg-white/15"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const next = !i.starred;
+                            const updatedAtMs = Date.now();
+                            setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, starred: next, updatedAtMs } : x)));
+                            void updatePdfResourceMeta(i.id, { starred: next });
+                          }}
+                          disabled={busy}
+                        >
+                          <Star className={`h-4 w-4 ${i.starred ? "fill-current text-amber-300" : ""}`} />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-white/25 bg-black/30 text-white hover:bg-white/15"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onDelete(i.id);
+                          }}
+                          disabled={busy}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-white/25 bg-black/30 text-white hover:bg-white/15"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void onDelete(i.id);
-                      }}
-                      disabled={busy}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  ))}
                 </div>
               ))}
               {!filtered.length ? (
@@ -903,7 +1230,8 @@ export function ResourcesClient() {
                     <select
                       value={selected.subjectSlug ?? ""}
                       onChange={(e) => {
-                        const v = e.target.value || undefined;
+                        const raw = e.target.value;
+                        const v: SubjectSlug | undefined = raw && raw in SUBJECTS ? (raw as SubjectSlug) : undefined;
                         setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, subjectSlug: v } : x)));
                         void updateMeta({ subjectSlug: v });
                       }}
@@ -914,6 +1242,53 @@ export function ResourcesClient() {
                         <option key={s.slug} value={s.slug}>{s.name}</option>
                       ))}
                     </select>
+                  </div>
+                </div>
+              ) : null}
+
+              {selected ? (
+                <div className="grid gap-3 lg:grid-cols-3">
+                  <div className="space-y-1 lg:col-span-2">
+                    <div className="text-xs uppercase tracking-wider text-muted-foreground">Carpeta</div>
+                    <input
+                      value={selected.folderPath ?? ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, folderPath: v || undefined } : x)));
+                      }}
+                      onBlur={(e) => void updateMeta({ folderPath: e.target.value.trim() })}
+                      list="resource-folder-suggestions"
+                      placeholder="Ej: Anatomía/Parcial-1"
+                      className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      variant={selected.starred ? "secondary" : "outline"}
+                      className="h-10 w-full rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/15"
+                      onClick={() => {
+                        const next = !selected.starred;
+                        setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, starred: next } : x)));
+                        void updateMeta({ starred: next });
+                      }}
+                    >
+                      <Star className={`h-4 w-4 ${selected.starred ? "fill-current text-amber-300" : ""}`} />
+                      {selected.starred ? "Favorito" : "Marcar favorito"}
+                    </Button>
+                  </div>
+                  <div className="space-y-1 lg:col-span-3">
+                    <div className="text-xs uppercase tracking-wider text-muted-foreground">Tags</div>
+                    <input
+                      value={selected.tags.join(", ")}
+                      onChange={(e) => {
+                        const v = parseTagInput(e.target.value);
+                        setItems((prev) => prev.map((x) => (x.id === selected.id ? { ...x, tags: v } : x)));
+                      }}
+                      onBlur={(e) => void updateMeta({ tags: parseTagInput(e.target.value) })}
+                      list="resource-tag-suggestions"
+                      placeholder="Ej: parcial, repaso, importante"
+                      className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
+                    />
                   </div>
                 </div>
               ) : null}

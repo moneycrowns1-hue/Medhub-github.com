@@ -52,20 +52,29 @@ export default function Home() {
                 </h1>
 
                 <p className="mx-auto max-w-[680px] text-[15px] font-normal text-white/70">
-                  Tu materia principal hoy es <strong className="text-white">{summary.primaryName}</strong>. Enfoque
-                  profundo, repetición espaciada y lectura activa.
+                  {summary.isRestDay
+                    ? "Hoy es descanso. Recupera energía y prepárate para el próximo bloque."
+                    : (
+                      <>
+                        Tu materia principal hoy es <strong className="text-white">{summary.primaryName}</strong>. Enfoque
+                        profundo, repetición espaciada y lectura activa.
+                      </>
+                    )}
                 </p>
+                {summary.focusNote ? <p className="mx-auto max-w-[680px] text-[13px] text-white/60">{summary.focusNote}</p> : null}
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-3">
-                <StartStudyLink
-                  href={`/study/${plan.primary}`}
-                  subjectSlug={plan.primary}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white px-6 py-3 text-sm font-semibold text-black shadow-[0_8px_30px_-10px_rgba(255,255,255,0.8)] transition-all hover:bg-white/90"
-                >
-                  Empezar estudio
-                  <ArrowRight className="h-4 w-4" />
-                </StartStudyLink>
+                {!summary.isRestDay ? (
+                  <StartStudyLink
+                    href={`/study/${plan.primary}`}
+                    subjectSlug={plan.primary}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white px-6 py-3 text-sm font-semibold text-black shadow-[0_8px_30px_-10px_rgba(255,255,255,0.8)] transition-all hover:bg-white/90"
+                  >
+                    Empezar estudio
+                    <ArrowRight className="h-4 w-4" />
+                  </StartStudyLink>
+                ) : null}
                 <Link
                   href="/day"
                   className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/10 px-6 py-3 text-sm font-medium text-white backdrop-blur-sm transition-all hover:border-white/50 hover:bg-white/15 hover:shadow-[0_10px_28px_-16px_rgba(255,255,255,0.8)]"
@@ -113,7 +122,9 @@ export default function Home() {
               badge: "SRS",
               href: "/srs",
             },
-          ].map((mod) => (
+          ]
+            .filter((mod) => (summary.isRestDay ? mod.badge === "SRS" : true))
+            .map((mod) => (
             <Link
               key={mod.title}
               href={mod.href}
@@ -138,7 +149,7 @@ export default function Home() {
                 </div>
               </div>
             </Link>
-          ))}
+            ))}
         </div>
       </section>
 

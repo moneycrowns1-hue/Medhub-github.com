@@ -140,6 +140,7 @@ export function DayClient({ plan }: Props) {
         <p className="text-sm text-foreground/70">
           Rutina base + materias programadas según tu cronograma.
         </p>
+        {summary.focusNote ? <p className="text-xs text-foreground/60">{summary.focusNote}</p> : null}
       </div>
 
       {/* Materias */}
@@ -152,49 +153,56 @@ export function DayClient({ plan }: Props) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Primary subject */}
-          <Link
-            href={`/study/${plan.primary}`}
-            className="group rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:shadow-[0_14px_36px_-20px_rgba(255,255,255,0.45)]"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
-                <GraduationCap className="h-5 w-5" />
-              </div>
-              <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
-                Principal
-              </span>
-            </div>
-            <div className="mt-3 text-base font-semibold">{summary.primaryName}</div>
-            <div className="mt-0.5 text-xs text-foreground/65">
-              {primaryDef?.uiMode === "redirect" ? "App externa" : "Módulo interactivo"}
-            </div>
-            <div className="mt-2 flex items-center gap-1 text-xs font-medium text-foreground/90 opacity-0 transition-opacity group-hover:opacity-100">
-              Abrir módulo <ArrowRight className="h-3.5 w-3.5" />
-            </div>
-          </Link>
+          {!summary.isRestDay ? (
+            <>
+              <Link
+                href={`/study/${plan.primary}`}
+                className="group rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:shadow-[0_14px_36px_-20px_rgba(255,255,255,0.45)]"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
+                    <GraduationCap className="h-5 w-5" />
+                  </div>
+                  <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
+                    Principal
+                  </span>
+                </div>
+                <div className="mt-3 text-base font-semibold">{summary.primaryName}</div>
+                <div className="mt-0.5 text-xs text-foreground/65">
+                  {primaryDef?.uiMode === "redirect" ? "App externa" : "Módulo interactivo"}
+                </div>
+                <div className="mt-2 flex items-center gap-1 text-xs font-medium text-foreground/90 opacity-0 transition-opacity group-hover:opacity-100">
+                  Abrir módulo <ArrowRight className="h-3.5 w-3.5" />
+                </div>
+              </Link>
 
-          {/* Secondary subject */}
-          <Link
-            href={`/study/${plan.secondary}`}
-            className="group rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:shadow-[0_14px_36px_-20px_rgba(255,255,255,0.45)]"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
-                <Layers className="h-5 w-5" />
-              </div>
-              <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
-                Secundaria
-              </span>
+              <Link
+                href={`/study/${plan.secondary}`}
+                className="group rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:shadow-[0_14px_36px_-20px_rgba(255,255,255,0.45)]"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
+                    <Layers className="h-5 w-5" />
+                  </div>
+                  <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
+                    Secundaria
+                  </span>
+                </div>
+                <div className="mt-3 text-base font-semibold">{summary.secondaryName}</div>
+                <div className="mt-0.5 text-xs text-foreground/65">
+                  {secondaryDef?.uiMode === "redirect" ? "App externa" : "Módulo interactivo"}
+                </div>
+                <div className="mt-2 flex items-center gap-1 text-xs font-medium text-foreground/90 opacity-0 transition-opacity group-hover:opacity-100">
+                  Abrir módulo <ArrowRight className="h-3.5 w-3.5" />
+                </div>
+              </Link>
+            </>
+          ) : (
+            <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl sm:col-span-2">
+              <div className="text-sm font-semibold">Domingo: descanso</div>
+              <div className="mt-1 text-xs text-foreground/70">Sin cátedras hoy. Recuperación física y mental.</div>
             </div>
-            <div className="mt-3 text-base font-semibold">{summary.secondaryName}</div>
-            <div className="mt-0.5 text-xs text-foreground/65">
-              {secondaryDef?.uiMode === "redirect" ? "App externa" : "Módulo interactivo"}
-            </div>
-            <div className="mt-2 flex items-center gap-1 text-xs font-medium text-foreground/90 opacity-0 transition-opacity group-hover:opacity-100">
-              Abrir módulo <ArrowRight className="h-3.5 w-3.5" />
-            </div>
-          </Link>
+          )}
 
           {/* Lectura */}
           <Link
