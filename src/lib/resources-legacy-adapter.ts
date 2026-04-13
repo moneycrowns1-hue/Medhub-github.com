@@ -18,6 +18,7 @@ import {
 export type LegacyResourceDocument = ResourceDocument & {
   pageStart: number;
   pageEnd: number;
+  version: number;
 };
 
 type LegacyPutInput = {
@@ -56,6 +57,8 @@ function toLegacyResourceDocument(
   meta: PdfResource,
   libraryMeta: ReturnType<typeof listAllResourceLibraryMeta>[string] | undefined,
 ): LegacyResourceDocument {
+  const updatedAtMs = Math.max(meta.createdAtMs, meta.updatedAtMs, libraryMeta?.updatedAtMs ?? meta.createdAtMs);
+  const version = Math.max(1, meta.version, libraryMeta?.version ?? 1);
   return {
     id: meta.id,
     title: meta.title,
@@ -67,7 +70,8 @@ function toLegacyResourceDocument(
     starred: libraryMeta?.starred ?? false,
     folderPath: libraryMeta?.folderPath,
     createdAtMs: meta.createdAtMs,
-    updatedAtMs: Math.max(meta.createdAtMs, libraryMeta?.updatedAtMs ?? meta.createdAtMs),
+    updatedAtMs,
+    version,
     pageStart: meta.pageStart,
     pageEnd: meta.pageEnd,
     tags: libraryMeta?.tags ?? [],

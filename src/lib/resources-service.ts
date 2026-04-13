@@ -7,12 +7,23 @@ import {
   RESOURCES_UPDATED_EVENT,
   updateLegacyResourceDocumentMeta,
 } from "@/lib/resources-legacy-adapter";
+import {
+  exportPdfResourcesBackup,
+  importPdfResourcesBackup,
+  type PdfResourceBackupItem,
+} from "@/lib/resources-pdf-store";
+import {
+  listAllResourceLibraryMeta,
+  mergeResourceLibraryMeta,
+  type ResourceLibraryMeta,
+} from "@/lib/resources-library-meta-store";
 
 export type PdfResource = {
   id: string;
   title: string;
   createdAtMs: number;
   updatedAtMs: number;
+  version: number;
   pageStart: number;
   pageEnd: number;
   sizeBytes: number;
@@ -28,6 +39,7 @@ function toPdfResource(input: Awaited<ReturnType<typeof listLegacyResourceDocume
     title: input.title,
     createdAtMs: input.createdAtMs,
     updatedAtMs: input.updatedAtMs,
+    version: input.version,
     pageStart: input.pageStart,
     pageEnd: input.pageEnd,
     sizeBytes: input.sizeBytes,
@@ -67,6 +79,63 @@ export async function updatePdfResourceMeta(
 
 export async function deletePdfResource(id: string): Promise<void> {
   await deleteLegacyResourceDocument(id);
+}
+
+export type ResourcesLibraryBackup = {
+  version: 1;
+  exportedAtMs: number;
+  resources: PdfResourceBackupItem[];
+  libraryMeta: ResourceLibraryMeta[];
+};
+
+export async function exportResourcesLibraryBackup(): Promise<ResourcesLibraryBackup> {
+  const [resources, libraryMetaMap] = await Promise.all([exportPdfResourcesBackup(), Promise.resolve(listAllResourceLibraryMeta())]);
+  return {
+    version: 1,
+    exportedAtMs: Date.now(),
+    resources,
+    libraryMeta: Object.values(libraryMetaMap),
+  };
+}
+
+export async function importResourcesLibraryBackup(input: { data: unknown }): Promise<{
+  importedResources: number;
+  skippedResources: number;
+  importedMeta: number;
+  skippedMeta: number;
+}> {
+  const parsed = input.data as Partial<ResourcesLibraryBackup>;
+  const resources = Array.isArray(parsed?.resources) ? parsed.resources : [];
+  const libraryMetaRows = Array.isArray(parsed?.libraryMeta) ? parsed.libraryMeta : [];
+
+  const resourcesResult = await importPdfResourcesBackup({ items: resources as PdfResourceBackupItem[] });
+
+  let importedMeta = 0;
+  let skippedMeta = 0;
+  for (const row of libraryMetaRows) {
+    const candidate = row as Partial<ResourceLibraryMeta>;
+    if (!candidate?.resourceId || typeof candidate.resourceId !== "string") {
+      skippedMeta += 1;
+      continue;
+    }
+    const merged = mergeResourceLibraryMeta({
+      resourceId: candidate.resourceId,
+      starred: !!candidate.starred,
+      folderPath: candidate.folderPath,
+      tags: Array.isArray(candidate.tags) ? candidate.tags : [],
+      updatedAtMs: typeof candidate.updatedAtMs === "number" ? candidate.updatedAtMs : Date.now(),
+      version: typeof candidate.version === "number" ? candidate.version : 1,
+    });
+    if (merged.applied) importedMeta += 1;
+    else skippedMeta += 1;
+  }
+
+  return {
+    importedResources: resourcesResult.imported,
+    skippedResources: resourcesResult.skipped,
+    importedMeta,
+    skippedMeta,
+  };
 }
 
 export { RESOURCES_UPDATED_EVENT };

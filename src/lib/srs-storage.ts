@@ -44,6 +44,24 @@ function templateKeyForSubject(subjectSlug: string, type: "basic" | "cloze"): st
   return type;
 }
 
+function normalizeFingerprintText(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function buildCardFingerprint(input: {
+  deckId: string;
+  type: "basic" | "cloze" | "image_occlusion";
+  front: string;
+  back: string;
+}): string {
+  return [
+    input.deckId,
+    input.type,
+    normalizeFingerprintText(input.front),
+    normalizeFingerprintText(input.back),
+  ].join("|");
+}
+
 function migrateCard(c: SrsCard): SrsCard {
   const noteId = c.noteId && c.noteId.trim() ? c.noteId : `note_${c.id}`;
   const templateKey = c.templateKey && c.templateKey.trim() ? c.templateKey : c.type;
@@ -375,6 +393,18 @@ export function importAiNotesToDeck(
   ];
 
   const nextCards: SrsCard[] = [];
+  const knownFingerprints = new Set(
+    lib.cards
+      .filter((card) => card.deckId === input.deckId)
+      .map((card) =>
+        buildCardFingerprint({
+          deckId: input.deckId,
+          type: card.type,
+          front: card.front,
+          back: card.back,
+        }),
+      ),
+  );
 
   for (const n of input.notes) {
     const noteId = uid("note");
@@ -386,6 +416,14 @@ export function importAiNotesToDeck(
       if (!front || !back) continue;
 
       const type = c.type === "cloze" ? "cloze" : inferCardType(front, back, false);
+      const fingerprint = buildCardFingerprint({
+        deckId: input.deckId,
+        type,
+        front,
+        back,
+      });
+      if (knownFingerprints.has(fingerprint)) continue;
+
       const templateKey = templateKeyForSubject(input.subjectSlug, c.type === "cloze" ? "cloze" : "basic");
       const tags = [...defaultTags, ...noteTags, ...(Array.isArray(c.tags) ? c.tags : [])]
         .filter((t) => typeof t === "string")
@@ -403,6 +441,7 @@ export function importAiNotesToDeck(
         back,
         tags: tags.length ? Array.from(new Set(tags)) : undefined,
       });
+      knownFingerprints.add(fingerprint);
     }
   }
 

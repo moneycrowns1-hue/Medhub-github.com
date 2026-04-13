@@ -4,6 +4,7 @@ export type ResourceLibraryMeta = {
   folderPath?: string;
   tags: string[];
   updatedAtMs: number;
+  version: number;
 };
 
 const STORAGE_KEY = "somagnus:resources:library_meta:v1";
@@ -37,6 +38,10 @@ function sanitizeEntry(resourceId: string, value: unknown): ResourceLibraryMeta 
     folderPath: normalizeFolderPath(row.folderPath),
     tags: normalizeTags(row.tags),
     updatedAtMs: typeof row.updatedAtMs === "number" ? row.updatedAtMs : Date.now(),
+    version:
+      typeof (row as { version?: unknown }).version === "number" && Number.isFinite((row as { version: number }).version)
+        ? Math.max(1, Math.floor((row as { version: number }).version))
+        : 1,
   };
 }
 
@@ -94,11 +99,40 @@ export function upsertResourceLibraryMeta(
         : current?.folderPath,
     tags: patch.tags !== undefined ? normalizeTags(patch.tags) : current?.tags ?? [],
     updatedAtMs: Date.now(),
+    version: (current?.version ?? 1) + 1,
   };
 
   map[resourceId] = next;
   saveAllMap(map);
   return next;
+}
+
+function isIncomingNewer(local: ResourceLibraryMeta, incoming: ResourceLibraryMeta): boolean {
+  if (incoming.updatedAtMs !== local.updatedAtMs) {
+    return incoming.updatedAtMs > local.updatedAtMs;
+  }
+  return incoming.version > local.version;
+}
+
+export function mergeResourceLibraryMeta(input: ResourceLibraryMeta): { applied: boolean; current: ResourceLibraryMeta } {
+  const map = loadAllMap();
+  const incoming: ResourceLibraryMeta = {
+    resourceId: input.resourceId,
+    starred: !!input.starred,
+    folderPath: normalizeFolderPath(input.folderPath),
+    tags: normalizeTags(input.tags),
+    updatedAtMs: Math.max(1, Math.floor(input.updatedAtMs || Date.now())),
+    version: Math.max(1, Math.floor(input.version || 1)),
+  };
+
+  const local = map[input.resourceId];
+  if (local && !isIncomingNewer(local, incoming)) {
+    return { applied: false, current: local };
+  }
+
+  map[input.resourceId] = incoming;
+  saveAllMap(map);
+  return { applied: true, current: incoming };
 }
 
 export function deleteResourceLibraryMeta(resourceId: string) {

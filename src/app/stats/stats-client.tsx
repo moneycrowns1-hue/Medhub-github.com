@@ -28,6 +28,7 @@ import {
 import { loadSrsLibrary, SRS_UPDATED_EVENT } from "@/lib/srs-storage";
 import { algoStats } from "@/lib/srs-algo";
 import { listPdfResources, RESOURCES_UPDATED_EVENT } from "@/lib/resources-service";
+import { getFlashcardsArtifactsStats, RESOURCES_AI_ARTIFACTS_UPDATED_EVENT } from "@/lib/resources-ai-artifacts-store";
 import { isoDate, parseIsoDateLocal } from "@/lib/dates";
 
 type TrackSlug = "ingles" | "trabajo-online";
@@ -145,6 +146,8 @@ export function StatsClient() {
     ingles: 0,
     "trabajo-online": 0,
   });
+  const [aiArtifactCount, setAiArtifactCount] = useState(0);
+  const [aiArtifactCardsCount, setAiArtifactCardsCount] = useState(0);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -160,6 +163,9 @@ export function StatsClient() {
         setPdfCount(0);
         setTrackPdfCounts({ ingles: 0, "trabajo-online": 0 });
       }
+      const artifactsStats = getFlashcardsArtifactsStats();
+      setAiArtifactCount(artifactsStats.totalArtifacts);
+      setAiArtifactCardsCount(artifactsStats.totalCards);
       setTick((t) => t + 1);
     };
 
@@ -169,6 +175,7 @@ export function StatsClient() {
     window.addEventListener(STATS_UPDATED_EVENT, refresh);
     window.addEventListener(SRS_UPDATED_EVENT, refresh);
     window.addEventListener(RESOURCES_UPDATED_EVENT, refresh);
+    window.addEventListener(RESOURCES_AI_ARTIFACTS_UPDATED_EVENT, refresh);
     window.addEventListener("focus", refresh);
 
     return () => {
@@ -176,6 +183,7 @@ export function StatsClient() {
       window.removeEventListener(STATS_UPDATED_EVENT, refresh);
       window.removeEventListener(SRS_UPDATED_EVENT, refresh);
       window.removeEventListener(RESOURCES_UPDATED_EVENT, refresh);
+      window.removeEventListener(RESOURCES_AI_ARTIFACTS_UPDATED_EVENT, refresh);
       window.removeEventListener("focus", refresh);
     };
   }, []);
@@ -489,6 +497,20 @@ export function StatsClient() {
                 <div className="text-[11px] font-medium uppercase tracking-wider text-foreground/70">Rutina</div>
                 <div className="text-sm text-foreground/80">Completadas: <span className="font-semibold tabular-nums">{routineDays}</span></div>
                 <div className="text-sm text-foreground/80">Racha: <span className="font-semibold tabular-nums">{routineStreak} {routineStreak === 1 ? "día" : "días"}</span></div>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-fuchsia-500/10 text-fuchsia-300">
+                <Brain className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wider text-foreground/65">Artifacts IA cacheados</div>
+                <div className="text-sm text-foreground/80">
+                  <span className="font-semibold tabular-nums text-fuchsia-300">{aiArtifactCount}</span> corridas · {" "}
+                  <span className="font-semibold tabular-nums text-fuchsia-200">{aiArtifactCardsCount}</span> tarjetas
+                </div>
               </div>
             </div>
           </div>
