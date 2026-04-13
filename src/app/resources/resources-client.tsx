@@ -591,11 +591,7 @@ export function ResourcesClient() {
   };
 
   const handleSyncNow = async () => {
-    const baseUrl = process.env.NEXT_PUBLIC_RESOURCES_SYNC_BASE_URL?.trim();
-    if (!baseUrl) {
-      pushNotice("Sync no configurado", "Define NEXT_PUBLIC_RESOURCES_SYNC_BASE_URL para activar la sincronización remota.");
-      return;
-    }
+    const baseUrl = process.env.NEXT_PUBLIC_RESOURCES_SYNC_BASE_URL?.trim() || withBasePath("/api/resources-sync");
 
     setSyncBusy(true);
     try {
