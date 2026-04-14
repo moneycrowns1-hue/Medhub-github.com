@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import QuickPinchZoom from "react-quick-pinch-zoom";
 
-import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, FileText, Filter, Loader2, PanelRight, Save, Search, Sparkles, Star, StickyNote, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, FileText, Filter, Info, Loader2, PanelRight, Save, Search, Sparkles, Star, StickyNote, Trash2, Upload, ZoomIn, ZoomOut } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 
@@ -199,6 +200,7 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: string[]; pageCount:
   const minWidth = lightProfile ? 540 : 680;
   const targetWidth = Math.min(maxWidth, Math.max(minWidth, Math.floor(viewportWidth * 0.82)));
   const jpegQuality = lightProfile ? 0.8 : 0.92;
+  const devicePixelRatio = typeof window === "undefined" ? 1 : clamp(window.devicePixelRatio || 1, 1, 3);
 
   for (let p = 1; p <= pdf.numPages; p += 1) {
     const page = await pdf.getPage(p);
@@ -206,14 +208,19 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: string[]; pageCount:
     const scale = targetWidth / firstViewport.width;
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement("canvas");
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
+    canvas.width = Math.floor(viewport.width * devicePixelRatio);
+    canvas.height = Math.floor(viewport.height * devicePixelRatio);
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       pages.push("");
       continue;
     }
-    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+    await page.render({
+      canvasContext: ctx,
+      viewport,
+      canvas,
+      transform: [devicePixelRatio, 0, 0, devicePixelRatio, 0, 0],
+    }).promise;
     pages.push(canvas.toDataURL("image/jpeg", jpegQuality));
   }
 
@@ -276,6 +283,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [deckId, setDeckId] = useState<string>("deck-histo");
   const [readerPage, setReaderPage] = useState<number>(1);
   const [committedReaderPage, setCommittedReaderPage] = useState<number>(1);
+  const [readerZoom, setReaderZoom] = useState<number>(1);
+  const [readerGestureZoom, setReaderGestureZoom] = useState<number>(1);
+  const [readerPan, setReaderPan] = useState({ x: 0, y: 0 });
+  const [readerPageInfoOpen, setReaderPageInfoOpen] = useState(false);
+  const [readerPageDialogInput, setReaderPageDialogInput] = useState("1");
   const [readerBookmarks, setReaderBookmarks] = useState<Array<{ id: string; page: number; label?: string }>>([]);
   const [readerNotes, setReaderNotes] = useState<ResourceReaderNote[]>([]);
   const [bookmarkLabelInput, setBookmarkLabelInput] = useState("");
@@ -920,8 +932,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const maxPage = (pageCount ?? previewPages.length) || 1;
     const safe = clamp(Math.floor(next || 1), 1, maxPage);
     setReaderPage(safe);
+    setReaderPageDialogInput(String(safe));
     scrollToPreviewPage(safe, behavior);
   }, [pageCount, previewPages.length, scrollToPreviewPage]);
+
+  const updateReaderZoom = useCallback((next: number) => {
+    setReaderZoom(clamp(Number(next) || 1, 0.65, 2.4));
+  }, []);
+
+  const handleGestureUpdate = useCallback(({ x, y, scale }: { x: number; y: number; scale: number }) => {
+    setReaderPan({ x, y });
+    setReaderGestureZoom(clamp(scale || 1, 0.65, 3.6));
+  }, []);
 
   const commitReaderProgress = useCallback((page: number, notifyMessage: string) => {
     if (!selected) return;
@@ -951,26 +973,66 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const nodes = Array.from(root.querySelectorAll<HTMLElement>("[data-preview-page]"));
     if (!nodes.length) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (!visible) return;
-        const page = Number((visible.target as HTMLElement).dataset.previewPage);
-        if (!Number.isFinite(page)) return;
-        setReaderPage((prev) => (prev === page ? prev : page));
-      },
-      {
-        root,
-        threshold: [0.55, 0.75, 0.92],
-      },
-    );
+    let rafId = 0;
 
-    for (const node of nodes) observer.observe(node);
+    const updateCurrentPageFromScroll = () => {
+      const rootRect = root.getBoundingClientRect();
+      const targetY = rootRect.top + root.clientHeight * 0.35;
+      let closestPage = readerPage;
+      let closestDistance = Number.POSITIVE_INFINITY;
 
-    return () => observer.disconnect();
-  }, [previewPages, selectedId, scrollToPreviewPage]);
+      for (const node of nodes) {
+        const page = Number(node.dataset.previewPage);
+        if (!Number.isFinite(page)) continue;
+        const rect = node.getBoundingClientRect();
+        const pageCenter = rect.top + rect.height * 0.5;
+        const distance = Math.abs(pageCenter - targetY);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestPage = page;
+        }
+      }
+
+      setReaderPage((prev) => {
+        if (prev === closestPage) return prev;
+        setReaderPageDialogInput(String(closestPage));
+        return closestPage;
+      });
+    };
+
+    const schedule = () => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        updateCurrentPageFromScroll();
+      });
+    };
+
+    schedule();
+    root.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+
+    return () => {
+      root.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      if (rafId) window.cancelAnimationFrame(rafId);
+    };
+  }, [previewPages, selectedId, readerZoom, readerToolMode, immersiveMode, readerPage]);
+
+  useEffect(() => {
+    setReaderZoom(1);
+    setReaderGestureZoom(1);
+    setReaderPan({ x: 0, y: 0 });
+    setReaderPageInfoOpen(false);
+    setReaderPageDialogInput("1");
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!(immersiveMode && readerToolMode === "lectura")) {
+      setReaderGestureZoom(1);
+      setReaderPan({ x: 0, y: 0 });
+    }
+  }, [immersiveMode, readerToolMode]);
 
   useEffect(() => {
     if (!previewPages.length) return;
@@ -1952,6 +2014,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       <Button type="button" variant={readerToolMode === "generador" ? "secondary" : "outline"} size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderToolMode("generador")}>
                         <Sparkles className="h-4 w-4" />
                       </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => updateReaderZoom(readerZoom - 0.12)}>
+                        <ZoomOut className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => updateReaderZoom(readerZoom + 0.12)}>
+                        <ZoomIn className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => {
+                        setReaderPageDialogInput(String(readerPage));
+                        setReaderPageInfoOpen((prev) => !prev);
+                      }}>
+                        <Info className="h-4 w-4" />
+                      </Button>
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => commitReaderProgress(readerPage, "Guardado manual.")} disabled={!selected}>
                         <Save className="h-4 w-4" />
                       </Button>
@@ -2096,59 +2170,114 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         ) : null}
                         <div
                           ref={previewScrollRef}
+                          onWheel={(event) => {
+                            if (!(immersiveMode && readerToolMode === "lectura")) return;
+                            if (!event.ctrlKey) return;
+                            event.preventDefault();
+                            const delta = event.deltaY > 0 ? -0.08 : 0.08;
+                            updateReaderZoom(readerZoom + delta);
+                          }}
                           className={
                             immersiveMode && readerToolMode === "lectura"
-                              ? "h-full overflow-y-auto bg-[#050505] px-3 pb-8 pt-3"
+                              ? "h-full overflow-auto bg-[#050505] px-3 pb-8 pt-3"
                               : "h-[58svh] min-h-[360px] overflow-y-auto bg-black/35 p-2 md:h-[600px]"
                           }
                         >
-                          <div className={immersiveMode && readerToolMode === "lectura" ? "mx-auto flex w-full max-w-[1080px] flex-col gap-4" : "space-y-3"}>
-                            {previewPages.map((pageSrc, idx) => (
-                              <section
-                                key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
-                                data-preview-page={idx + 1}
-                                className={`relative overflow-hidden rounded-lg border bg-white transition ${
-                                  readerPage === idx + 1
-                                    ? "border-cyan-300 ring-2 ring-cyan-300/70"
-                                    : immersiveMode && readerToolMode === "lectura"
-                                      ? "border-black/20"
-                                      : "border-white/10"
-                                }`}
+                          {immersiveMode && readerToolMode === "lectura" ? (
+                            <QuickPinchZoom onUpdate={handleGestureUpdate}>
+                              <div
+                                className="mx-auto flex w-[min(96vw,1080px)] flex-col gap-4 will-change-transform"
+                                style={{
+                                  transformOrigin: "top center",
+                                  transform: `translate3d(${Math.round(readerPan.x)}px, ${Math.round(readerPan.y)}px, 0) scale(${readerZoom * readerGestureZoom})`,
+                                }}
                               >
-                                <div className="pointer-events-none absolute right-2 top-2 z-10 rounded-md bg-black/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
-                                  Pág. {idx + 1}{readerPage === idx + 1 ? " · actual" : ""}
-                                </div>
-                                <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1">
-                                  {bookmarkPageSet.has(idx + 1) ? (
-                                    <span className="rounded-md bg-amber-300/85 px-1.5 py-0.5 text-[10px] font-semibold text-black">
-                                      <Bookmark className="inline h-3 w-3" />
-                                    </span>
-                                  ) : null}
-                                  {notePageSet.has(idx + 1) ? (
-                                    <span className="rounded-md bg-cyan-300/85 px-1.5 py-0.5 text-[10px] font-semibold text-black">
-                                      <StickyNote className="inline h-3 w-3" />
-                                    </span>
-                                  ) : null}
-                                </div>
-                                {pageSrc ? (
-                                  <img
-                                    src={pageSrc}
-                                    alt={`Página ${idx + 1}`}
-                                    className="block w-full"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <div className="flex h-56 items-center justify-center text-sm text-slate-600">
-                                    No se pudo renderizar esta página.
+                                {previewPages.map((pageSrc, idx) => (
+                                  <section
+                                    key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
+                                    data-preview-page={idx + 1}
+                                    className={`relative overflow-hidden rounded-lg border bg-white transition ${
+                                      readerPage === idx + 1
+                                        ? "border-cyan-300 ring-2 ring-cyan-300/70"
+                                        : "border-black/20"
+                                    }`}
+                                  >
+                                    <div className="pointer-events-none absolute right-2 top-2 z-10 rounded-md bg-black/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+                                      Pág. {idx + 1}{readerPage === idx + 1 ? " · actual" : ""}
+                                    </div>
+                                    <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1">
+                                      {bookmarkPageSet.has(idx + 1) ? (
+                                        <span className="rounded-md bg-amber-300/85 px-1.5 py-0.5 text-[10px] font-semibold text-black">
+                                          <Bookmark className="inline h-3 w-3" />
+                                        </span>
+                                      ) : null}
+                                      {notePageSet.has(idx + 1) ? (
+                                        <span className="rounded-md bg-cyan-300/85 px-1.5 py-0.5 text-[10px] font-semibold text-black">
+                                          <StickyNote className="inline h-3 w-3" />
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    {pageSrc ? (
+                                      <img
+                                        src={pageSrc}
+                                        alt={`Página ${idx + 1}`}
+                                        className="block w-full"
+                                        loading="lazy"
+                                      />
+                                    ) : (
+                                      <div className="flex h-56 items-center justify-center text-sm text-slate-600">
+                                        No se pudo renderizar esta página.
+                                      </div>
+                                    )}
+                                  </section>
+                                ))}
+                              </div>
+                            </QuickPinchZoom>
+                          ) : (
+                            <div className="space-y-3">
+                              {previewPages.map((pageSrc, idx) => (
+                                <section
+                                  key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
+                                  data-preview-page={idx + 1}
+                                  className={`relative overflow-hidden rounded-lg border bg-white transition ${
+                                    readerPage === idx + 1 ? "border-cyan-300 ring-2 ring-cyan-300/70" : "border-white/10"
+                                  }`}
+                                >
+                                  <div className="pointer-events-none absolute right-2 top-2 z-10 rounded-md bg-black/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+                                    Pág. {idx + 1}{readerPage === idx + 1 ? " · actual" : ""}
                                   </div>
-                                )}
-                              </section>
-                            ))}
-                          </div>
+                                  <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1">
+                                    {bookmarkPageSet.has(idx + 1) ? (
+                                      <span className="rounded-md bg-amber-300/85 px-1.5 py-0.5 text-[10px] font-semibold text-black">
+                                        <Bookmark className="inline h-3 w-3" />
+                                      </span>
+                                    ) : null}
+                                    {notePageSet.has(idx + 1) ? (
+                                      <span className="rounded-md bg-cyan-300/85 px-1.5 py-0.5 text-[10px] font-semibold text-black">
+                                        <StickyNote className="inline h-3 w-3" />
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {pageSrc ? (
+                                    <img
+                                      src={pageSrc}
+                                      alt={`Página ${idx + 1}`}
+                                      className="block w-full"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="flex h-56 items-center justify-center text-sm text-slate-600">
+                                      No se pudo renderizar esta página.
+                                    </div>
+                                  )}
+                                </section>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         {immersiveMode && readerToolMode === "lectura" ? (
                           <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg border border-white/15 bg-black/55 px-2.5 py-1 text-xs text-white/80 backdrop-blur-xl">
-                            {readerPage} / {Math.max(1, pageCount ?? previewPages.length ?? 1)}
+                            {readerPage} / {Math.max(1, pageCount ?? previewPages.length ?? 1)} · {Math.round(readerZoom * readerGestureZoom * 100)}%
                           </div>
                         ) : null}
                         {previewStalled && !(immersiveMode && readerToolMode === "lectura") ? (
@@ -2222,26 +2351,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           </div>
                           <div className="text-xs text-foreground/60">Ej: 10–18</div>
                         </>
-                      ) : (
-                        <div className="rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-xs text-white/70">
-                          Modo lectura activo. Cambia a <strong>Generador IA</strong> para editar rango y ejecutar extracción.
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xs uppercase tracking-wider text-white/60">Página actual</div>
-                      <input
-                        type="number"
-                        min={1}
-                        value={readerPage}
-                        onChange={(e) => {
-                          const n = Number(e.target.value);
-                          if (!Number.isFinite(n)) return;
-                          jumpToPage(n);
-                        }}
-                        onBlur={(e) => jumpToPage(Number(e.target.value), "auto")}
-                        className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
-                      />
                       <div className="flex gap-2">
                         <Button
                           type="button"
@@ -2556,6 +2668,46 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                             )}
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {immersiveMode && readerPageInfoOpen ? (
+                    <div className="absolute right-4 top-16 z-40 w-[min(320px,90vw)] rounded-xl border border-white/20 bg-slate-900/90 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="text-xs uppercase tracking-wider text-white/70">Estado de lectura</div>
+                        <button
+                          type="button"
+                          className="rounded-md border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] text-white/75 hover:bg-white/15"
+                          onClick={() => setReaderPageInfoOpen(false)}
+                        >
+                          Cerrar
+                        </button>
+                      </div>
+                      <div className="space-y-1.5 text-xs text-white/80">
+                        <div>Página actual: <span className="font-semibold text-white">{readerPage}</span></div>
+                        <div>Última guardada: <span className="font-semibold text-white">{committedReaderPage}</span></div>
+                        <div>Total detectado: <span className="font-semibold text-white">{Math.max(1, pageCount ?? previewPages.length ?? 1)}</span></div>
+                        <div>Zoom: <span className="font-semibold text-white">{Math.round(readerZoom * readerGestureZoom * 100)}%</span></div>
+                      </div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={Math.max(1, pageCount ?? previewPages.length ?? 1)}
+                          value={readerPageDialogInput}
+                          onChange={(e) => setReaderPageDialogInput(e.target.value)}
+                          className="h-8 w-full rounded-lg border border-white/25 bg-white/8 px-2.5 text-xs text-white outline-none"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 border-white/25 bg-white/10 px-2 text-xs text-white hover:bg-white/15"
+                          onClick={() => jumpToPage(Number(readerPageDialogInput), "auto")}
+                        >
+                          Ir
+                        </Button>
                       </div>
                     </div>
                   ) : null}
