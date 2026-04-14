@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { Bookmark, FileText, Filter, Loader2, Search, Star, StickyNote, Trash2, Upload } from "lucide-react";
@@ -218,9 +219,19 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: string[]; pageCount:
   return { pages, pageCount: pdf.numPages };
 }
 
-export function ResourcesClient() {
+type ResourcesClientProps = {
+  initialSelectedId?: string;
+  initialWorkspaceMode?: "gestion" | "inmersion";
+  hideLibraryPane?: boolean;
+};
+
+export function ResourcesClient(props: ResourcesClientProps = {}) {
   const searchParams = useSearchParams();
+  const openQueryPdfId = searchParams.get("openPdf");
   const [loading, setLoading] = useState(true);
+  const [workspaceMode, setWorkspaceMode] = useState<"gestion" | "inmersion">(props.initialWorkspaceMode ?? "gestion");
+  const [readerToolMode, setReaderToolMode] = useState<"lectura" | "generador">("lectura");
+  const [readerSidebarOpen, setReaderSidebarOpen] = useState(true);
   const [query, setQuery] = useState("");
   const [filterSubject, setFilterSubject] = useState<string>("all");
   const [filterFolder, setFilterFolder] = useState("");
@@ -228,6 +239,7 @@ export function ResourcesClient() {
   const [filterStarredOnly, setFilterStarredOnly] = useState(false);
   const [sortBy, setSortBy] = useState<"recent" | "title" | "size">("recent");
   const [listMode, setListMode] = useState<"flat" | "folder">("flat");
+  const [libraryVisualMode, setLibraryVisualMode] = useState<"list" | "grid">("grid");
   const [bulkSelection, setBulkSelection] = useState<Set<string>>(() => new Set());
   const [bulkFolderInput, setBulkFolderInput] = useState("");
   const [bulkTagsInput, setBulkTagsInput] = useState("");
@@ -288,6 +300,8 @@ export function ResourcesClient() {
       ? (selected.subjectSlug as SubjectSlug)
       : null;
   }, [items, selectedId]);
+  const showLibraryPane = !props.hideLibraryPane;
+  const immersiveMode = workspaceMode === "inmersion";
   const selectedSubjectSlug = currentSelectedSubjectSlug;
   const effectiveShortcutScope = readerShortcutScope === "subject" && selectedSubjectSlug ? "subject" : "global";
   const shortcutStorageKey = useMemo(() => {
@@ -304,21 +318,27 @@ export function ResourcesClient() {
     window.setTimeout(() => {
       setNotices((prev) => prev.filter((n) => n.id !== id));
     }, 3800);
-  }, []);
+  }, [props.initialSelectedId, openQueryPdfId]);
+
+  useEffect(() => {
+    if (!props.initialSelectedId) return;
+    if (!items.some((item) => item.id === props.initialSelectedId)) return;
+    setSelectedId(props.initialSelectedId);
+  }, [items, props.initialSelectedId]);
 
   useEffect(() => {
     const load = async () => {
       try {
         const all = await listPdfResources();
         setItems(all);
-        setSelectedId((prev) => prev ?? (all[0]?.id ?? null));
+        setSelectedId((prev) => prev ?? props.initialSelectedId ?? openQueryPdfId ?? (all[0]?.id ?? null));
       } finally {
         setLoading(false);
       }
     };
 
     void load();
-  }, []);
+  }, [props.initialSelectedId, openQueryPdfId]);
 
   useEffect(() => {
     setSrsLib(loadSrsLibrary());
@@ -809,7 +829,7 @@ export function ResourcesClient() {
       message: `${selected.title}: última página guardada ${nextPage}.`,
       actions: [
         {
-          href: `/resources?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${nextPage}`,
+          href: `/biblioteca?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${nextPage}`,
           label: "Ir a esa página",
           primary: true,
         },
@@ -888,7 +908,7 @@ export function ResourcesClient() {
   const commitReaderProgress = useCallback((page: number, notifyMessage: string) => {
     if (!selected) return;
     const safe = Math.max(1, Math.floor(page || 1));
-    const resumeHref = `/resources?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${safe}`;
+    const resumeHref = `/biblioteca?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${safe}`;
     markPdfProgress({
       resourceId: selected.id,
       title: selected.title,
@@ -1443,8 +1463,43 @@ export function ResourcesClient() {
           <div className="text-xs font-medium uppercase tracking-[0.2em] text-white/65">Recursos</div>
           <h1 className="text-3xl font-bold tracking-tight text-white">Biblioteca inteligente</h1>
           <p className="text-sm text-white/70">
-            PDFs locales guardados en tu dispositivo. Seleccioná un rango de páginas para generar flashcards con IA.
+            Alterna entre gestión e inmersión. Mantén el PDF como protagonista y abre herramientas solo cuando las necesites.
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="rounded-full border border-white/25 bg-white/8 p-1">
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1.5 text-xs transition ${workspaceMode === "gestion" ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
+              onClick={() => setWorkspaceMode("gestion")}
+            >
+              Vista gestión
+            </button>
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1.5 text-xs transition ${workspaceMode === "inmersion" ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
+              onClick={() => setWorkspaceMode("inmersion")}
+            >
+              Vista inmersión
+            </button>
+          </div>
+          <div className="rounded-full border border-white/20 bg-white/6 p-1">
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "lectura" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"}`}
+              onClick={() => setReaderToolMode("lectura")}
+            >
+              Modo lectura
+            </button>
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "generador" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"}`}
+              onClick={() => setReaderToolMode("generador")}
+            >
+              Modo generador IA
+            </button>
+          </div>
         </div>
 
         <div className="relative">
@@ -1509,6 +1564,13 @@ export function ResourcesClient() {
             onClick={() => setListMode((prev) => (prev === "flat" ? "folder" : "flat"))}
           >
             {listMode === "flat" ? "Vista: Lista" : "Vista: Carpetas"}
+          </Button>
+          <Button
+            variant="outline"
+            className="h-9 rounded-xl border-white/25 bg-white/10 px-3 text-xs text-white hover:bg-white/15"
+            onClick={() => setLibraryVisualMode((prev) => (prev === "grid" ? "list" : "grid"))}
+          >
+            {libraryVisualMode === "grid" ? "Tarjetas: Grid" : "Tarjetas: Lista"}
           </Button>
           <input
             ref={fileRef}
@@ -1640,29 +1702,32 @@ export function ResourcesClient() {
       </div>
 
       {loading ? (
-        <div className="grid gap-4 xl:grid-cols-[430px,minmax(0,1.2fr)]">
-          <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-white/55">Biblioteca</div>
-                <div className="text-sm font-semibold text-white/90">Tarjetas PDF</div>
+        <div className={`grid gap-4 ${showLibraryPane ? "xl:grid-cols-[430px,minmax(0,1.2fr)]" : "xl:grid-cols-1"}`}>
+          {showLibraryPane ? (
+            <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-white/55">Biblioteca</div>
+                  <div className="text-sm font-semibold text-white/90">Tarjetas PDF</div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {Array.from({ length: 6 }).map((_, idx) => (
+                  <div key={idx} className="rounded-2xl bg-white/8 p-3">
+                    <Skeleton className="h-10 w-full rounded-xl" />
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="space-y-2">
-              {Array.from({ length: 6 }).map((_, idx) => (
-                <div key={idx} className="rounded-2xl bg-white/8 p-3">
-                  <Skeleton className="h-10 w-full rounded-xl" />
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="rounded-2xl bg-black/35 p-3 backdrop-blur-xl">
+          ) : null}
+          <div className={`rounded-2xl ${immersiveMode ? "bg-black/45" : "bg-black/35"} p-3 backdrop-blur-xl`}>
             <Skeleton className="h-[520px] w-full rounded-lg" />
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[430px,minmax(0,1.2fr)]">
-          <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
+        <div className={`grid gap-4 ${showLibraryPane ? "xl:grid-cols-[430px,minmax(0,1.2fr)]" : "xl:grid-cols-1"}`}>
+          {showLibraryPane ? (
+            <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.16em] text-white/55">Biblioteca</div>
@@ -1672,12 +1737,12 @@ export function ResourcesClient() {
                 {filtered.length}
               </div>
             </div>
-            <div className="space-y-2">
+            <div className={libraryVisualMode === "grid" ? "grid grid-cols-1 gap-2 sm:grid-cols-2" : "space-y-2"}>
               {(listMode === "flat"
                 ? [{ folder: "", docs: filtered }]
                 : groupedFiltered
               ).map((group) => (
-                <div key={group.folder || "flat"} className="space-y-2">
+                <div key={group.folder || "flat"} className={libraryVisualMode === "grid" ? "space-y-2 sm:col-span-2" : "space-y-2"}>
                   {listMode === "folder" ? (
                     <div className="rounded-xl border border-white/15 bg-white/6 px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-white/70">
                       {group.folder} · {group.docs.length}
@@ -1695,7 +1760,7 @@ export function ResourcesClient() {
                       }}
                       role="button"
                       tabIndex={0}
-                      className={`w-full rounded-2xl p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 ${
+                      className={`group w-full rounded-2xl ${libraryVisualMode === "grid" ? "p-2.5" : "p-3"} text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 ${
                         i.id === selectedId ? "bg-white/18 ring-1 ring-white/35" : "bg-white/8 ring-1 ring-white/10"
                       }`}
                     >
@@ -1739,33 +1804,42 @@ export function ResourcesClient() {
                             ))}
                           </div>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-white/25 bg-black/30 text-white hover:bg-white/15"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const next = !i.starred;
-                            const updatedAtMs = Date.now();
-                            setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, starred: next, updatedAtMs } : x)));
-                            void updatePdfResourceMeta(i.id, { starred: next });
-                          }}
-                          disabled={busy}
-                        >
-                          <Star className={`h-4 w-4 ${i.starred ? "fill-current text-amber-300" : ""}`} />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-white/25 bg-black/30 text-white hover:bg-white/15"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void onDelete(i.id);
-                          }}
-                          disabled={busy}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1.5 opacity-80 transition group-hover:opacity-100">
+                          <Link
+                            href={`/lector/${encodeURIComponent(i.id)}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex h-8 items-center rounded-md border border-white/25 bg-black/30 px-2 text-[10px] text-white hover:bg-white/15"
+                          >
+                            Abrir
+                          </Link>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-white/25 bg-black/30 text-white hover:bg-white/15"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const next = !i.starred;
+                              const updatedAtMs = Date.now();
+                              setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, starred: next, updatedAtMs } : x)));
+                              void updatePdfResourceMeta(i.id, { starred: next });
+                            }}
+                            disabled={busy}
+                          >
+                            <Star className={`h-4 w-4 ${i.starred ? "fill-current text-amber-300" : ""}`} />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-white/25 bg-black/30 text-white hover:bg-white/15"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void onDelete(i.id);
+                            }}
+                            disabled={busy}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1778,13 +1852,37 @@ export function ResourcesClient() {
               ) : null}
             </div>
           </div>
+          ) : null}
 
-          <div className="overflow-hidden rounded-[24px] bg-black/35 backdrop-blur-2xl">
+          <div className={`overflow-hidden rounded-[24px] ${immersiveMode ? "bg-black/50" : "bg-black/35"} backdrop-blur-2xl`}>
             <div className="border-b border-white/10 px-6 py-4">
-              <div className="text-base font-bold text-white">{selected ? selected.title : "Seleccioná un PDF"}</div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-base font-bold text-white">{selected ? selected.title : "Seleccioná un PDF"}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {immersiveMode ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+                      onClick={() => setReaderSidebarOpen((prev) => !prev)}
+                    >
+                      {readerSidebarOpen ? "Ocultar panel" : "Mostrar panel"}
+                    </Button>
+                  ) : null}
+                  {selected ? (
+                    <Link
+                      href={`/lector/${encodeURIComponent(selected.id)}`}
+                      className="inline-flex h-8 items-center rounded-md border border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
+                    >
+                      Abrir lector inmersivo
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
             </div>
             <div className="space-y-4 p-6">
-              {selected ? (
+              {selected && !immersiveMode ? (
                 <div className="grid gap-3 lg:grid-cols-2">
                   <div className="space-y-1">
                     <div className="text-xs uppercase tracking-wider text-muted-foreground">Título</div>
@@ -1819,7 +1917,7 @@ export function ResourcesClient() {
                 </div>
               ) : null}
 
-              {selected ? (
+              {selected && !immersiveMode ? (
                 <div className="grid gap-3 lg:grid-cols-3">
                   <div className="space-y-1 lg:col-span-2">
                     <div className="text-xs uppercase tracking-wider text-muted-foreground">Carpeta</div>
@@ -1961,8 +2059,10 @@ export function ResourcesClient() {
 
                   <div className="mt-3 grid gap-3 rounded-xl bg-white/7 p-3 lg:grid-cols-3">
                     <div className="space-y-1 lg:col-span-2">
-                      <div className="text-xs uppercase tracking-wider text-foreground/70">Rango páginas para extracción</div>
-                      <div className="grid grid-cols-2 gap-2">
+                      {readerToolMode === "generador" ? (
+                        <>
+                          <div className="text-xs uppercase tracking-wider text-foreground/70">Rango páginas para extracción</div>
+                          <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
                           <div className="text-[10px] uppercase tracking-wider text-white/60">Desde</div>
                           <input
@@ -2003,8 +2103,14 @@ export function ResourcesClient() {
                             className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
                           />
                         </div>
-                      </div>
-                      <div className="text-xs text-foreground/60">Ej: 10–18</div>
+                          </div>
+                          <div className="text-xs text-foreground/60">Ej: 10–18</div>
+                        </>
+                      ) : (
+                        <div className="rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-xs text-white/70">
+                          Modo lectura activo. Cambia a <strong>Generador IA</strong> para editar rango y ejecutar extracción.
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <div className="text-xs uppercase tracking-wider text-white/60">Página actual</div>
@@ -2250,7 +2356,96 @@ export function ResourcesClient() {
                     </div>
                   </div>
 
-                  <div className="mt-3 grid gap-3 rounded-xl bg-white/7 p-3 lg:grid-cols-2">
+                  {immersiveMode && readerSidebarOpen ? (
+                    <div className="mt-3 rounded-xl border border-white/20 bg-slate-900/80 p-3 lg:ml-auto lg:max-w-[360px]">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="text-xs uppercase tracking-wider text-white/70">Panel lector</div>
+                        <div className="text-[10px] text-white/60">Pág. {readerPage}</div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <div className="text-[11px] font-medium text-white/85">Marcadores</div>
+                          <input
+                            value={bookmarkFilterQuery}
+                            onChange={(e) => setBookmarkFilterQuery(e.target.value)}
+                            placeholder="Filtrar marcadores..."
+                            className="h-8 w-full rounded-lg border border-white/25 bg-white/8 px-2.5 text-xs outline-none"
+                          />
+                          <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-white/15 bg-white/6 p-2">
+                            {filteredReaderBookmarks.length ? (
+                              filteredReaderBookmarks.map((b) => (
+                                <button
+                                  key={b.id}
+                                  type="button"
+                                  className="w-full rounded-md bg-white/8 px-2 py-1.5 text-left text-[11px] text-white/85 hover:bg-white/12"
+                                  onClick={() => jumpToPage(b.page)}
+                                >
+                                  Pág. {b.page}{b.label ? ` · ${b.label}` : ""}
+                                </button>
+                              ))
+                            ) : (
+                              <div className="text-[11px] text-white/60">Sin marcadores filtrados.</div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="text-[11px] font-medium text-white/85">Notas</div>
+                          <textarea
+                            value={noteDraft}
+                            onChange={(e) => setNoteDraft(e.target.value)}
+                            placeholder="Escribe una nota para esta página..."
+                            className="h-24 w-full rounded-xl border border-white/25 bg-white/8 p-2.5 text-xs outline-none"
+                          />
+                          <div className="flex gap-1.5">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 border-white/25 bg-white/10 px-2 text-[11px] text-white hover:bg-white/15"
+                              onClick={handleSaveCurrentNote}
+                            >
+                              Guardar
+                            </Button>
+                            {currentNote ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 border-white/25 bg-white/10 px-2 text-[11px] text-white hover:bg-white/15"
+                                onClick={() => {
+                                  if (!selected) return;
+                                  deleteReaderNote(selected.id, currentNote.id);
+                                }}
+                              >
+                                Eliminar
+                              </Button>
+                            ) : null}
+                          </div>
+                          <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-white/15 bg-white/6 p-2">
+                            {filteredReaderNotes.length ? (
+                              filteredReaderNotes.map((n) => (
+                                <button
+                                  key={n.id}
+                                  type="button"
+                                  className="w-full rounded-md bg-white/8 px-2 py-1.5 text-left text-[11px] text-white/85 hover:bg-white/12"
+                                  onClick={() => jumpToPage(n.page)}
+                                >
+                                  <span className="font-semibold">Pág. {n.page}</span> · {n.payload.text.slice(0, 72)}
+                                </button>
+                              ))
+                            ) : (
+                              <div className="text-[11px] text-white/60">Sin notas filtradas.</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {!immersiveMode ? (
+                    <div className="mt-3 grid gap-3 rounded-xl bg-white/7 p-3 lg:grid-cols-2">
                     <div className="space-y-2">
                       <div className="text-xs uppercase tracking-wider text-foreground/70">Marcadores</div>
                       <input
@@ -2402,7 +2597,10 @@ export function ResourcesClient() {
                       </div>
                     </div>
                   </div>
+                  ) : null}
 
+                  {readerToolMode === "generador" ? (
+                  <>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <Button variant="secondary" className="border border-white/25 bg-white text-black hover:bg-white/90" onClick={() => void runExtract()} disabled={busy || !previewUrl}>
                       Extraer texto (rango)
@@ -2635,6 +2833,8 @@ export function ResourcesClient() {
                       Extraé texto del rango para luego generar flashcards con IA.
                     </div>
                   )}
+                  </>
+                  ) : null}
                 </div>
               ) : (
                 <div className="rounded-xl border border-white/20 bg-white/5 p-6 text-sm text-foreground/70">

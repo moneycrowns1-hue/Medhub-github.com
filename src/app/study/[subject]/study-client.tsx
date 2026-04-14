@@ -53,7 +53,7 @@ function trackActionBySubject(subject: SubjectDefinition): {
 } {
   if (subject.slug === "ingles") {
     return {
-      href: "/resources?subject=ingles",
+      href: "/biblioteca?subject=ingles",
       title: "Sprint de shadowing",
       subtitle: "Audio, repetición y speaking",
       icon: <Mic className="h-5 w-5" />,
@@ -62,7 +62,7 @@ function trackActionBySubject(subject: SubjectDefinition): {
 
   if (subject.slug === "trabajo-online") {
     return {
-      href: "/resources?subject=trabajo-online",
+      href: "/biblioteca?subject=trabajo-online",
       title: "Pipeline de publicación",
       subtitle: "Crear, publicar y medir",
       icon: <Megaphone className="h-5 w-5" />,
@@ -263,7 +263,7 @@ export function StudyClient({ subject }: Props) {
             <div className="text-xs font-medium uppercase tracking-widest text-foreground/70">Recursos</div>
             <h2 className="text-xl font-bold tracking-tight">Material de estudio</h2>
           </div>
-          <Link href="/resources">
+          <Link href="/biblioteca">
             <Button variant="outline" size="sm" className="gap-1.5 rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/15">
               <BookOpen className="h-3.5 w-3.5" />
               Ir a Biblioteca
@@ -282,7 +282,7 @@ export function StudyClient({ subject }: Props) {
             {pdfs.map((p) => (
               <Link
                 key={p.id}
-                href="/resources"
+                href={`/lector/${encodeURIComponent(p.id)}`}
                 className="group rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:bg-white/10"
               >
                 <div className="flex items-start gap-3">
@@ -306,7 +306,7 @@ export function StudyClient({ subject }: Props) {
               No hay PDFs asignados a {subject.name}
             </div>
             <div className="mt-1 text-xs text-foreground/60">
-              Subí PDFs en la <Link href="/resources" className="font-medium text-foreground hover:underline">Biblioteca</Link> y asignalos a esta materia.
+              Subí PDFs en la <Link href="/biblioteca" className="font-medium text-foreground hover:underline">Biblioteca</Link> y asignalos a esta materia.
             </div>
           </div>
         )}
@@ -334,7 +334,7 @@ export function StudyClient({ subject }: Props) {
           </Link>
 
           <Link
-            href={`/resources?subject=${encodeURIComponent(subject.slug)}`}
+            href={`/biblioteca?subject=${encodeURIComponent(subject.slug)}`}
             className="group flex items-center gap-4 rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:bg-white/10"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">

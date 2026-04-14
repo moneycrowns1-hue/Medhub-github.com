@@ -107,10 +107,11 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   const active = guidedSubjectSlug ? SUBJECTS[guidedSubjectSlug] : null;
   const resume = state.lastStudySubjectSlug ? SUBJECTS[state.lastStudySubjectSlug] : null;
   const isStudyRoute = pathname.startsWith("/study/");
+  const isReadingRoute = pathname.startsWith("/resources") || pathname.startsWith("/biblioteca") || pathname.startsWith("/lector/");
   const pomodoroText = `Pomodoro: ${phaseLabel(pomodoroState.phase)}`;
   const resumePdfLabel = state.lastPdfTitle ? `${state.lastPdfTitle}${state.lastPdfPage ? ` · p. ${state.lastPdfPage}` : ""}` : null;
   const resumePdfHref = state.lastPdfResourceId
-    ? `/resources?resumePdf=${encodeURIComponent(state.lastPdfResourceId)}&resumePage=${Math.max(1, Math.floor(state.lastPdfPage || 1))}`
+    ? `/biblioteca?resumePdf=${encodeURIComponent(state.lastPdfResourceId)}&resumePage=${Math.max(1, Math.floor(state.lastPdfPage || 1))}`
     : null;
   const resumeDeckLabel = state.lastSrsDeckName ?? null;
   const dayStamp = new Date().toISOString().slice(0, 10);
@@ -123,7 +124,7 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
     status: `${pomodoroText} · ${phaseStatus} · Speaking`,
     actions: [
       { href: "/study/ingles", label: "Abrir Inglés", primary: true },
-      { href: "/resources", label: "Ir a recursos de audio" },
+      { href: "/biblioteca", label: "Ir a recursos de audio" },
     ] as RabbitGuideSpeechAction[],
   };
 
@@ -190,18 +191,18 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
       status: `${pomodoroText} · ${phaseStatus} · Relax guiado`,
       actions: [
         { href: "/space", label: "Seguir en Space", primary: true },
-        { href: "/resources", label: "Ir a Biblioteca" },
+        { href: "/biblioteca", label: "Ir a Biblioteca" },
       ],
     };
   }
 
-  if (pathname.startsWith("/resources") && resumePdfLabel) {
+  if (isReadingRoute && resumePdfLabel) {
     return {
       title: "Lectura activa en Recursos",
       message: `Último punto guardado: ${resumePdfLabel}. Si quieres, te llevo directo a esa página.`,
       status: `${pomodoroText} · ${phaseStatus} · Lectura`,
       actions: [
-        resumePdfHref ? { href: resumePdfHref, label: "Ir a mi página", primary: true } : { href: "/resources", label: "Abrir biblioteca", primary: true },
+        resumePdfHref ? { href: resumePdfHref, label: "Ir a mi página", primary: true } : { href: "/biblioteca", label: "Abrir biblioteca", primary: true },
         { href: "/srs", label: "Repasar SRS" },
       ],
     };
@@ -302,7 +303,7 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
       actions: [
         { href: `/study/${resume.slug}`, label: "Retomar módulo", primary: true },
         resumePdfLabel
-          ? { href: resumePdfHref ?? "/resources", label: "Retomar lectura" }
+          ? { href: resumePdfHref ?? "/biblioteca", label: "Retomar lectura" }
           : { href: "/#pomodoro", label: "Preparar Pomodoro" },
       ],
     };
@@ -319,7 +320,7 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
         ? { href: "/day", label: "Ver plan de descanso", primary: true }
         : { href: `/study/${primary.slug}`, label: `Primaria: ${todaySummary.primaryName}`, primary: true },
       todaySummary.isRestDay
-        ? { href: "/resources", label: "Lectura suave" }
+        ? { href: "/biblioteca", label: "Lectura suave" }
         : { href: `/study/${secondary.slug}`, label: `Secundaria: ${todaySummary.secondaryName}` },
     ],
   };

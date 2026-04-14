@@ -83,7 +83,7 @@ export function RabbitGuidePanel() {
       { label: "Plan Viewed", run: () => transitionRabbitGuideState({ type: "plan_viewed", pathname: "/day" }) },
       { label: "Module Focus", run: () => transitionRabbitGuideState({ type: "study_module_viewed", subjectSlug: "anatomia", pathname: "/study/anatomia" }) },
       { label: "SRS Review", run: () => transitionRabbitGuideState({ type: "srs_viewed", pathname: "/srs" }) },
-      { label: "Reading Block", run: () => transitionRabbitGuideState({ type: "reading_viewed", pathname: "/resources" }) },
+      { label: "Reading Block", run: () => transitionRabbitGuideState({ type: "reading_viewed", pathname: "/biblioteca" }) },
       { label: "Closure Ready", run: () => transitionRabbitGuideState({ type: "plan_viewed", pathname: "/day" }) },
       { label: "Routine Completed", run: () => transitionRabbitGuideState({ type: "routine_completed", pathname: "/day" }) },
     ],
@@ -184,7 +184,7 @@ export function RabbitGuidePanel() {
       return;
     }
 
-    if (pathname.startsWith("/resources")) {
+    if (pathname.startsWith("/resources") || pathname.startsWith("/biblioteca") || pathname.startsWith("/lector/")) {
       markReadingVisited(pathname);
     }
   }, [pathname]);

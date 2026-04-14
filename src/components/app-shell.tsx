@@ -39,7 +39,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Hoy", icon: <LayoutDashboard className="h-4 w-4" /> },
   { href: "/day", label: "Plan", icon: <CalendarDays className="h-4 w-4" /> },
   { href: "/space", label: "Space", icon: <MoonStar className="h-4 w-4" /> },
-  { href: "/resources", label: "Recursos", icon: <BookOpen className="h-4 w-4" /> },
+  { href: "/biblioteca", label: "Recursos", icon: <BookOpen className="h-4 w-4" /> },
   { href: "/srs", label: "SRS", icon: <Brain className="h-4 w-4" /> },
   { href: "/stats", label: "Stats", icon: <BarChart3 className="h-4 w-4" /> },
   { href: "/settings", label: "Ajustes", icon: <Settings className="h-4 w-4" /> },
@@ -76,6 +76,7 @@ function NavLinks({ className, showLabels = true }: { className?: string; showLa
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isScrolledOnHome, setIsScrolledOnHome] = useState(false);
+  const isImmersiveReaderRoute = pathname?.startsWith("/lector/") ?? false;
 
   useEffect(() => {
     if (pathname !== "/") return;
@@ -99,52 +100,63 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <PomodoroOverlay />
       <GlobalRabbitMascot />
       <RabbitGuidePanel />
-      <header
+      {!isImmersiveReaderRoute ? (
+        <header
+          className={cn(
+            "inset-x-0 top-0 z-40 transition-all duration-500",
+            integratedAtTop
+              ? "absolute border-b border-transparent bg-transparent"
+              : "fixed border-b border-border/50 bg-background/75 backdrop-blur-xl",
+          )}
+        >
+          <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-6">
+            <div className="flex items-center gap-3">
+              <Sheet>
+                <SheetTrigger
+                  render={
+                    <button
+                      type="button"
+                      className="md:hidden inline-flex size-9 items-center justify-center rounded-xl transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    />
+                  }
+                >
+                  <Menu className="h-5 w-5" />
+                </SheetTrigger>
+                <SheetContent side="left" className="w-[280px] p-0">
+                  <SheetHeader className="px-5 py-5">
+                    <SheetTitle className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-primary" />
+                      Somagnus
+                    </SheetTitle>
+                  </SheetHeader>
+                  <Separator />
+                  <NavLinks className="flex-col px-3 py-3" />
+                </SheetContent>
+              </Sheet>
+
+              <Link href="/" className="flex items-center gap-2 text-base font-bold tracking-tight">
+                <Zap className="h-5 w-5 text-primary" />
+                <span>Somagnus</span>
+              </Link>
+            </div>
+
+            <div className="ml-auto hidden md:flex">
+              <NavLinks className="flex-row gap-0.5" />
+            </div>
+          </div>
+        </header>
+      ) : null}
+
+      <main
         className={cn(
-          "inset-x-0 top-0 z-40 transition-all duration-500",
-          integratedAtTop
-            ? "absolute border-b border-transparent bg-transparent"
-            : "fixed border-b border-border/50 bg-background/75 backdrop-blur-xl",
+          isImmersiveReaderRoute
+            ? "w-full"
+            : "mx-auto w-full max-w-7xl px-6",
+          pathname === "/" ? "py-8" : isImmersiveReaderRoute ? "p-0" : "pb-8 pt-24",
         )}
       >
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-6">
-          <div className="flex items-center gap-3">
-            <Sheet>
-              <SheetTrigger
-                render={
-                  <button
-                    type="button"
-                    className="md:hidden inline-flex size-9 items-center justify-center rounded-xl transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                  />
-                }
-              >
-                <Menu className="h-5 w-5" />
-              </SheetTrigger>
-              <SheetContent side="left" className="w-[280px] p-0">
-                <SheetHeader className="px-5 py-5">
-                  <SheetTitle className="flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-primary" />
-                    Somagnus
-                  </SheetTitle>
-                </SheetHeader>
-                <Separator />
-                <NavLinks className="flex-col px-3 py-3" />
-              </SheetContent>
-            </Sheet>
-
-            <Link href="/" className="flex items-center gap-2 text-base font-bold tracking-tight">
-              <Zap className="h-5 w-5 text-primary" />
-              <span>Somagnus</span>
-            </Link>
-          </div>
-
-          <div className="ml-auto hidden md:flex">
-            <NavLinks className="flex-row gap-0.5" />
-          </div>
-        </div>
-      </header>
-
-      <main className={cn("mx-auto w-full max-w-7xl px-6", pathname === "/" ? "py-8" : "pb-8 pt-24")}>{children}</main>
+        {children}
+      </main>
       <SpaceGlobalPlayer />
     </div>
   );

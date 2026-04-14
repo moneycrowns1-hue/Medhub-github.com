@@ -173,7 +173,7 @@ export default function Home() {
               20–40 min de lectura enfocada. Sin multitarea. Subrayá y generá flashcards después.
             </div>
             <Link
-              href="/resources"
+              href="/biblioteca"
               className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-white transition-colors hover:text-white/85"
             >
               Ir a Biblioteca <ArrowRight className="h-3.5 w-3.5" />
@@ -192,7 +192,7 @@ export default function Home() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { icon: <Brain className="h-4 w-4" />, label: "Empezar SRS", href: "/srs" },
-            { icon: <BookOpen className="h-4 w-4" />, label: "Recursos PDF", href: "/resources" },
+            { icon: <BookOpen className="h-4 w-4" />, label: "Recursos PDF", href: "/biblioteca" },
             { icon: <CalendarDays className="h-4 w-4" />, label: "Plan semanal", href: "/day" },
             { icon: <Settings className="h-4 w-4" />, label: "Ajustes", href: "/settings" },
           ].map((q) => (

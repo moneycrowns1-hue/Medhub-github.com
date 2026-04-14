@@ -206,7 +206,7 @@ export function DayClient({ plan }: Props) {
 
           {/* Lectura */}
           <Link
-            href="/resources"
+            href="/biblioteca"
             className="group rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:shadow-[0_14px_36px_-20px_rgba(255,255,255,0.45)]"
           >
             <div className="flex items-center justify-between">
