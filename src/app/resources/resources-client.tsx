@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { Bookmark, FileText, Filter, Loader2, Search, Star, StickyNote, Trash2, Upload } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, FileText, Filter, Loader2, PanelRight, Save, Search, Sparkles, Star, StickyNote, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 
@@ -29,7 +29,14 @@ import {
   saveSrsLibrary,
   type AiNoteDraft,
 } from "@/lib/srs-storage";
-import { getPdfResumeForResource, markPdfProgress, RABBIT_GUIDE_SPEAK_EVENT, type RabbitGuideSpeechPayload } from "@/lib/rabbit-guide";
+import {
+  getPdfResumeForResource,
+  markPdfProgress,
+  RABBIT_ASSISTANT_CONTROL_EVENT,
+  RABBIT_GUIDE_SPEAK_EVENT,
+  type RabbitAssistantControlPayload,
+  type RabbitGuideSpeechPayload,
+} from "@/lib/rabbit-guide";
 import {
   addReaderBookmark,
   exportReaderArtifacts,
@@ -1249,6 +1256,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       setAiError("Necesitas un poco más de contenido para la IA (mínimo sugerido: 120 caracteres). Extrae más páginas o selecciona más chunks.");
       return;
     }
+    window.dispatchEvent(
+      new CustomEvent<RabbitAssistantControlPayload>(RABBIT_ASSISTANT_CONTROL_EVENT, {
+        detail: { behaviorMode: "guide", visualState: "jump", pauseMs: 900 },
+      }),
+    );
     setAiBusy(true);
     setAiError(null);
     const safeMaxCards = clamp(Math.floor(Number(maxCards) || 25), 5, 80);
@@ -1338,6 +1350,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           },
         });
       }
+      window.dispatchEvent(
+        new CustomEvent<RabbitAssistantControlPayload>(RABBIT_ASSISTANT_CONTROL_EVENT, {
+          detail: { behaviorMode: "guide", visualState: "jump", pauseMs: 1200 },
+        }),
+      );
       pushNotice("IA completada", notes.length ? `Se generaron ${notes.length} notas para revisar.` : "La IA respondió, pero no devolvió notas útiles.");
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") {
@@ -1466,7 +1483,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   };
 
   return (
-    <div className="space-y-8 pb-4">
+    <div className={immersiveMode ? "relative min-h-dvh bg-black" : "space-y-8 pb-4"}>
+      {!immersiveMode ? (
       <div className="relative space-y-4 overflow-hidden rounded-[30px] bg-black/45 p-6 shadow-[0_26px_90px_-54px_rgba(0,0,0,0.95)] backdrop-blur-2xl sm:p-7">
         <div className="pointer-events-none absolute -left-12 -top-12 h-32 w-32 rounded-full bg-cyan-300/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-14 right-6 h-32 w-32 rounded-full bg-indigo-300/10 blur-3xl" />
@@ -1483,14 +1501,14 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
             <div className="rounded-full border border-white/25 bg-white/8 p-1">
               <button
                 type="button"
-                className={`rounded-full px-3 py-1.5 text-xs transition ${workspaceMode === "gestion" ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
+                className={`rounded-full px-3 py-1.5 text-xs transition ${!immersiveMode ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
                 onClick={() => setWorkspaceMode("gestion")}
               >
                 Vista gestión
               </button>
               <button
                 type="button"
-                className={`rounded-full px-3 py-1.5 text-xs transition ${workspaceMode === "inmersion" ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
+                className={`rounded-full px-3 py-1.5 text-xs transition ${immersiveMode ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
                 onClick={() => setWorkspaceMode("inmersion")}
               >
                 Vista inmersión
@@ -1730,9 +1748,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           ))}
         </datalist>
       </div>
+      ) : null}
 
       {loading ? (
-        <div className={`grid gap-4 ${showLibraryPane ? "xl:grid-cols-[430px,minmax(0,1.2fr)]" : "xl:grid-cols-1"}`}>
+        <div className={`grid ${immersiveMode ? "h-dvh" : "gap-4"} ${showLibraryPane ? "xl:grid-cols-[430px,minmax(0,1.2fr)]" : "xl:grid-cols-1"}`}>
           {showLibraryPane ? (
             <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
               <div className="mb-3 flex items-center justify-between">
@@ -1750,12 +1769,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
               </div>
             </div>
           ) : null}
-          <div className={`rounded-2xl ${immersiveMode ? "bg-black/45" : "bg-black/35"} p-3 backdrop-blur-xl`}>
+          <div className={`${immersiveMode ? "bg-black" : "rounded-2xl bg-black/35 p-3 backdrop-blur-xl"}`}>
             <Skeleton className="h-[520px] w-full rounded-lg" />
           </div>
         </div>
       ) : (
-        <div className={`grid gap-4 ${showLibraryPane ? "xl:grid-cols-[430px,minmax(0,1.2fr)]" : "xl:grid-cols-1"}`}>
+        <div className={`grid ${immersiveMode ? "h-dvh" : "gap-4"} ${showLibraryPane ? "xl:grid-cols-[430px,minmax(0,1.2fr)]" : "xl:grid-cols-1"}`}>
           {showLibraryPane ? (
             <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
             <div className="mb-3 flex items-center justify-between">
@@ -1907,23 +1926,34 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           </div>
           ) : null}
 
-          <div className={`overflow-hidden rounded-[24px] ${immersiveMode ? "bg-black/50" : "bg-black/35"} backdrop-blur-2xl`}>
-            <div className="border-b border-white/10 px-6 py-4">
+          <div className={`overflow-hidden ${immersiveMode ? "relative h-dvh bg-[#050505]" : "rounded-[24px] bg-black/35 backdrop-blur-2xl"}`}>
+            <div className={immersiveMode ? "absolute left-1/2 top-3 z-30 w-[min(96vw,1100px)] -translate-x-1/2 rounded-2xl border border-white/15 bg-black/45 px-3 py-2 shadow-[0_14px_44px_-26px_rgba(0,0,0,0.95)] backdrop-blur-2xl" : "border-b border-white/10 px-6 py-4"}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-base font-bold text-white">{selected ? selected.title : "Seleccioná un PDF"}</div>
+                <div className={`${immersiveMode ? "text-sm font-medium text-white/90" : "text-base font-bold text-white"}`}>{selected ? selected.title : "Seleccioná un PDF"}</div>
                 <div className="flex flex-wrap items-center gap-2">
                   {immersiveMode ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="border-white/25 bg-white/10 text-white hover:bg-white/15"
-                      onClick={() => setReaderSidebarOpen((prev) => !prev)}
-                    >
-                      {readerSidebarOpen ? "Ocultar panel" : "Mostrar panel"}
-                    </Button>
+                    <>
+                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => jumpToPage(readerPage - 1)} disabled={readerPage <= 1}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => jumpToPage(readerPage + 1)} disabled={readerPage >= ((pageCount ?? previewPages.length) || 1)}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant={readerToolMode === "lectura" ? "secondary" : "outline"} size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderToolMode("lectura")}>
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant={readerToolMode === "generador" ? "secondary" : "outline"} size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderToolMode("generador")}>
+                        <Sparkles className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => commitReaderProgress(readerPage, "Guardado manual.")} disabled={!selected}>
+                        <Save className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderSidebarOpen((prev) => !prev)}>
+                        <PanelRight className="h-4 w-4" />
+                      </Button>
+                    </>
                   ) : null}
-                  {selected ? (
+                  {selected && !immersiveMode ? (
                     <Link
                       href={`/lector?openPdf=${encodeURIComponent(selected.id)}`}
                       className="inline-flex h-8 items-center rounded-md border border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
@@ -1934,7 +1964,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                 </div>
               </div>
             </div>
-            <div className="space-y-4 p-6">
+            <div className={immersiveMode ? "relative h-dvh space-y-4 p-0" : "space-y-4 p-6"}>
               {selected && !immersiveMode ? (
                 <div className="grid gap-3 lg:grid-cols-2">
                   <div className="space-y-1">
@@ -2030,8 +2060,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       e.currentTarget.value = "";
                     }}
                   />
-                  <div className="text-xs uppercase tracking-wider text-white/70">Vista previa</div>
-                  <div className="mt-2 overflow-hidden rounded-xl border border-white/10">
+                  <div className={`mt-2 overflow-hidden ${immersiveMode ? "h-dvh" : "rounded-xl border border-white/10"}`}>
                     {previewLoading ? (
                       <div className="flex h-[62svh] min-h-[420px] w-full flex-col items-center justify-center gap-2 text-xs text-foreground/75 md:h-[640px]">
                         <Loader2 className="h-5 w-5 animate-spin" />
@@ -2052,13 +2081,16 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         ) : null}
                       </div>
                     ) : immersiveMode && readerToolMode === "lectura" && previewUrl ? (
-                      <div className="h-[62svh] min-h-[420px] w-full bg-black md:h-[640px]">
+                      <div className="relative flex h-dvh w-full items-center justify-center bg-[#050505] px-3 pb-6 pt-16">
                         <iframe
                           key={`${selected?.id ?? "pdf"}-${readerPage}`}
                           src={`${previewUrl}#page=${readerPage}&zoom=page-width`}
                           title={selected?.title ?? "Visor PDF"}
-                          className="h-full w-full"
+                          className="h-[calc(100dvh-96px)] w-[min(96vw,1080px)] rounded-sm bg-white shadow-[0_34px_90px_-38px_rgba(0,0,0,0.95)]"
                         />
+                        <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg border border-white/15 bg-black/55 px-2.5 py-1 text-xs text-white/80 backdrop-blur-xl">
+                          {readerPage} / {Math.max(1, pageCount ?? previewPages.length ?? 1)}
+                        </div>
                       </div>
                     ) : previewPages.length ? (
                       <div className="relative">
@@ -2419,7 +2451,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                   </div>
 
                   {immersiveMode && readerSidebarOpen ? (
-                    <div className="mt-3 rounded-xl border border-white/20 bg-slate-900/80 p-3 lg:ml-auto lg:max-w-[360px]">
+                    <div className="absolute right-4 top-16 z-40 w-[min(360px,92vw)] rounded-xl border border-white/20 bg-slate-900/88 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl">
                       <div className="mb-2 flex items-center justify-between">
                         <div className="text-xs uppercase tracking-wider text-white/70">Panel lector</div>
                         <div className="text-[10px] text-white/60">Pág. {readerPage}</div>

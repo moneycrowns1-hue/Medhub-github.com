@@ -174,7 +174,12 @@ function isVisualState(value: unknown): value is RabbitVisualState {
   return value === "run" || value === "jump" || value === "idle" || value === "sleep";
 }
 
-export function GlobalRabbitMascot() {
+type GlobalRabbitMascotProps = {
+  compact?: boolean;
+  suppressSpeech?: boolean;
+};
+
+export function GlobalRabbitMascot({ compact = false, suppressSpeech = false }: GlobalRabbitMascotProps = {}) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const spriteRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -686,7 +691,7 @@ export function GlobalRabbitMascot() {
       <div
         ref={rootRef}
         className="fixed left-0 top-0 z-[70]"
-        style={{ willChange: "transform" }}
+        style={{ willChange: "transform", transformOrigin: "top left", scale: compact ? "0.62" : "1" }}
       >
         <div ref={spriteRef} className="pointer-events-none">
           <canvas
@@ -699,7 +704,7 @@ export function GlobalRabbitMascot() {
         </div>
       </div>
 
-      {speech ? (
+      {speech && !suppressSpeech ? (
         <div
           ref={speechRef}
           className="pointer-events-auto fixed z-[75] w-[min(360px,88vw)] rounded-[26px] border border-white/25 bg-slate-950/95 px-4 py-3 text-white shadow-2xl backdrop-blur-xl"

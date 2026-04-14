@@ -98,8 +98,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-background">
       <PomodoroOverlay />
-      <GlobalRabbitMascot />
-      <RabbitGuidePanel />
+      <GlobalRabbitMascot compact={isImmersiveReaderRoute} suppressSpeech={isImmersiveReaderRoute} />
+      {!isImmersiveReaderRoute ? <RabbitGuidePanel /> : null}
       {!isImmersiveReaderRoute ? (
         <header
           className={cn(
