@@ -123,6 +123,24 @@ type PdfPreviewCacheEntry = {
   pageCount: number;
 };
 
+type PageRenderFailureReason =
+  | "worker"
+  | "pdf-open"
+  | "page-load"
+  | "canvas-context"
+  | "render"
+  | "empty-image"
+  | "cache-lookup"
+  | "cache-miss"
+  | "unknown";
+
+type RenderPdfPageAssetResult = {
+  imageSrc: string;
+  textLayer: string;
+  failureReason: PageRenderFailureReason | null;
+  failureDetail: string;
+};
+
 const READER_SHORTCUTS_STORAGE_KEY = "somagnus:resources:reader:shortcuts:v2";
 const DEFAULT_READER_SHORTCUTS: ReaderShortcutConfig = {
   save: "ctrl+s",
@@ -277,7 +295,45 @@ function resolvePdfRenderProfile() {
   return { lightProfile, targetWidth, devicePixelRatio, dprBucket };
 }
 
-async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number) {
+function normalizeErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string") return error;
+  return "error-desconocido";
+}
+
+function classifyPageRenderFailure(error: unknown): PageRenderFailureReason {
+  const message = normalizeErrorMessage(error).toLowerCase();
+  if (message.includes("worker")) return "worker";
+  if (message.includes("getpage")) return "page-load";
+  if (message.includes("canvas") || message.includes("context")) return "canvas-context";
+  if (message.includes("render")) return "render";
+  if (message.includes("pdf") || message.includes("document")) return "pdf-open";
+  return "unknown";
+}
+
+function renderFailureReasonLabel(reason: PageRenderFailureReason, detail: string) {
+  const base =
+    reason === "worker"
+      ? "Worker PDF"
+      : reason === "pdf-open"
+        ? "Apertura PDF"
+        : reason === "page-load"
+          ? "Carga de página"
+          : reason === "canvas-context"
+            ? "Canvas"
+            : reason === "render"
+              ? "Render"
+              : reason === "empty-image"
+                ? "Imagen vacía"
+                : reason === "cache-lookup"
+                  ? "Cache local"
+                  : reason === "cache-miss"
+                    ? "Cache memoria"
+                    : "Desconocido";
+  return detail ? `${base}: ${detail}` : base;
+}
+
+async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number): Promise<RenderPdfPageAssetResult> {
   ensurePdfWorker();
   const task = getDocument({
     data: sourceData,
@@ -306,6 +362,8 @@ async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number) {
     ];
 
     let imageSrc = "";
+    let failureReason: PageRenderFailureReason | null = null;
+    let failureDetail = "";
     const maxPixels = lightProfile ? PDF_RENDER_MAX_PIXELS_TOUCH : PDF_RENDER_MAX_PIXELS_DESKTOP;
     for (const attempt of attempts) {
       const scale = attempt.targetWidth / firstViewport.width;
@@ -316,7 +374,11 @@ async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number) {
       canvas.width = Math.max(1, Math.floor(viewport.width * effectiveDpr));
       canvas.height = Math.max(1, Math.floor(viewport.height * effectiveDpr));
       const ctx = canvas.getContext("2d");
-      if (!ctx) continue;
+      if (!ctx) {
+        failureReason = "canvas-context";
+        failureDetail = "ctx-null";
+        continue;
+      }
 
       try {
         await page.render({
@@ -327,13 +389,20 @@ async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number) {
         }).promise;
         imageSrc = canvas.toDataURL("image/jpeg", 0.92);
         if (imageSrc) break;
-      } catch {
+      } catch (error) {
         imageSrc = "";
+        failureReason = classifyPageRenderFailure(error);
+        failureDetail = normalizeErrorMessage(error);
       }
     }
 
     if (!imageSrc) {
-      return { imageSrc: "", textLayer: "" };
+      return {
+        imageSrc: "",
+        textLayer: "",
+        failureReason: failureReason ?? "empty-image",
+        failureDetail: failureDetail || "canvas-vacio",
+      };
     }
 
     let textLayer = "";
@@ -351,9 +420,16 @@ async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number) {
     return {
       imageSrc,
       textLayer,
+      failureReason: null,
+      failureDetail: "",
     };
-  } catch {
-    return { imageSrc: "", textLayer: "" };
+  } catch (error) {
+    return {
+      imageSrc: "",
+      textLayer: "",
+      failureReason: classifyPageRenderFailure(error),
+      failureDetail: normalizeErrorMessage(error),
+    };
   } finally {
     try {
       await pdf?.destroy();
@@ -399,6 +475,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [previewTextLayers, setPreviewTextLayers] = useState<Array<string | null>>([]);
   const [renderingPreviewPages, setRenderingPreviewPages] = useState<Set<number>>(() => new Set());
   const [failedPreviewPages, setFailedPreviewPages] = useState<Set<number>>(() => new Set());
+  const [previewPageFailures, setPreviewPageFailures] = useState<Record<number, string>>({});
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
@@ -553,6 +630,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const clearRenderRetryState = () => {
       setRenderingPreviewPages(new Set());
       setFailedPreviewPages(new Set());
+      setPreviewPageFailures({});
       previewRenderInFlightRef.current.clear();
       previewRenderRetryCountRef.current.clear();
       for (const timeoutId of previewRenderRetryTimerRef.current.values()) {
@@ -673,6 +751,20 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const retryTimerMap = previewRenderRetryTimerRef.current;
     let disposed = false;
 
+    const setPageFailure = (page: number, reason: PageRenderFailureReason, detail = "") => {
+      const label = renderFailureReasonLabel(reason, detail);
+      setPreviewPageFailures((prev) => (prev[page] === label ? prev : { ...prev, [page]: label }));
+    };
+
+    const clearPageFailure = (page: number) => {
+      setPreviewPageFailures((prev) => {
+        if (!(page in prev)) return prev;
+        const next = { ...prev };
+        delete next[page];
+        return next;
+      });
+    };
+
     const clearRetryTimer = (page: number) => {
       const timeoutId = retryTimerMap.get(page);
       if (typeof timeoutId === "number") {
@@ -681,8 +773,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       }
     };
 
-    const scheduleRetry = (page: number) => {
+    const scheduleRetry = (page: number, reason: PageRenderFailureReason, detail = "") => {
       if (disposed) return;
+      setPageFailure(page, reason, detail);
       const attempt = previewRenderRetryCountRef.current.get(page) ?? 0;
       if (attempt >= 6) {
         setFailedPreviewPages((prev) => {
@@ -717,6 +810,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       if (previewPages[safePage - 1]) {
         previewRenderRetryCountRef.current.delete(safePage);
         clearRetryTimer(safePage);
+        clearPageFailure(safePage);
         setFailedPreviewPages((prev) => {
           if (!prev.has(safePage)) return prev;
           const next = new Set(prev);
@@ -729,7 +823,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
       const entry = PDF_PREVIEW_CACHE.get(selectedId);
       if (!entry) {
-        scheduleRetry(safePage);
+        scheduleRetry(safePage, "cache-miss", "entry-null");
         return;
       }
 
@@ -745,6 +839,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         next.delete(safePage);
         return next;
       });
+      clearPageFailure(safePage);
 
       void (async () => {
         try {
@@ -756,14 +851,16 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
               width: Math.floor(targetWidth),
               dprBucket,
             });
-          } catch {
+          } catch (error) {
             cachedPage = null;
+            setPageFailure(safePage, "cache-lookup", normalizeErrorMessage(error));
           }
 
           if (cachedPage?.imageSrc) {
             if (!disposed) {
               previewRenderRetryCountRef.current.delete(safePage);
               clearRetryTimer(safePage);
+              clearPageFailure(safePage);
               setPreviewPages((prev) => {
                 if (!prev.length || prev[safePage - 1]) return prev;
                 const next = [...prev];
@@ -797,15 +894,16 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
             );
           }
 
-          const { imageSrc, textLayer } = await renderPdfPageAsset(entry.sourceData, safePage);
+          const { imageSrc, textLayer, failureReason, failureDetail } = await renderPdfPageAsset(entry.sourceData, safePage);
           if (disposed) return;
           if (!imageSrc) {
-            scheduleRetry(safePage);
+            scheduleRetry(safePage, failureReason ?? "unknown", failureDetail);
             return;
           }
 
           previewRenderRetryCountRef.current.delete(safePage);
           clearRetryTimer(safePage);
+          clearPageFailure(safePage);
 
           setPreviewPages((prev) => {
             if (!prev.length || prev[safePage - 1]) return prev;
@@ -837,6 +935,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           }).catch(() => {
             // ignore cache persistence failures
           });
+        } catch (error) {
+          scheduleRetry(safePage, "unknown", normalizeErrorMessage(error));
         } finally {
           previewRenderInFlightRef.current.delete(safePage);
           setRenderingPreviewPages((prev) => {
@@ -2667,6 +2767,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                             : failedPreviewPages.has(idx + 1)
                                               ? "Reintentando render..."
                                               : "Página en espera"}
+                                          {!renderingPreviewPages.has(idx + 1) && previewPageFailures[idx + 1] ? (
+                                            <span className="max-w-[260px] truncate text-[10px] text-black/55">
+                                              {previewPageFailures[idx + 1]}
+                                            </span>
+                                          ) : null}
                                         </div>
                                       </div>
                                     )}
@@ -2725,6 +2830,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                           : failedPreviewPages.has(idx + 1)
                                             ? "Reintentando render..."
                                             : "Página en espera"}
+                                        {!renderingPreviewPages.has(idx + 1) && previewPageFailures[idx + 1] ? (
+                                          <span className="max-w-[260px] truncate text-[10px] text-black/55">
+                                            {previewPageFailures[idx + 1]}
+                                          </span>
+                                        ) : null}
                                       </div>
                                     </div>
                                   )}
