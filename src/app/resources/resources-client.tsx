@@ -125,6 +125,7 @@ type PdfPreviewCacheEntry = {
 
 type PageRenderFailureReason =
   | "worker"
+  | "data-clone"
   | "pdf-open"
   | "page-load"
   | "canvas-context"
@@ -260,9 +261,10 @@ function prefersLightPdfRenderProfile() {
 
 async function renderPdfPages(blob: Blob): Promise<{ pages: Array<string | null>; pageCount: number; sourceData: Uint8Array }> {
   ensurePdfWorker();
-  const data = new Uint8Array(await blob.arrayBuffer());
+  const sourceData = new Uint8Array(await blob.arrayBuffer());
+  const openData = sourceData.slice();
   const task = getDocument({
-    data,
+    data: openData,
     disableStream: false,
     disableAutoFetch: false,
     disableRange: false,
@@ -275,7 +277,7 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: Array<string | null>
   } catch {
     // ignore
   }
-  return { pages: Array(totalPages).fill(null), pageCount: totalPages, sourceData: data };
+  return { pages: Array(totalPages).fill(null), pageCount: totalPages, sourceData };
 }
 
 function resolvePdfTargetWidth() {
@@ -303,6 +305,7 @@ function normalizeErrorMessage(error: unknown) {
 
 function classifyPageRenderFailure(error: unknown): PageRenderFailureReason {
   const message = normalizeErrorMessage(error).toLowerCase();
+  if (message.includes("clone") || message.includes("clon")) return "data-clone";
   if (message.includes("worker")) return "worker";
   if (message.includes("getpage")) return "page-load";
   if (message.includes("canvas") || message.includes("context")) return "canvas-context";
@@ -315,6 +318,8 @@ function renderFailureReasonLabel(reason: PageRenderFailureReason, detail: strin
   const base =
     reason === "worker"
       ? "Worker PDF"
+      : reason === "data-clone"
+        ? "Transferencia datos"
       : reason === "pdf-open"
         ? "Apertura PDF"
         : reason === "page-load"
@@ -335,8 +340,9 @@ function renderFailureReasonLabel(reason: PageRenderFailureReason, detail: strin
 
 async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number): Promise<RenderPdfPageAssetResult> {
   ensurePdfWorker();
+  const openData = sourceData.slice();
   const task = getDocument({
-    data: sourceData,
+    data: openData,
     disableStream: false,
     disableAutoFetch: false,
     disableRange: false,
