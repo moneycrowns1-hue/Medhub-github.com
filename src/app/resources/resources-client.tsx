@@ -393,6 +393,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [previewPages, setPreviewPages] = useState<Array<string | null>>([]);
   const [previewTextLayers, setPreviewTextLayers] = useState<Array<string | null>>([]);
   const [renderingPreviewPages, setRenderingPreviewPages] = useState<Set<number>>(() => new Set());
+  const [failedPreviewPages, setFailedPreviewPages] = useState<Set<number>>(() => new Set());
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
@@ -438,6 +439,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const initialPageAlignRef = useRef<number | null>(null);
   const shortcutConflictNoticeAtRef = useRef(0);
   const previewRenderInFlightRef = useRef<Set<number>>(new Set());
+  const previewRenderRetryCountRef = useRef<Map<number, number>>(new Map());
+  const previewRenderRetryTimerRef = useRef<Map<number, number>>(new Map());
   const rabbitRenderPulseAtRef = useRef(0);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
@@ -541,8 +544,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       // ignore
     }
   }, [readerShortcuts, shortcutStorageKey]);
-
   useEffect(() => {
+    const clearRenderRetryState = () => {
+      setRenderingPreviewPages(new Set());
+      setFailedPreviewPages(new Set());
+      previewRenderInFlightRef.current.clear();
+      previewRenderRetryCountRef.current.clear();
+      for (const timeoutId of previewRenderRetryTimerRef.current.values()) {
+        window.clearTimeout(timeoutId);
+      }
+      previewRenderRetryTimerRef.current.clear();
+    };
+
     const run = async () => {
       if (!selectedId) {
         setPreviewUrl(null);
@@ -550,8 +563,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         setPreviewStalled(false);
         setPreviewPages([]);
         setPreviewTextLayers([]);
-        setRenderingPreviewPages(new Set());
-        previewRenderInFlightRef.current.clear();
+        clearRenderRetryState();
         setPreviewError(null);
         setPageCount(null);
         setExtractedText("");
@@ -566,8 +578,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         setPreviewStalled(false);
         setPreviewPages([]);
         setPreviewTextLayers([]);
-        setRenderingPreviewPages(new Set());
-        previewRenderInFlightRef.current.clear();
+        clearRenderRetryState();
         setPreviewError(null);
         setPageCount(null);
         return;
@@ -578,8 +589,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         setPreviewUrl(cached.objectUrl);
         setPreviewPages(cached.pages);
         setPreviewTextLayers(cached.textLayers);
-        setRenderingPreviewPages(new Set());
-        previewRenderInFlightRef.current.clear();
+        clearRenderRetryState();
         setPageCount(cached.pageCount);
         setPreviewLoading(false);
         setPreviewStalled(false);
@@ -591,8 +601,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       setPreviewStalled(false);
       setPreviewPages([]);
       setPreviewTextLayers([]);
-      setRenderingPreviewPages(new Set());
-      previewRenderInFlightRef.current.clear();
+      clearRenderRetryState();
       setPreviewError(null);
       setPageCount(null);
       setExtractedText("");
@@ -608,8 +617,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         setPreviewLoading(false);
         setPreviewPages([]);
         setPreviewTextLayers([]);
-        setRenderingPreviewPages(new Set());
-        previewRenderInFlightRef.current.clear();
+        clearRenderRetryState();
         setPageCount(null);
         setExtractedText("");
         setChunks([]);
@@ -635,8 +643,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         setPreviewUrl(entry.objectUrl);
         setPreviewPages(entry.pages);
         setPreviewTextLayers(entry.textLayers);
-        setRenderingPreviewPages(new Set());
-        previewRenderInFlightRef.current.clear();
+        clearRenderRetryState();
         setPageCount(entry.pageCount);
         setPreviewLoading(false);
         setPreviewStalled(false);
@@ -645,8 +652,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         setPreviewLoading(false);
         setPreviewPages([]);
         setPreviewTextLayers([]);
-        setRenderingPreviewPages(new Set());
-        previewRenderInFlightRef.current.clear();
+        clearRenderRetryState();
         setPreviewError(e instanceof Error ? e.message : "No se pudo renderizar el PDF.");
       }
     };
@@ -659,22 +665,79 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const root = previewScrollRef.current;
     if (!root) return;
     const { targetWidth, dprBucket } = resolvePdfRenderProfile();
+    const retryTimerMap = previewRenderRetryTimerRef.current;
     let disposed = false;
+
+    const clearRetryTimer = (page: number) => {
+      const timeoutId = retryTimerMap.get(page);
+      if (typeof timeoutId === "number") {
+        window.clearTimeout(timeoutId);
+        retryTimerMap.delete(page);
+      }
+    };
+
+    const scheduleRetry = (page: number) => {
+      if (disposed) return;
+      const attempt = previewRenderRetryCountRef.current.get(page) ?? 0;
+      if (attempt >= 6) {
+        setFailedPreviewPages((prev) => {
+          if (prev.has(page)) return prev;
+          const next = new Set(prev);
+          next.add(page);
+          return next;
+        });
+        clearRetryTimer(page);
+        const timeoutId = window.setTimeout(() => {
+          retryTimerMap.delete(page);
+          requestPageRender(page);
+        }, 2400);
+        retryTimerMap.set(page, timeoutId);
+        return;
+      }
+
+      previewRenderRetryCountRef.current.set(page, attempt + 1);
+      clearRetryTimer(page);
+      const delay = Math.min(300 * 2 ** attempt, 1800);
+      const timeoutId = window.setTimeout(() => {
+        retryTimerMap.delete(page);
+        requestPageRender(page);
+      }, delay);
+      retryTimerMap.set(page, timeoutId);
+    };
 
     const requestPageRender = (pageNumber: number) => {
       if (disposed) return;
       if (!Number.isFinite(pageNumber)) return;
       const safePage = clamp(Math.floor(pageNumber), 1, previewPages.length);
-      if (previewPages[safePage - 1]) return;
+      if (previewPages[safePage - 1]) {
+        previewRenderRetryCountRef.current.delete(safePage);
+        clearRetryTimer(safePage);
+        setFailedPreviewPages((prev) => {
+          if (!prev.has(safePage)) return prev;
+          const next = new Set(prev);
+          next.delete(safePage);
+          return next;
+        });
+        return;
+      }
       if (previewRenderInFlightRef.current.has(safePage)) return;
 
       const entry = PDF_PREVIEW_CACHE.get(selectedId);
-      if (!entry) return;
+      if (!entry) {
+        scheduleRetry(safePage);
+        return;
+      }
 
       previewRenderInFlightRef.current.add(safePage);
       setRenderingPreviewPages((prev) => {
         const next = new Set(prev);
         next.add(safePage);
+        return next;
+      });
+      setFailedPreviewPages((prev) => {
+        if (!prev.has(safePage)) return prev;
+        const next = new Set(prev);
+        next.delete(safePage);
         return next;
       });
 
@@ -694,6 +757,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
           if (cachedPage?.imageSrc) {
             if (!disposed) {
+              previewRenderRetryCountRef.current.delete(safePage);
+              clearRetryTimer(safePage);
               setPreviewPages((prev) => {
                 if (!prev.length || prev[safePage - 1]) return prev;
                 const next = [...prev];
@@ -729,7 +794,13 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
           const { imageSrc, textLayer } = await renderPdfPageAsset(entry.sourceData, safePage);
           if (disposed) return;
-          if (!imageSrc) return;
+          if (!imageSrc) {
+            scheduleRetry(safePage);
+            return;
+          }
+
+          previewRenderRetryCountRef.current.delete(safePage);
+          clearRetryTimer(safePage);
 
           setPreviewPages((prev) => {
             if (!prev.length || prev[safePage - 1]) return prev;
@@ -800,6 +871,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     return () => {
       disposed = true;
       observer.disconnect();
+      const pendingRetryTimeouts = Array.from(retryTimerMap.values());
+      for (const timeoutId of pendingRetryTimeouts) {
+        window.clearTimeout(timeoutId);
+      }
+      retryTimerMap.clear();
     };
   }, [immersiveMode, readerToolMode, selectedId, previewPages, readerPage]);
 
@@ -2581,7 +2657,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                       <div className="flex min-h-[44svh] items-center justify-center text-sm text-slate-600">
                                         <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
                                           <span className={renderingPreviewPages.has(idx + 1) ? "inline-block animate-bounce" : "inline-block"}>🐰</span>
-                                          {renderingPreviewPages.has(idx + 1) ? "Renderizando en alta definición..." : "Página en espera"}
+                                          {renderingPreviewPages.has(idx + 1)
+                                            ? "Renderizando en alta definición..."
+                                            : failedPreviewPages.has(idx + 1)
+                                              ? "Reintentando render..."
+                                              : "Página en espera"}
                                         </div>
                                       </div>
                                     )}
@@ -2635,7 +2715,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                     <div className="flex min-h-[44svh] items-center justify-center text-sm text-slate-600">
                                       <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
                                         <span className={renderingPreviewPages.has(idx + 1) ? "inline-block animate-bounce" : "inline-block"}>🐰</span>
-                                        {renderingPreviewPages.has(idx + 1) ? "Renderizando en alta definición..." : "Página en espera"}
+                                        {renderingPreviewPages.has(idx + 1)
+                                          ? "Renderizando en alta definición..."
+                                          : failedPreviewPages.has(idx + 1)
+                                            ? "Reintentando render..."
+                                            : "Página en espera"}
                                       </div>
                                     </div>
                                   )}
