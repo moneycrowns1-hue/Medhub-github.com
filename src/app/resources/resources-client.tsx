@@ -600,58 +600,55 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       });
 
       void (async () => {
-        const cachedPage = await getCachedRenderedPdfPage({
-          documentId: selectedId,
-          page: safePage,
-          width: Math.floor(targetWidth),
-          dprBucket,
-        });
-
-        if (cachedPage?.imageSrc) {
-          if (!disposed) {
-            setPreviewPages((prev) => {
-              if (!prev.length || prev[safePage - 1]) return prev;
-              const next = [...prev];
-              next[safePage - 1] = cachedPage.imageSrc;
-              return next;
+        try {
+          let cachedPage: { imageSrc: string; textLayer: string | null } | null = null;
+          try {
+            cachedPage = await getCachedRenderedPdfPage({
+              documentId: selectedId,
+              page: safePage,
+              width: Math.floor(targetWidth),
+              dprBucket,
             });
-
-            setPreviewTextLayers((prev) => {
-              if (!prev.length) return prev;
-              const next = [...prev];
-              next[safePage - 1] = cachedPage.textLayer;
-              return next;
-            });
-
-            const memCached = PDF_PREVIEW_CACHE.get(selectedId);
-            if (memCached) {
-              memCached.pages[safePage - 1] = cachedPage.imageSrc;
-              memCached.textLayers[safePage - 1] = cachedPage.textLayer;
-            }
+          } catch {
+            cachedPage = null;
           }
 
-          previewRenderInFlightRef.current.delete(safePage);
-          setRenderingPreviewPages((prev) => {
-            if (!prev.has(safePage)) return prev;
-            const next = new Set(prev);
-            next.delete(safePage);
-            return next;
-          });
-          return;
-        }
+          if (cachedPage?.imageSrc) {
+            if (!disposed) {
+              setPreviewPages((prev) => {
+                if (!prev.length || prev[safePage - 1]) return prev;
+                const next = [...prev];
+                next[safePage - 1] = cachedPage.imageSrc;
+                return next;
+              });
 
-        const now = Date.now();
-        if (now - rabbitRenderPulseAtRef.current > 900) {
-          rabbitRenderPulseAtRef.current = now;
-          window.dispatchEvent(
-            new CustomEvent<RabbitAssistantControlPayload>(RABBIT_ASSISTANT_CONTROL_EVENT, {
-              detail: { behaviorMode: "guide", visualState: "jump", pauseMs: 650 },
-            }),
-          );
-        }
+              setPreviewTextLayers((prev) => {
+                if (!prev.length) return prev;
+                const next = [...prev];
+                next[safePage - 1] = cachedPage.textLayer;
+                return next;
+              });
 
-        void renderPdfPageAsset(entry.sourceData, safePage)
-        .then(({ imageSrc, textLayer }) => {
+              const memCached = PDF_PREVIEW_CACHE.get(selectedId);
+              if (memCached) {
+                memCached.pages[safePage - 1] = cachedPage.imageSrc;
+                memCached.textLayers[safePage - 1] = cachedPage.textLayer;
+              }
+            }
+            return;
+          }
+
+          const now = Date.now();
+          if (now - rabbitRenderPulseAtRef.current > 900) {
+            rabbitRenderPulseAtRef.current = now;
+            window.dispatchEvent(
+              new CustomEvent<RabbitAssistantControlPayload>(RABBIT_ASSISTANT_CONTROL_EVENT, {
+                detail: { behaviorMode: "guide", visualState: "jump", pauseMs: 650 },
+              }),
+            );
+          }
+
+          const { imageSrc, textLayer } = await renderPdfPageAsset(entry.sourceData, safePage);
           if (disposed) return;
           if (!imageSrc) return;
 
@@ -682,9 +679,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
             dprBucket,
             imageSrc,
             textLayer: textLayer || null,
+          }).catch(() => {
+            // ignore cache persistence failures
           });
-        })
-        .finally(() => {
+        } finally {
           previewRenderInFlightRef.current.delete(safePage);
           setRenderingPreviewPages((prev) => {
             if (!prev.has(safePage)) return prev;
@@ -692,7 +690,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
             next.delete(safePage);
             return next;
           });
-        });
+        }
       })();
     };
 
