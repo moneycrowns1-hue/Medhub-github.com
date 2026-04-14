@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { Bookmark, FileText, Filter, Loader2, Search, Star, StickyNote, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
@@ -226,6 +226,7 @@ type ResourcesClientProps = {
 };
 
 export function ResourcesClient(props: ResourcesClientProps = {}) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const openQueryPdfId = searchParams.get("openPdf");
   const [loading, setLoading] = useState(true);
@@ -301,6 +302,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       : null;
   }, [items, selectedId]);
   const showLibraryPane = !props.hideLibraryPane;
+  const workspaceModeLocked = Boolean(props.initialWorkspaceMode);
   const immersiveMode = workspaceMode === "inmersion";
   const selectedSubjectSlug = currentSelectedSubjectSlug;
   const effectiveShortcutScope = readerShortcutScope === "subject" && selectedSubjectSlug ? "subject" : "global";
@@ -1467,24 +1469,43 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="rounded-full border border-white/25 bg-white/8 p-1">
-            <button
-              type="button"
-              className={`rounded-full px-3 py-1.5 text-xs transition ${workspaceMode === "gestion" ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
-              onClick={() => setWorkspaceMode("gestion")}
-            >
-              Vista gestión
-            </button>
-            <button
-              type="button"
-              className={`rounded-full px-3 py-1.5 text-xs transition ${workspaceMode === "inmersion" ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
-              onClick={() => setWorkspaceMode("inmersion")}
-            >
-              Vista inmersión
-            </button>
+        {!workspaceModeLocked ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-full border border-white/25 bg-white/8 p-1">
+              <button
+                type="button"
+                className={`rounded-full px-3 py-1.5 text-xs transition ${workspaceMode === "gestion" ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
+                onClick={() => setWorkspaceMode("gestion")}
+              >
+                Vista gestión
+              </button>
+              <button
+                type="button"
+                className={`rounded-full px-3 py-1.5 text-xs transition ${workspaceMode === "inmersion" ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
+                onClick={() => setWorkspaceMode("inmersion")}
+              >
+                Vista inmersión
+              </button>
+            </div>
+            <div className="rounded-full border border-white/20 bg-white/6 p-1">
+              <button
+                type="button"
+                className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "lectura" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"}`}
+                onClick={() => setReaderToolMode("lectura")}
+              >
+                Modo lectura
+              </button>
+              <button
+                type="button"
+                className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "generador" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"}`}
+                onClick={() => setReaderToolMode("generador")}
+              >
+                Modo generador IA
+              </button>
+            </div>
           </div>
-          <div className="rounded-full border border-white/20 bg-white/6 p-1">
+        ) : immersiveMode ? (
+          <div className="rounded-full border border-white/20 bg-white/8 p-1">
             <button
               type="button"
               className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "lectura" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"}`}
@@ -1500,7 +1521,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
               Modo generador IA
             </button>
           </div>
-        </div>
+        ) : null}
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
@@ -1751,11 +1772,21 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                   {group.docs.map((i) => (
                     <div
                       key={i.id}
-                      onClick={() => setSelectedId(i.id)}
+                      onClick={() => {
+                        if (immersiveMode) {
+                          setSelectedId(i.id);
+                          return;
+                        }
+                        void router.push(`/lector/${encodeURIComponent(i.id)}`);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setSelectedId(i.id);
+                          if (immersiveMode) {
+                            setSelectedId(i.id);
+                            return;
+                          }
+                          void router.push(`/lector/${encodeURIComponent(i.id)}`);
                         }
                       }}
                       role="button"
@@ -1805,6 +1836,19 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 opacity-80 transition group-hover:opacity-100">
+                          {!immersiveMode ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-white/25 bg-black/30 text-white hover:bg-white/15"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedId(i.id);
+                              }}
+                            >
+                              Clasificar
+                            </Button>
+                          ) : null}
                           <Link
                             href={`/lector/${encodeURIComponent(i.id)}`}
                             onClick={(e) => e.stopPropagation()}
@@ -1964,7 +2008,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                 </div>
               ) : null}
 
-              {selected ? (
+              {selected && immersiveMode ? (
                 <div className="rounded-2xl bg-white/7 p-3">
                   <input
                     ref={readerImportRef}
@@ -2836,9 +2880,13 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                   </>
                   ) : null}
                 </div>
+              ) : selected ? (
+                <div className="rounded-xl border border-white/20 bg-white/6 p-6 text-sm text-foreground/70">
+                  Clasifica este PDF aquí (título, materia, carpeta, tags y favorito) y usa <strong>Abrir lector inmersivo</strong> para leer con panel lateral.
+                </div>
               ) : (
                 <div className="rounded-xl border border-white/20 bg-white/5 p-6 text-sm text-foreground/70">
-                  Subí un PDF y selecciónalo para ver la vista previa.
+                  Subí un PDF y usa <strong>Abrir</strong> para entrar al lector. Si quieres editar metadatos, pulsa <strong>Clasificar</strong> en la tarjeta.
                 </div>
               )}
             </div>
