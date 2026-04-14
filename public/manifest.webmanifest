@@ -1,0 +1,11 @@
+{
+  "name": "Somagnus",
+  "short_name": "Somagnus",
+  "description": "Segundo cerebro y productividad para medicina",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "icons": []
+}

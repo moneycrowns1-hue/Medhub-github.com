@@ -3,6 +3,7 @@ import { Outfit, Pixelify_Sans } from "next/font/google";
 import "./globals.css";
 
 import { AppShell } from "@/components/app-shell";
+import { PwaBootstrap } from "@/components/pwa-bootstrap";
 
 const outfit = Outfit({
   variable: "--font-sans",
@@ -18,6 +19,7 @@ const pixelify = Pixelify_Sans({
 export const metadata: Metadata = {
   title: "Somagnus",
   description: "Segundo cerebro y productividad para medicina",
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({
@@ -32,6 +34,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <PwaBootstrap />
         <AppShell>{children}</AppShell>
       </body>
     </html>

@@ -62,6 +62,7 @@ import {
   saveResourcesSyncCursor,
   syncResourcesLocalFirst,
 } from "@/lib/resources-sync-adapter";
+import { getCachedRenderedPdfPage, putCachedRenderedPdfPage } from "@/lib/pdf-render-cache";
 import type { SrsLibrary } from "@/lib/srs";
 
 type InAppNotice = {
@@ -92,7 +93,9 @@ function parseTagInput(value: string): string[] {
 
 type PdfPreviewCacheEntry = {
   objectUrl: string;
-  pages: string[];
+  sourceData: Uint8Array;
+  pages: Array<string | null>;
+  textLayers: Array<string | null>;
   pageCount: number;
 };
 
@@ -188,49 +191,94 @@ function prefersLightPdfRenderProfile() {
   return isIpad || isCoarsePointer || lowDeviceMemory;
 }
 
-async function renderPdfPages(blob: Blob): Promise<{ pages: string[]; pageCount: number }> {
+async function renderPdfPages(blob: Blob): Promise<{ pages: Array<string | null>; pageCount: number; sourceData: Uint8Array }> {
   ensurePdfWorker();
-  const data = await blob.arrayBuffer();
-  const task = getDocument({ data });
+  const data = new Uint8Array(await blob.arrayBuffer());
+  const task = getDocument({
+    data,
+    disableStream: false,
+    disableAutoFetch: false,
+    disableRange: false,
+    rangeChunkSize: 262144,
+  });
   const pdf = await task.promise;
-  const pages: string[] = [];
+  const totalPages = pdf.numPages;
+  try {
+    await pdf.destroy();
+  } catch {
+    // ignore
+  }
+  return { pages: Array(totalPages).fill(null), pageCount: totalPages, sourceData: data };
+}
+
+function resolvePdfTargetWidth() {
   const lightProfile = prefersLightPdfRenderProfile();
   const viewportWidth = typeof window === "undefined" ? 1200 : Math.max(360, window.innerWidth);
-  const maxWidth = lightProfile ? 780 : 980;
-  const minWidth = lightProfile ? 540 : 680;
-  const targetWidth = Math.min(maxWidth, Math.max(minWidth, Math.floor(viewportWidth * 0.82)));
-  const jpegQuality = lightProfile ? 0.8 : 0.92;
-  const devicePixelRatio = typeof window === "undefined" ? 1 : clamp(window.devicePixelRatio || 1, 1, 3);
+  const maxWidth = lightProfile ? 960 : 1280;
+  const minWidth = lightProfile ? 680 : 860;
+  return Math.min(maxWidth, Math.max(minWidth, Math.floor(viewportWidth * 0.9)));
+}
 
-  for (let p = 1; p <= pdf.numPages; p += 1) {
-    const page = await pdf.getPage(p);
+function resolvePdfRenderProfile() {
+  const lightProfile = prefersLightPdfRenderProfile();
+  const targetWidth = resolvePdfTargetWidth();
+  const baseRatio = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
+  const devicePixelRatio = clamp(baseRatio, 1, lightProfile ? 2.4 : 3);
+  const dprBucket = Math.round(devicePixelRatio * 100);
+  return { lightProfile, targetWidth, devicePixelRatio, dprBucket };
+}
+
+async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number) {
+  ensurePdfWorker();
+  const task = getDocument({
+    data: sourceData,
+    disableStream: false,
+    disableAutoFetch: false,
+    disableRange: false,
+    rangeChunkSize: 262144,
+  });
+  const pdf = await task.promise;
+  try {
+    const safePage = clamp(Math.floor(pageNumber || 1), 1, Math.max(1, pdf.numPages));
+    const page = await pdf.getPage(safePage);
     const firstViewport = page.getViewport({ scale: 1 });
+    const { targetWidth, devicePixelRatio } = resolvePdfRenderProfile();
     const scale = targetWidth / firstViewport.width;
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement("canvas");
+
     canvas.width = Math.floor(viewport.width * devicePixelRatio);
     canvas.height = Math.floor(viewport.height * devicePixelRatio);
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      pages.push("");
-      continue;
+      return { imageSrc: "", textLayer: "" };
     }
+
     await page.render({
       canvasContext: ctx,
       viewport,
       canvas,
       transform: [devicePixelRatio, 0, 0, devicePixelRatio, 0, 0],
     }).promise;
-    pages.push(canvas.toDataURL("image/jpeg", jpegQuality));
-  }
 
-  try {
-    await pdf.destroy();
-  } catch {
-    // ignore
-  }
+    const textContent = await page.getTextContent();
+    const textLayer = textContent.items
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
 
-  return { pages, pageCount: pdf.numPages };
+    return {
+      imageSrc: canvas.toDataURL("image/png"),
+      textLayer,
+    };
+  } finally {
+    try {
+      await pdf.destroy();
+    } catch {
+      // ignore
+    }
+  }
 }
 
 type ResourcesClientProps = {
@@ -264,7 +312,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewStalled, setPreviewStalled] = useState(false);
-  const [previewPages, setPreviewPages] = useState<string[]>([]);
+  const [previewPages, setPreviewPages] = useState<Array<string | null>>([]);
+  const [previewTextLayers, setPreviewTextLayers] = useState<Array<string | null>>([]);
+  const [renderingPreviewPages, setRenderingPreviewPages] = useState<Set<number>>(() => new Set());
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
@@ -309,6 +359,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const previewScrollRef = useRef<HTMLDivElement | null>(null);
   const initialPageAlignRef = useRef<number | null>(null);
   const shortcutConflictNoticeAtRef = useRef(0);
+  const previewRenderInFlightRef = useRef<Set<number>>(new Set());
+  const rabbitRenderPulseAtRef = useRef(0);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
     return selected?.subjectSlug === "anatomia" ||
@@ -332,6 +384,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     return `${READER_SHORTCUTS_STORAGE_KEY}:global`;
   }, [effectiveShortcutScope, selectedSubjectSlug]);
   const loadingShortcutsRef = useRef(false);
+  const isTouchInputDevice = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    if (window.matchMedia?.("(pointer: coarse)").matches) return true;
+    return window.navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+  }, []);
+  const readerEffectiveZoom = readerZoom * readerGestureZoom;
 
   const pushNotice = useCallback((title: string, body: string) => {
     const id = `res_notice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -412,6 +470,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         setPreviewLoading(false);
         setPreviewStalled(false);
         setPreviewPages([]);
+        setPreviewTextLayers([]);
+        setRenderingPreviewPages(new Set());
+        previewRenderInFlightRef.current.clear();
         setPreviewError(null);
         setPageCount(null);
         setExtractedText("");
@@ -425,6 +486,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         setPreviewLoading(false);
         setPreviewStalled(false);
         setPreviewPages([]);
+        setPreviewTextLayers([]);
+        setRenderingPreviewPages(new Set());
+        previewRenderInFlightRef.current.clear();
         setPreviewError(null);
         setPageCount(null);
         return;
@@ -434,6 +498,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       if (cached) {
         setPreviewUrl(cached.objectUrl);
         setPreviewPages(cached.pages);
+        setPreviewTextLayers(cached.textLayers);
+        setRenderingPreviewPages(new Set());
+        previewRenderInFlightRef.current.clear();
         setPageCount(cached.pageCount);
         setPreviewLoading(false);
         setPreviewStalled(false);
@@ -444,6 +511,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       setPreviewLoading(true);
       setPreviewStalled(false);
       setPreviewPages([]);
+      setPreviewTextLayers([]);
+      setRenderingPreviewPages(new Set());
+      previewRenderInFlightRef.current.clear();
       setPreviewError(null);
       setPageCount(null);
       setExtractedText("");
@@ -458,6 +528,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         setPreviewUrl(null);
         setPreviewLoading(false);
         setPreviewPages([]);
+        setPreviewTextLayers([]);
+        setRenderingPreviewPages(new Set());
+        previewRenderInFlightRef.current.clear();
         setPageCount(null);
         setExtractedText("");
         setChunks([]);
@@ -474,12 +547,17 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         const rendered = await renderPdfPages(blob);
         const entry: PdfPreviewCacheEntry = {
           objectUrl,
+          sourceData: rendered.sourceData,
           pages: rendered.pages,
+          textLayers: Array(rendered.pageCount).fill(null),
           pageCount: rendered.pageCount,
         };
         PDF_PREVIEW_CACHE.set(selectedId, entry);
         setPreviewUrl(entry.objectUrl);
         setPreviewPages(entry.pages);
+        setPreviewTextLayers(entry.textLayers);
+        setRenderingPreviewPages(new Set());
+        previewRenderInFlightRef.current.clear();
         setPageCount(entry.pageCount);
         setPreviewLoading(false);
         setPreviewStalled(false);
@@ -487,12 +565,166 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         URL.revokeObjectURL(objectUrl);
         setPreviewLoading(false);
         setPreviewPages([]);
+        setPreviewTextLayers([]);
+        setRenderingPreviewPages(new Set());
+        previewRenderInFlightRef.current.clear();
         setPreviewError(e instanceof Error ? e.message : "No se pudo renderizar el PDF.");
       }
     };
 
     void run();
   }, [selectedId, immersiveMode]);
+
+  useEffect(() => {
+    if (!immersiveMode || readerToolMode !== "lectura" || !selectedId || !previewPages.length) return;
+    const root = previewScrollRef.current;
+    if (!root) return;
+    const { targetWidth, dprBucket } = resolvePdfRenderProfile();
+    let disposed = false;
+
+    const requestPageRender = (pageNumber: number) => {
+      if (disposed) return;
+      if (!Number.isFinite(pageNumber)) return;
+      const safePage = clamp(Math.floor(pageNumber), 1, previewPages.length);
+      if (previewPages[safePage - 1]) return;
+      if (previewRenderInFlightRef.current.has(safePage)) return;
+
+      const entry = PDF_PREVIEW_CACHE.get(selectedId);
+      if (!entry) return;
+
+      previewRenderInFlightRef.current.add(safePage);
+      setRenderingPreviewPages((prev) => {
+        const next = new Set(prev);
+        next.add(safePage);
+        return next;
+      });
+
+      void (async () => {
+        const cachedPage = await getCachedRenderedPdfPage({
+          documentId: selectedId,
+          page: safePage,
+          width: Math.floor(targetWidth),
+          dprBucket,
+        });
+
+        if (cachedPage?.imageSrc) {
+          if (!disposed) {
+            setPreviewPages((prev) => {
+              if (!prev.length || prev[safePage - 1]) return prev;
+              const next = [...prev];
+              next[safePage - 1] = cachedPage.imageSrc;
+              return next;
+            });
+
+            setPreviewTextLayers((prev) => {
+              if (!prev.length) return prev;
+              const next = [...prev];
+              next[safePage - 1] = cachedPage.textLayer;
+              return next;
+            });
+
+            const memCached = PDF_PREVIEW_CACHE.get(selectedId);
+            if (memCached) {
+              memCached.pages[safePage - 1] = cachedPage.imageSrc;
+              memCached.textLayers[safePage - 1] = cachedPage.textLayer;
+            }
+          }
+
+          previewRenderInFlightRef.current.delete(safePage);
+          setRenderingPreviewPages((prev) => {
+            if (!prev.has(safePage)) return prev;
+            const next = new Set(prev);
+            next.delete(safePage);
+            return next;
+          });
+          return;
+        }
+
+        const now = Date.now();
+        if (now - rabbitRenderPulseAtRef.current > 900) {
+          rabbitRenderPulseAtRef.current = now;
+          window.dispatchEvent(
+            new CustomEvent<RabbitAssistantControlPayload>(RABBIT_ASSISTANT_CONTROL_EVENT, {
+              detail: { behaviorMode: "guide", visualState: "jump", pauseMs: 650 },
+            }),
+          );
+        }
+
+        void renderPdfPageAsset(entry.sourceData, safePage)
+        .then(({ imageSrc, textLayer }) => {
+          if (disposed) return;
+          if (!imageSrc) return;
+
+          setPreviewPages((prev) => {
+            if (!prev.length || prev[safePage - 1]) return prev;
+            const next = [...prev];
+            next[safePage - 1] = imageSrc;
+            return next;
+          });
+
+          setPreviewTextLayers((prev) => {
+            if (!prev.length) return prev;
+            const next = [...prev];
+            next[safePage - 1] = textLayer || null;
+            return next;
+          });
+
+          const cached = PDF_PREVIEW_CACHE.get(selectedId);
+          if (cached) {
+            cached.pages[safePage - 1] = imageSrc;
+            cached.textLayers[safePage - 1] = textLayer || null;
+          }
+
+          void putCachedRenderedPdfPage({
+            documentId: selectedId,
+            page: safePage,
+            width: Math.floor(targetWidth),
+            dprBucket,
+            imageSrc,
+            textLayer: textLayer || null,
+          });
+        })
+        .finally(() => {
+          previewRenderInFlightRef.current.delete(safePage);
+          setRenderingPreviewPages((prev) => {
+            if (!prev.has(safePage)) return prev;
+            const next = new Set(prev);
+            next.delete(safePage);
+            return next;
+          });
+        });
+      })();
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const target = entry.target as HTMLElement;
+          const page = Number(target.dataset.previewPage);
+          if (!Number.isFinite(page)) continue;
+          requestPageRender(page);
+          requestPageRender(page + 1);
+        }
+      },
+      {
+        root,
+        rootMargin: "120% 0px 140% 0px",
+        threshold: 0.01,
+      },
+    );
+
+    const nodes = Array.from(root.querySelectorAll<HTMLElement>("[data-preview-page]"));
+    for (const node of nodes) observer.observe(node);
+
+    requestPageRender(readerPage);
+    requestPageRender(readerPage + 1);
+
+    return () => {
+      disposed = true;
+      observer.disconnect();
+    };
+  }, [immersiveMode, readerToolMode, selectedId, previewPages, readerPage]);
 
   useEffect(() => {
     if (!previewLoading || !previewUrl) return;
@@ -937,12 +1169,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [pageCount, previewPages.length, scrollToPreviewPage]);
 
   const updateReaderZoom = useCallback((next: number) => {
-    setReaderZoom(clamp(Number(next) || 1, 0.65, 2.4));
+    setReaderZoom(clamp(Number(next) || 1, 1, 2.4));
   }, []);
 
   const handleGestureUpdate = useCallback(({ x, y, scale }: { x: number; y: number; scale: number }) => {
+    const safeScale = clamp(scale || 1, 1, 3.2);
+    if (safeScale <= 1.01) {
+      setReaderPan({ x: 0, y: 0 });
+      setReaderGestureZoom(1);
+      return;
+    }
     setReaderPan({ x, y });
-    setReaderGestureZoom(clamp(scale || 1, 0.65, 3.6));
+    setReaderGestureZoom(safeScale);
   }, []);
 
   const commitReaderProgress = useCallback((page: number, notifyMessage: string) => {
@@ -1033,6 +1271,14 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       setReaderPan({ x: 0, y: 0 });
     }
   }, [immersiveMode, readerToolMode]);
+
+  useEffect(() => {
+    if (readerEffectiveZoom > 1.01) return;
+    setReaderPan((prev) => {
+      if (Math.abs(prev.x) < 0.5 && Math.abs(prev.y) < 0.5) return prev;
+      return { x: 0, y: 0 };
+    });
+  }, [readerEffectiveZoom]);
 
   useEffect(() => {
     if (!previewPages.length) return;
@@ -2179,17 +2425,31 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           }}
                           className={
                             immersiveMode && readerToolMode === "lectura"
-                              ? "h-full overflow-auto bg-[#050505] px-3 pb-8 pt-3"
+                              ? "h-full touch-pan-y overflow-auto overscroll-y-contain bg-[#050505] px-3 pb-8 pt-3"
                               : "h-[58svh] min-h-[360px] overflow-y-auto bg-black/35 p-2 md:h-[600px]"
                           }
                         >
                           {immersiveMode && readerToolMode === "lectura" ? (
-                            <QuickPinchZoom onUpdate={handleGestureUpdate}>
+                            <QuickPinchZoom
+                              onUpdate={handleGestureUpdate}
+                              minZoom={1}
+                              maxZoom={3.2}
+                              draggableUnZoomed={false}
+                              centerContained
+                              inertia
+                              inertiaFriction={0.9}
+                              isTouch={isTouchInputDevice}
+                              containerProps={{
+                                style: {
+                                  touchAction: readerEffectiveZoom > 1.01 ? "none" : "pan-y",
+                                },
+                              }}
+                            >
                               <div
                                 className="mx-auto flex w-[min(96vw,1080px)] flex-col gap-4 will-change-transform"
                                 style={{
                                   transformOrigin: "top center",
-                                  transform: `translate3d(${Math.round(readerPan.x)}px, ${Math.round(readerPan.y)}px, 0) scale(${readerZoom * readerGestureZoom})`,
+                                  transform: `translate3d(${Math.round(readerPan.x)}px, ${Math.round(readerPan.y)}px, 0) scale(${readerEffectiveZoom})`,
                                 }}
                               >
                                 {previewPages.map((pageSrc, idx) => (
@@ -2198,7 +2458,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                     data-preview-page={idx + 1}
                                     className={`relative overflow-hidden rounded-lg border bg-white transition ${
                                       readerPage === idx + 1
-                                        ? "border-cyan-300 ring-2 ring-cyan-300/70"
+                                        ? "border-white/35 ring-1 ring-white/25"
                                         : "border-black/20"
                                     }`}
                                   >
@@ -2218,15 +2478,28 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                       ) : null}
                                     </div>
                                     {pageSrc ? (
-                                      <img
-                                        src={pageSrc}
-                                        alt={`Página ${idx + 1}`}
-                                        className="block w-full"
-                                        loading="lazy"
-                                      />
+                                      <>
+                                        <img
+                                          src={pageSrc}
+                                          alt={`Página ${idx + 1}`}
+                                          className="block w-full"
+                                          loading="lazy"
+                                        />
+                                        {previewTextLayers[idx] ? (
+                                          <div
+                                            aria-hidden
+                                            className="pointer-events-none absolute inset-0 select-text overflow-hidden whitespace-pre-wrap break-words p-2 text-[1px] leading-[1px] text-transparent opacity-0"
+                                          >
+                                            {previewTextLayers[idx]}
+                                          </div>
+                                        ) : null}
+                                      </>
                                     ) : (
-                                      <div className="flex h-56 items-center justify-center text-sm text-slate-600">
-                                        No se pudo renderizar esta página.
+                                      <div className="flex min-h-[44svh] items-center justify-center text-sm text-slate-600">
+                                        <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
+                                          <span className={renderingPreviewPages.has(idx + 1) ? "inline-block animate-bounce" : "inline-block"}>🐰</span>
+                                          {renderingPreviewPages.has(idx + 1) ? "Renderizando en alta definición..." : "Página en espera"}
+                                        </div>
                                       </div>
                                     )}
                                   </section>
@@ -2240,7 +2513,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                   key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
                                   data-preview-page={idx + 1}
                                   className={`relative overflow-hidden rounded-lg border bg-white transition ${
-                                    readerPage === idx + 1 ? "border-cyan-300 ring-2 ring-cyan-300/70" : "border-white/10"
+                                    readerPage === idx + 1 ? "border-white/35 ring-1 ring-white/25" : "border-white/10"
                                   }`}
                                 >
                                   <div className="pointer-events-none absolute right-2 top-2 z-10 rounded-md bg-black/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
@@ -2259,15 +2532,28 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                     ) : null}
                                   </div>
                                   {pageSrc ? (
-                                    <img
-                                      src={pageSrc}
-                                      alt={`Página ${idx + 1}`}
-                                      className="block w-full"
-                                      loading="lazy"
-                                    />
+                                    <>
+                                      <img
+                                        src={pageSrc}
+                                        alt={`Página ${idx + 1}`}
+                                        className="block w-full"
+                                        loading="lazy"
+                                      />
+                                      {previewTextLayers[idx] ? (
+                                        <div
+                                          aria-hidden
+                                          className="pointer-events-none absolute inset-0 select-text overflow-hidden whitespace-pre-wrap break-words p-2 text-[1px] leading-[1px] text-transparent opacity-0"
+                                        >
+                                          {previewTextLayers[idx]}
+                                        </div>
+                                      ) : null}
+                                    </>
                                   ) : (
-                                    <div className="flex h-56 items-center justify-center text-sm text-slate-600">
-                                      No se pudo renderizar esta página.
+                                    <div className="flex min-h-[44svh] items-center justify-center text-sm text-slate-600">
+                                      <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
+                                        <span className={renderingPreviewPages.has(idx + 1) ? "inline-block animate-bounce" : "inline-block"}>🐰</span>
+                                        {renderingPreviewPages.has(idx + 1) ? "Renderizando en alta definición..." : "Página en espera"}
+                                      </div>
                                     </div>
                                   )}
                                 </section>
@@ -2277,7 +2563,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         </div>
                         {immersiveMode && readerToolMode === "lectura" ? (
                           <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg border border-white/15 bg-black/55 px-2.5 py-1 text-xs text-white/80 backdrop-blur-xl">
-                            {readerPage} / {Math.max(1, pageCount ?? previewPages.length ?? 1)} · {Math.round(readerZoom * readerGestureZoom * 100)}%
+                            {readerPage} / {Math.max(1, pageCount ?? previewPages.length ?? 1)} · {Math.round(readerEffectiveZoom * 100)}%
                           </div>
                         ) : null}
                         {previewStalled && !(immersiveMode && readerToolMode === "lectura") ? (
@@ -2302,6 +2588,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                     )}
                   </div>
 
+                  {!(immersiveMode && readerToolMode === "lectura") ? (
                   <div className="mt-3 grid gap-3 rounded-xl bg-white/7 p-3 lg:grid-cols-3">
                     <div className="space-y-1 lg:col-span-2">
                       {readerToolMode === "generador" ? (
@@ -2583,6 +2870,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       </div>
                     </div>
                   </div>
+                  ) : null}
 
                   {immersiveMode && readerSidebarOpen ? (
                     <div className="absolute right-4 top-16 z-40 w-[min(360px,92vw)] rounded-xl border border-white/20 bg-slate-900/88 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl">
@@ -2592,6 +2880,49 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       </div>
 
                       <div className="space-y-3">
+                        <div className="space-y-1.5 rounded-lg border border-white/15 bg-white/6 p-2">
+                          <div className="text-[10px] uppercase tracking-wider text-white/60">Acciones rápidas</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 border-white/25 bg-white/10 px-2 text-[10px] text-white hover:bg-white/15"
+                              onClick={() => commitReaderProgress(readerPage, "Guardado manual.")}
+                              disabled={!selected}
+                            >
+                              Guardar
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 border-white/25 bg-white/10 px-2 text-[10px] text-white hover:bg-white/15"
+                              onClick={handleAddBookmarkCurrentPage}
+                              disabled={!selected}
+                            >
+                              {currentBookmark ? "Actualizar marcador" : "Marcar página"}
+                            </Button>
+                            {currentBookmark ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 border-white/25 bg-white/10 px-2 text-[10px] text-white hover:bg-white/15"
+                                onClick={() => handleDeleteBookmark(currentBookmark.id)}
+                              >
+                                Quitar
+                              </Button>
+                            ) : null}
+                          </div>
+                          <input
+                            value={bookmarkLabelInput}
+                            onChange={(e) => setBookmarkLabelInput(e.target.value)}
+                            placeholder="Etiqueta marcador (opcional)"
+                            className="h-8 w-full rounded-lg border border-white/25 bg-white/8 px-2.5 text-[11px] outline-none"
+                          />
+                        </div>
+
                         <div className="space-y-1.5">
                           <div className="text-[11px] font-medium text-white/85">Marcadores</div>
                           <input
