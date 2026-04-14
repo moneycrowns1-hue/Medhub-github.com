@@ -282,7 +282,7 @@ export function StudyClient({ subject }: Props) {
             {pdfs.map((p) => (
               <Link
                 key={p.id}
-                href={`/lector/${encodeURIComponent(p.id)}`}
+                href={`/lector?openPdf=${encodeURIComponent(p.id)}`}
                 className="group rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:bg-white/10"
               >
                 <div className="flex items-start gap-3">

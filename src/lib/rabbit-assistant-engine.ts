@@ -107,7 +107,7 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
   const active = guidedSubjectSlug ? SUBJECTS[guidedSubjectSlug] : null;
   const resume = state.lastStudySubjectSlug ? SUBJECTS[state.lastStudySubjectSlug] : null;
   const isStudyRoute = pathname.startsWith("/study/");
-  const isReadingRoute = pathname.startsWith("/resources") || pathname.startsWith("/biblioteca") || pathname.startsWith("/lector/");
+  const isReadingRoute = pathname.startsWith("/resources") || pathname.startsWith("/biblioteca") || pathname.startsWith("/lector");
   const pomodoroText = `Pomodoro: ${phaseLabel(pomodoroState.phase)}`;
   const resumePdfLabel = state.lastPdfTitle ? `${state.lastPdfTitle}${state.lastPdfPage ? ` · p. ${state.lastPdfPage}` : ""}` : null;
   const resumePdfHref = state.lastPdfResourceId

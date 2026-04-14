@@ -402,6 +402,15 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         return;
       }
 
+      if (!immersiveMode) {
+        setPreviewLoading(false);
+        setPreviewStalled(false);
+        setPreviewPages([]);
+        setPreviewError(null);
+        setPageCount(null);
+        return;
+      }
+
       const cached = PDF_PREVIEW_CACHE.get(selectedId);
       if (cached) {
         setPreviewUrl(cached.objectUrl);
@@ -464,7 +473,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     };
 
     void run();
-  }, [selectedId]);
+  }, [selectedId, immersiveMode]);
 
   useEffect(() => {
     if (!previewLoading || !previewUrl) return;
@@ -1777,7 +1786,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           setSelectedId(i.id);
                           return;
                         }
-                        void router.push(`/lector/${encodeURIComponent(i.id)}`);
+                        void router.push(`/lector?openPdf=${encodeURIComponent(i.id)}`);
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
@@ -1786,7 +1795,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                             setSelectedId(i.id);
                             return;
                           }
-                          void router.push(`/lector/${encodeURIComponent(i.id)}`);
+                          void router.push(`/lector?openPdf=${encodeURIComponent(i.id)}`);
                         }
                       }}
                       role="button"
@@ -1850,7 +1859,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                             </Button>
                           ) : null}
                           <Link
-                            href={`/lector/${encodeURIComponent(i.id)}`}
+                            href={`/lector?openPdf=${encodeURIComponent(i.id)}`}
                             onClick={(e) => e.stopPropagation()}
                             className="inline-flex h-8 items-center rounded-md border border-white/25 bg-black/30 px-2 text-[10px] text-white hover:bg-white/15"
                           >
@@ -1916,7 +1925,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                   ) : null}
                   {selected ? (
                     <Link
-                      href={`/lector/${encodeURIComponent(selected.id)}`}
+                      href={`/lector?openPdf=${encodeURIComponent(selected.id)}`}
                       className="inline-flex h-8 items-center rounded-md border border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
                     >
                       Abrir lector inmersivo
@@ -2041,6 +2050,15 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                             Abrir PDF completo
                           </a>
                         ) : null}
+                      </div>
+                    ) : immersiveMode && readerToolMode === "lectura" && previewUrl ? (
+                      <div className="h-[62svh] min-h-[420px] w-full bg-black md:h-[640px]">
+                        <iframe
+                          key={`${selected?.id ?? "pdf"}-${readerPage}`}
+                          src={`${previewUrl}#page=${readerPage}&zoom=page-width`}
+                          title={selected?.title ?? "Visor PDF"}
+                          className="h-full w-full"
+                        />
                       </div>
                     ) : previewPages.length ? (
                       <div className="relative">

@@ -184,7 +184,7 @@ export function RabbitGuidePanel() {
       return;
     }
 
-    if (pathname.startsWith("/resources") || pathname.startsWith("/biblioteca") || pathname.startsWith("/lector/")) {
+    if (pathname.startsWith("/resources") || pathname.startsWith("/biblioteca") || pathname.startsWith("/lector")) {
       markReadingVisited(pathname);
     }
   }, [pathname]);

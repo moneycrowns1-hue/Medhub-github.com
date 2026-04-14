@@ -76,7 +76,7 @@ function NavLinks({ className, showLabels = true }: { className?: string; showLa
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isScrolledOnHome, setIsScrolledOnHome] = useState(false);
-  const isImmersiveReaderRoute = pathname?.startsWith("/lector/") ?? false;
+  const isImmersiveReaderRoute = pathname === "/lector" || (pathname?.startsWith("/lector/") ?? false);
 
   useEffect(() => {
     if (pathname !== "/") return;
