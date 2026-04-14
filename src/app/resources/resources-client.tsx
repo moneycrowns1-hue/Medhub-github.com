@@ -161,6 +161,8 @@ const READER_SHORTCUT_ACTION_LABELS: Record<ReaderShortcutAction, string> = {
 const READER_GESTURE_ACTIVE_ZOOM = 1.08;
 const PDF_RENDER_MAX_PIXELS_TOUCH = 7_500_000;
 const PDF_RENDER_MAX_PIXELS_DESKTOP = 12_000_000;
+const LARGE_PDF_COMPATIBILITY_BYTES_TOUCH = 90 * 1024 * 1024;
+const LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP = 140 * 1024 * 1024;
 
 function normalizeShortcutToken(raw: string) {
   const token = raw.trim().toLowerCase();
@@ -336,6 +338,12 @@ function renderFailureReasonLabel(reason: PageRenderFailureReason, detail: strin
                     ? "Cache memoria"
                     : "Desconocido";
   return detail ? `${base}: ${detail}` : base;
+}
+
+function formatPdfSizeLabel(sizeBytes: number) {
+  const mb = sizeBytes / (1024 * 1024);
+  if (!Number.isFinite(mb) || mb <= 0) return "0 MB";
+  return `${mb >= 100 ? Math.round(mb) : mb.toFixed(1)} MB`;
 }
 
 async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number): Promise<RenderPdfPageAssetResult> {
@@ -673,8 +681,13 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         return;
       }
 
+      const selectedMeta = items.find((item) => item.id === selectedId) ?? null;
+      const isTouch = isTouchInputDevice();
+      const compatibilityThreshold = isTouch ? LARGE_PDF_COMPATIBILITY_BYTES_TOUCH : LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP;
+      const useCompatibilityMode = Boolean(selectedMeta && selectedMeta.sizeBytes >= compatibilityThreshold);
+
       const cached = PDF_PREVIEW_CACHE.get(selectedId);
-      if (cached) {
+      if (cached && !useCompatibilityMode) {
         setPreviewUrl(cached.objectUrl);
         setPreviewPages(cached.pages);
         setPreviewTextLayers(cached.textLayers);
@@ -719,6 +732,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       const objectUrl = URL.createObjectURL(blob);
       bindPreviewCacheCleanup();
 
+      if (useCompatibilityMode) {
+        setPreviewUrl(objectUrl);
+        setPreviewPages([]);
+        setPreviewTextLayers([]);
+        clearRenderRetryState();
+        setPageCount(null);
+        setPreviewLoading(false);
+        setPreviewStalled(false);
+        setPreviewError(null);
+        return;
+      }
+
       try {
         const rendered = await renderPdfPages(blob);
         const entry: PdfPreviewCacheEntry = {
@@ -747,7 +772,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     };
 
     void run();
-  }, [selectedId, immersiveMode]);
+  }, [selectedId, immersiveMode, items, isTouchInputDevice]);
 
   useEffect(() => {
     if (!immersiveMode || readerToolMode !== "lectura" || !selectedId || !previewPages.length) return;
@@ -1257,6 +1282,15 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [filtered, selectedId]);
 
   const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
+  const isLargePdfCompatibilityMode = useMemo(() => {
+    if (!selected) return false;
+    const threshold = isTouchInputDevice() ? LARGE_PDF_COMPATIBILITY_BYTES_TOUCH : LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP;
+    return selected.sizeBytes >= threshold;
+  }, [selected, isTouchInputDevice]);
+  const largePdfCompatibilityThresholdLabel = useMemo(() => {
+    const threshold = isTouchInputDevice() ? LARGE_PDF_COMPATIBILITY_BYTES_TOUCH : LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP;
+    return formatPdfSizeLabel(threshold);
+  }, [isTouchInputDevice]);
   const aiRangeStart = selected ? Math.max(1, Math.floor(selected.pageStart || 1)) : 1;
   const aiRangeEnd = selected ? Math.max(aiRangeStart, Math.floor(selected.pageEnd || aiRangeStart)) : aiRangeStart;
   const currentBookmark = useMemo(
@@ -2860,8 +2894,13 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           </div>
                         ) : null}
                       </div>
-                    ) : immersiveMode && readerToolMode === "lectura" && previewUrl ? (
+                    ) : previewUrl ? (
                       <div className="relative flex h-full w-full items-center justify-center bg-[#050505] px-3 pb-6 pt-6">
+                        {isLargePdfCompatibilityMode ? (
+                          <div className="absolute left-3 top-3 z-10 max-w-[min(96vw,760px)] rounded-lg border border-amber-300/35 bg-amber-200/12 px-3 py-2 text-[11px] text-amber-100 backdrop-blur-sm">
+                            Modo compatibilidad activo para PDF pesado ({formatPdfSizeLabel(selected?.sizeBytes ?? 0)}). Se usa visor nativo para evitar fallos de memoria. Umbral actual: {largePdfCompatibilityThresholdLabel}.
+                          </div>
+                        ) : null}
                         <iframe
                           key={selected?.id ?? "pdf"}
                           src={`${previewUrl}#zoom=page-width`}
