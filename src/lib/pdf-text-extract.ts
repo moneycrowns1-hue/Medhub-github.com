@@ -4,11 +4,32 @@ let workerConfigured = false;
 
 function ensureWorker() {
   if (workerConfigured) return;
-  // Next/Vite/Webpack friendly: bundle worker and reference via URL.
-  GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
-    import.meta.url,
-  ).toString();
+  if (typeof window !== "undefined") {
+    const nextData = (window as Window & { __NEXT_DATA__?: { assetPrefix?: string } }).__NEXT_DATA__;
+    let assetPrefix = typeof nextData?.assetPrefix === "string" ? nextData.assetPrefix : "";
+    if (!assetPrefix) {
+      const nextScript = document.querySelector<HTMLScriptElement>('script[src*="/_next/"]');
+      const src = nextScript?.src;
+      if (src) {
+        try {
+          const parsed = new URL(src, window.location.href);
+          const marker = "/_next/";
+          const idx = parsed.pathname.indexOf(marker);
+          if (idx > 0) assetPrefix = parsed.pathname.slice(0, idx);
+        } catch {
+          // ignore
+        }
+      }
+    }
+    if (!assetPrefix && window.location.hostname.endsWith("github.io")) {
+      const [first] = window.location.pathname.split("/").filter(Boolean);
+      if (first) assetPrefix = `/${first}`;
+    }
+    const normalizedPrefix = assetPrefix.endsWith("/") ? assetPrefix.slice(0, -1) : assetPrefix;
+    GlobalWorkerOptions.workerSrc = `${normalizedPrefix}/pdf.worker.min.js`;
+  } else {
+    GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+  }
   workerConfigured = true;
 }
 
