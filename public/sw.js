@@ -1,6 +1,9 @@
 const STATIC_CACHE = "somagnus-static-v1";
 const RUNTIME_CACHE = "somagnus-runtime-v1";
-const PRECACHE_URLS = ["/", "/biblioteca", "/lector", "/manifest.webmanifest"];
+const scopeUrl = new URL(self.registration.scope);
+const scopePath = scopeUrl.pathname.replace(/\/$/, "");
+const route = (path) => `${scopePath}${path}`;
+const PRECACHE_URLS = [route("/"), route("/biblioteca/"), route("/lector/"), route("/manifest.webmanifest")];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -33,14 +36,16 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+          if (response.ok) {
+            const copy = response.clone();
+            void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+          }
           return response;
         })
         .catch(async () => {
           const cached = await caches.match(request);
           if (cached) return cached;
-          return caches.match("/");
+          return caches.match(route("/"));
         }),
     );
     return;
@@ -51,7 +56,7 @@ self.addEventListener("fetch", (event) => {
     request.destination === "style" ||
     request.destination === "font" ||
     url.pathname.endsWith("pdf.worker.min.mjs") ||
-    url.pathname.startsWith("/_next/static/");
+    url.pathname.includes("/_next/static/");
 
   if (!shouldRuntimeCache) return;
 
@@ -59,8 +64,10 @@ self.addEventListener("fetch", (event) => {
     caches.match(request).then((cached) => {
       if (cached) return cached;
       return fetch(request).then((response) => {
-        const copy = response.clone();
-        void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+        if (response.ok) {
+          const copy = response.clone();
+          void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+        }
         return response;
       });
     }),

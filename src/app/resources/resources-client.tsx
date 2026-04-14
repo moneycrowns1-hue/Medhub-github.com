@@ -115,6 +115,9 @@ const READER_SHORTCUT_ACTION_LABELS: Record<ReaderShortcutAction, string> = {
   prevBookmark: "Marcador anterior",
   nextBookmark: "Marcador siguiente",
 };
+const READER_GESTURE_ACTIVE_ZOOM = 1.08;
+const PDF_RENDER_MAX_PIXELS_TOUCH = 7_500_000;
+const PDF_RENDER_MAX_PIXELS_DESKTOP = 12_000_000;
 
 function normalizeShortcutToken(raw: string) {
   const token = raw.trim().toLowerCase();
@@ -237,29 +240,55 @@ async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number) {
     disableRange: false,
     rangeChunkSize: 262144,
   });
-  const pdf = await task.promise;
+  let pdf: Awaited<typeof task.promise> | null = null;
   try {
+    pdf = await task.promise;
     const safePage = clamp(Math.floor(pageNumber || 1), 1, Math.max(1, pdf.numPages));
     const page = await pdf.getPage(safePage);
     const firstViewport = page.getViewport({ scale: 1 });
-    const { targetWidth, devicePixelRatio } = resolvePdfRenderProfile();
-    const scale = targetWidth / firstViewport.width;
-    const viewport = page.getViewport({ scale });
-    const canvas = document.createElement("canvas");
+    const { targetWidth, devicePixelRatio, lightProfile } = resolvePdfRenderProfile();
+    const attempts = [
+      { targetWidth, devicePixelRatio },
+      {
+        targetWidth: Math.max(620, Math.floor(targetWidth * 0.84)),
+        devicePixelRatio: Math.min(devicePixelRatio, 1.8),
+      },
+      {
+        targetWidth: Math.max(520, Math.floor(targetWidth * 0.72)),
+        devicePixelRatio: 1,
+      },
+    ];
 
-    canvas.width = Math.floor(viewport.width * devicePixelRatio);
-    canvas.height = Math.floor(viewport.height * devicePixelRatio);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      return { imageSrc: "", textLayer: "" };
+    let imageSrc = "";
+    const maxPixels = lightProfile ? PDF_RENDER_MAX_PIXELS_TOUCH : PDF_RENDER_MAX_PIXELS_DESKTOP;
+    for (const attempt of attempts) {
+      const scale = attempt.targetWidth / firstViewport.width;
+      const viewport = page.getViewport({ scale });
+      const dprByPixels = Math.sqrt(maxPixels / Math.max(1, viewport.width * viewport.height));
+      const effectiveDpr = clamp(attempt.devicePixelRatio, 1, Math.max(1, dprByPixels));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.floor(viewport.width * effectiveDpr));
+      canvas.height = Math.max(1, Math.floor(viewport.height * effectiveDpr));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) continue;
+
+      try {
+        await page.render({
+          canvasContext: ctx,
+          viewport,
+          canvas,
+          transform: [effectiveDpr, 0, 0, effectiveDpr, 0, 0],
+        }).promise;
+        imageSrc = canvas.toDataURL("image/jpeg", 0.92);
+        if (imageSrc) break;
+      } catch {
+        imageSrc = "";
+      }
     }
 
-    await page.render({
-      canvasContext: ctx,
-      viewport,
-      canvas,
-      transform: [devicePixelRatio, 0, 0, devicePixelRatio, 0, 0],
-    }).promise;
+    if (!imageSrc) {
+      return { imageSrc: "", textLayer: "" };
+    }
 
     const textContent = await page.getTextContent();
     const textLayer = textContent.items
@@ -269,12 +298,14 @@ async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number) {
       .trim();
 
     return {
-      imageSrc: canvas.toDataURL("image/png"),
+      imageSrc,
       textLayer,
     };
+  } catch {
+    return { imageSrc: "", textLayer: "" };
   } finally {
     try {
-      await pdf.destroy();
+      await pdf?.destroy();
     } catch {
       // ignore
     }
@@ -390,6 +421,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     return window.navigator.maxTouchPoints > 0 || "ontouchstart" in window;
   }, []);
   const readerEffectiveZoom = readerZoom * readerGestureZoom;
+  const readerGestureActive = readerEffectiveZoom > READER_GESTURE_ACTIVE_ZOOM;
 
   const pushNotice = useCallback((title: string, body: string) => {
     const id = `res_notice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1172,7 +1204,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
   const handleGestureUpdate = useCallback(({ x, y, scale }: { x: number; y: number; scale: number }) => {
     const safeScale = clamp(scale || 1, 1, 3.2);
-    if (safeScale <= 1.01) {
+    if (safeScale <= READER_GESTURE_ACTIVE_ZOOM) {
       setReaderPan({ x: 0, y: 0 });
       setReaderGestureZoom(1);
       return;
@@ -1271,12 +1303,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [immersiveMode, readerToolMode]);
 
   useEffect(() => {
-    if (readerEffectiveZoom > 1.01) return;
+    if (readerGestureActive) return;
     setReaderPan((prev) => {
       if (Math.abs(prev.x) < 0.5 && Math.abs(prev.y) < 0.5) return prev;
       return { x: 0, y: 0 };
     });
-  }, [readerEffectiveZoom]);
+  }, [readerGestureActive]);
 
   useEffect(() => {
     if (!previewPages.length) return;
@@ -2416,6 +2448,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           ref={previewScrollRef}
                           onWheel={(event) => {
                             if (!(immersiveMode && readerToolMode === "lectura")) return;
+                            if (isTouchInputDevice()) return;
                             if (!event.ctrlKey) return;
                             event.preventDefault();
                             const delta = event.deltaY > 0 ? -0.08 : 0.08;
@@ -2439,7 +2472,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                               isTouch={isTouchInputDevice}
                               containerProps={{
                                 style: {
-                                  touchAction: readerEffectiveZoom > 1.01 ? "none" : "pan-y",
+                                  touchAction: readerGestureActive ? "none" : "pan-y",
                                 },
                               }}
                             >
