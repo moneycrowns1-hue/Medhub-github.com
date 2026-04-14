@@ -336,12 +336,17 @@ async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number) {
       return { imageSrc: "", textLayer: "" };
     }
 
-    const textContent = await page.getTextContent();
-    const textLayer = textContent.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
+    let textLayer = "";
+    try {
+      const textContent = await page.getTextContent();
+      textLayer = textContent.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+    } catch {
+      textLayer = "";
+    }
 
     return {
       imageSrc,
