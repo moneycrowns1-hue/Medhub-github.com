@@ -91,6 +91,30 @@ function parseTagInput(value: string): string[] {
   return out;
 }
 
+async function readPdfFileWithProgress(file: File, onProgress: (ratio: number) => void): Promise<Blob> {
+  const total = Math.max(1, file.size || 1);
+  if (!file.stream) {
+    onProgress(1);
+    return file;
+  }
+
+  const reader = file.stream().getReader();
+  const parts: BlobPart[] = [];
+  let received = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    parts.push(value.slice().buffer);
+    received += value.byteLength;
+    onProgress(clamp(received / total, 0, 1));
+  }
+
+  onProgress(1);
+  return new Blob(parts, { type: file.type || "application/pdf" });
+}
+
 type PdfPreviewCacheEntry = {
   objectUrl: string;
   sourceData: Uint8Array;
@@ -165,10 +189,14 @@ let previewCacheCleanupBound = false;
 
 function ensurePdfWorker() {
   if (pdfWorkerConfigured) return;
-  GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
-    import.meta.url,
-  ).toString();
+  if (typeof window !== "undefined") {
+    const nextData = (window as Window & { __NEXT_DATA__?: { assetPrefix?: string } }).__NEXT_DATA__;
+    const assetPrefix = typeof nextData?.assetPrefix === "string" ? nextData.assetPrefix : "";
+    const normalizedPrefix = assetPrefix.endsWith("/") ? assetPrefix.slice(0, -1) : assetPrefix;
+    GlobalWorkerOptions.workerSrc = `${normalizedPrefix}/pdf.worker.min.js`;
+  } else {
+    GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+  }
   pdfWorkerConfigured = true;
 }
 
@@ -338,6 +366,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [bulkFolderInput, setBulkFolderInput] = useState("");
   const [bulkTagsInput, setBulkTagsInput] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [items, setItems] = useState<PdfResource[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -1558,8 +1587,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const onPickFile = async (file: File) => {
     setBusy(true);
     setUploadError(null);
+    setUploadProgress(0);
     try {
       const title = file.name.replace(/\.pdf$/i, "");
+      const preparedBlob = await readPdfFileWithProgress(file, (ratio) => {
+        setUploadProgress(Math.round(clamp(ratio, 0, 1) * 100));
+      });
       const subjectSlug: SubjectSlug | undefined =
         filterSubject === "anatomia" ||
         filterSubject === "histologia" ||
@@ -1571,7 +1604,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           : undefined;
       const created = await putPdfResource({
         title,
-        blob: file,
+        blob: preparedBlob,
         pageStart: 1,
         pageEnd: 1,
         subjectSlug,
@@ -1584,6 +1617,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       const msg = e instanceof Error ? e.message : "No se pudo subir el PDF";
       setUploadError(msg);
     } finally {
+      setUploadProgress(null);
       setBusy(false);
     }
   };
@@ -1982,8 +2016,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
             }}
           />
           <Button variant="secondary" className="rounded-xl border-0 bg-white text-black hover:bg-white/90" onClick={() => fileRef.current?.click()} disabled={busy}>
-            <Upload className="h-4 w-4" />
-            Subir PDF
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {busy ? `Subiendo PDF${typeof uploadProgress === "number" ? ` ${uploadProgress}%` : "..."}` : "Subir PDF"}
           </Button>
           <Button
             variant="outline"

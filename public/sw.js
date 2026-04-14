@@ -1,5 +1,5 @@
-const STATIC_CACHE = "somagnus-static-v1";
-const RUNTIME_CACHE = "somagnus-runtime-v1";
+const STATIC_CACHE = "somagnus-static-v2";
+const RUNTIME_CACHE = "somagnus-runtime-v2";
 const scopeUrl = new URL(self.registration.scope);
 const scopePath = scopeUrl.pathname.replace(/\/$/, "");
 const route = (path) => `${scopePath}${path}`;
@@ -55,6 +55,7 @@ self.addEventListener("fetch", (event) => {
     request.destination === "script" ||
     request.destination === "style" ||
     request.destination === "font" ||
+    url.pathname.endsWith("pdf.worker.min.js") ||
     url.pathname.endsWith("pdf.worker.min.mjs") ||
     url.pathname.includes("/_next/static/");
 
