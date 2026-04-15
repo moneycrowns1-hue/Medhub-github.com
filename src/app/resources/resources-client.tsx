@@ -706,6 +706,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [readerMinZoom, setReaderMinZoom] = useState<number>(0.55);
   const [readerFitMode, setReaderFitMode] = useState<"reading" | "full">("reading");
   const [readerRecoverNonce, setReaderRecoverNonce] = useState(0);
+  const [readerSafeMode, setReaderSafeMode] = useState(false);
   const [readerGestureZoom, setReaderGestureZoom] = useState<number>(1);
   const [readerPan, setReaderPan] = useState({ x: 0, y: 0 });
   const [readerPageInfoOpen, setReaderPageInfoOpen] = useState(false);
@@ -742,6 +743,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerScrollSyncPauseUntilRef = useRef(0);
   const readerViewportMissCountRef = useRef(0);
   const readerLastRecoverAtRef = useRef(0);
+  const readerRecoveryBurstRef = useRef<number[]>([]);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
     return selected?.subjectSlug === "anatomia" ||
@@ -1905,6 +1907,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const now = Date.now();
     if (now - readerLastRecoverAtRef.current < 1800) return;
     readerLastRecoverAtRef.current = now;
+    readerRecoveryBurstRef.current = readerRecoveryBurstRef.current
+      .filter((at) => now - at < 12000)
+      .concat(now);
+    if (readerRecoveryBurstRef.current.length >= 3) {
+      setReaderSafeMode(true);
+    }
     setReaderPan({ x: 0, y: 0 });
     setReaderGestureZoom(1);
     pauseReaderScrollSync(520);
@@ -1916,6 +1924,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         selectedId,
         readerPage: readerPageRef.current,
         zoom: readerEffectiveZoomRef.current,
+        safeMode: readerRecoveryBurstRef.current.length >= 3,
       });
     }
   }, [applyFitZoom, pauseReaderScrollSync, selectedId]);
@@ -2096,6 +2105,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
   useEffect(() => {
     readerFitZoomAppliedRef.current = false;
+    readerRecoveryBurstRef.current = [];
+    setReaderSafeMode(false);
   }, [selectedId]);
 
   useEffect(() => {
@@ -3343,7 +3354,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                               : "h-[58svh] min-h-[360px] overflow-y-auto bg-black/35 p-2 md:h-[600px]"
                           }
                         >
-                          {immersiveMode && readerToolMode === "lectura" ? (
+                          {immersiveMode && readerToolMode === "lectura" && !readerSafeMode ? (
                             <QuickPinchZoom
                               key={`qz-${selected?.id ?? "none"}-${readerFitMode}-${readerRecoverNonce}`}
                               onUpdate={handleGestureUpdate}
@@ -3497,6 +3508,27 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         {immersiveMode && readerToolMode === "lectura" ? (
                           <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg border border-white/15 bg-black/55 px-2.5 py-1 text-xs text-white/80 backdrop-blur-xl">
                             {readerPage} / {Math.max(1, pageCount ?? previewPages.length ?? 1)} · {Math.round(readerEffectiveZoom * 100)}%
+                          </div>
+                        ) : null}
+                        {immersiveMode && readerToolMode === "lectura" && readerSafeMode ? (
+                          <div className="absolute left-4 top-4 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300/45 bg-amber-200/15 px-2.5 py-1.5 text-[11px] text-amber-100 backdrop-blur-sm">
+                            <span>Modo seguro activo (recuperación anti pantalla negra).</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 border-amber-200/50 bg-amber-100/10 px-2 text-[11px] text-amber-50 hover:bg-amber-100/15"
+                              onClick={() => {
+                                readerRecoveryBurstRef.current = [];
+                                setReaderSafeMode(false);
+                                setReaderPan({ x: 0, y: 0 });
+                                setReaderGestureZoom(1);
+                                setReaderRecoverNonce((prev) => prev + 1);
+                                window.requestAnimationFrame(() => applyFitZoom(true));
+                              }}
+                            >
+                              Reintentar gestos
+                            </Button>
                           </div>
                         ) : null}
                         {previewStalled && !(immersiveMode && readerToolMode === "lectura") ? (
