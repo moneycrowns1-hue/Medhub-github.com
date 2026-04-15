@@ -159,7 +159,7 @@ const READER_SHORTCUT_ACTION_LABELS: Record<ReaderShortcutAction, string> = {
   prevBookmark: "Marcador anterior",
   nextBookmark: "Marcador siguiente",
 };
-const READER_GESTURE_ACTIVE_ZOOM = 1.08;
+const READER_GESTURE_ACTIVE_ZOOM = 1.01;
 const PDF_RENDER_MAX_PIXELS_TOUCH = 8_500_000;
 const PDF_RENDER_MAX_PIXELS_DESKTOP = 12_000_000;
 const LARGE_PDF_COMPATIBILITY_BYTES_TOUCH = 90 * 1024 * 1024;
@@ -703,6 +703,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [readerPage, setReaderPage] = useState<number>(1);
   const [committedReaderPage, setCommittedReaderPage] = useState<number>(1);
   const [readerZoom, setReaderZoom] = useState<number>(1);
+  const [readerMinZoom, setReaderMinZoom] = useState<number>(0.55);
   const [readerGestureZoom, setReaderGestureZoom] = useState<number>(1);
   const [readerPan, setReaderPan] = useState({ x: 0, y: 0 });
   const [readerPageInfoOpen, setReaderPageInfoOpen] = useState(false);
@@ -734,6 +735,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const previewRenderRetryTimerRef = useRef<Map<number, number>>(new Map());
   const previewPagesRef = useRef<Array<string | null>>([]);
   const readerPageRef = useRef(1);
+  const readerEffectiveZoomRef = useRef(1);
+  const readerFitZoomAppliedRef = useRef(false);
   const rabbitRenderPulseAtRef = useRef(0);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
@@ -764,6 +767,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     return window.navigator.maxTouchPoints > 0 || "ontouchstart" in window;
   }, []);
   const readerEffectiveZoom = readerZoom * readerGestureZoom;
+  const readerMinGestureScale = useMemo(
+    () => Math.max(0.45, readerMinZoom / Math.max(0.01, readerZoom)),
+    [readerMinZoom, readerZoom],
+  );
   const readerGestureActive = readerEffectiveZoom > READER_GESTURE_ACTIVE_ZOOM;
 
   const pushNotice = useCallback((title: string, body: string) => {
@@ -1032,6 +1039,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   useEffect(() => {
     readerPageRef.current = readerPage;
   }, [readerPage]);
+
+  useEffect(() => {
+    readerEffectiveZoomRef.current = readerEffectiveZoom;
+  }, [readerEffectiveZoom]);
 
   useEffect(() => {
     if (!immersiveMode || readerToolMode !== "lectura" || !selectedId || !previewPages.length) return;
@@ -1667,39 +1678,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [readerBookmarks, bookmarkFilterQuery]);
   const bookmarkPageSet = useMemo(() => new Set(readerBookmarks.map((b) => b.page)), [readerBookmarks]);
   const notePageSet = useMemo(() => new Set(readerNotes.map((n) => n.page)), [readerNotes]);
-  const nearbyRenderProgress = useMemo(() => {
-    const totalPages = pageCount ?? previewPages.length;
-    if (!totalPages) return null;
-    const start = Math.max(1, readerPage - 2);
-    const end = Math.min(totalPages, readerPage + 3);
-    const rangePages: number[] = [];
-    for (let page = start; page <= end; page += 1) {
-      rangePages.push(page);
-    }
-    if (!rangePages.length) return null;
-
-    let loaded = 0;
-    let rendering = 0;
-    let failed = 0;
-    for (const page of rangePages) {
-      if (previewPages[page - 1]) loaded += 1;
-      else if (renderingPreviewPages.has(page)) rendering += 1;
-      else if (failedPreviewPages.has(page)) failed += 1;
-    }
-
-    const pending = Math.max(0, rangePages.length - loaded - rendering - failed);
-    const percent = Math.round((loaded / rangePages.length) * 100);
-    return {
-      start,
-      end,
-      loaded,
-      rendering,
-      failed,
-      pending,
-      total: rangePages.length,
-      percent,
-    };
-  }, [pageCount, previewPages, readerPage, renderingPreviewPages, failedPreviewPages]);
   const filteredReaderNotes = useMemo(() => {
     const q = noteSearchQuery.trim().toLowerCase();
     if (!q) return readerNotes;
@@ -1888,20 +1866,53 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     scrollToPreviewPage(safe, behavior);
   }, [pageCount, previewPages.length, scrollToPreviewPage]);
 
-  const updateReaderZoom = useCallback((next: number) => {
-    setReaderZoom(clamp(Number(next) || 1, 1, 2.4));
+  const computeReaderFitZoom = useCallback(() => {
+    const root = previewScrollRef.current;
+    if (!root) return null;
+    const firstPage = root.querySelector<HTMLElement>("[data-preview-page='1']");
+    if (!firstPage) return null;
+
+    const pageRect = firstPage.getBoundingClientRect();
+    if (pageRect.width <= 0 || pageRect.height <= 0) return null;
+
+    const fitByWidth = (root.clientWidth - 28) / pageRect.width;
+    const fitByHeight = (root.clientHeight - 28) / pageRect.height;
+    const fitted = Math.min(fitByWidth, fitByHeight, 1);
+    return clamp(Number.isFinite(fitted) ? fitted : 1, 0.45, 1);
   }, []);
 
-  const handleGestureUpdate = useCallback(({ x, y, scale }: { x: number; y: number; scale: number }) => {
-    const safeScale = clamp(scale || 1, 1, 3.2);
-    if (safeScale <= READER_GESTURE_ACTIVE_ZOOM) {
-      setReaderPan({ x: 0, y: 0 });
+  const applyFitZoom = useCallback((force = false) => {
+    const nextMin = computeReaderFitZoom();
+    if (!nextMin) return;
+    setReaderMinZoom(nextMin);
+    setReaderZoom((prev) => {
+      if (force) return nextMin;
+      if (!readerFitZoomAppliedRef.current) return nextMin;
+      return clamp(prev, nextMin, 2.4);
+    });
+    if (force || !readerFitZoomAppliedRef.current) {
       setReaderGestureZoom(1);
+      setReaderPan({ x: 0, y: 0 });
+      readerFitZoomAppliedRef.current = true;
+    }
+  }, [computeReaderFitZoom]);
+
+  const updateReaderZoom = useCallback((next: number) => {
+    setReaderZoom(clamp(Number(next) || readerMinZoom, readerMinZoom, 2.4));
+    setReaderGestureZoom(1);
+    setReaderPan({ x: 0, y: 0 });
+  }, [readerMinZoom]);
+
+  const handleGestureUpdate = useCallback(({ x, y, scale }: { x: number; y: number; scale: number }) => {
+    const safeScale = clamp(scale || 1, readerMinGestureScale, 3.2);
+    if (safeScale <= readerMinGestureScale + 0.02) {
+      setReaderPan({ x: 0, y: 0 });
+      setReaderGestureZoom(readerMinGestureScale);
       return;
     }
     setReaderPan({ x, y });
     setReaderGestureZoom(safeScale);
-  }, []);
+  }, [readerMinGestureScale]);
 
   const commitReaderProgress = useCallback((page: number, notifyMessage: string) => {
     if (!selected) return;
@@ -1935,6 +1946,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
     const updateCurrentPageFromScroll = () => {
       if (initialPageAlignRef.current !== null) return;
+      if (readerGestureActive || readerEffectiveZoomRef.current > readerMinZoom + 0.05) return;
       const rootRect = root.getBoundingClientRect();
       const currentPage = clamp(Math.floor(readerPageRef.current || 1), 1, Math.max(1, previewPages.length));
       const visibilityByPage = new Map<number, number>();
@@ -1987,7 +1999,54 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       window.removeEventListener("resize", schedule);
       if (rafId) window.cancelAnimationFrame(rafId);
     };
-  }, [previewPages.length, selectedId, readerZoom, readerToolMode, immersiveMode]);
+  }, [previewPages.length, selectedId, readerZoom, readerToolMode, immersiveMode, readerGestureActive, readerMinZoom]);
+
+  useEffect(() => {
+    if (!(immersiveMode && readerToolMode === "lectura")) return;
+    if (!previewPages.length) return;
+
+    const id = window.requestAnimationFrame(() => {
+      applyFitZoom(false);
+    });
+
+    const onResize = () => {
+      window.requestAnimationFrame(() => {
+        applyFitZoom(false);
+      });
+    };
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      window.cancelAnimationFrame(id);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [immersiveMode, readerToolMode, previewPages.length, selectedId, applyFitZoom]);
+
+  useEffect(() => {
+    readerFitZoomAppliedRef.current = false;
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!(immersiveMode && readerToolMode === "lectura")) return;
+    const root = previewScrollRef.current;
+    if (!root) return;
+
+    const preventSafariGestureZoom = (event: Event) => {
+      const target = event.target as Node | null;
+      if (!target || !root.contains(target)) return;
+      event.preventDefault();
+    };
+
+    root.addEventListener("gesturestart", preventSafariGestureZoom as EventListener, { passive: false });
+    root.addEventListener("gesturechange", preventSafariGestureZoom as EventListener, { passive: false });
+    root.addEventListener("gestureend", preventSafariGestureZoom as EventListener, { passive: false });
+
+    return () => {
+      root.removeEventListener("gesturestart", preventSafariGestureZoom as EventListener);
+      root.removeEventListener("gesturechange", preventSafariGestureZoom as EventListener);
+      root.removeEventListener("gestureend", preventSafariGestureZoom as EventListener);
+    };
+  }, [immersiveMode, readerToolMode, selectedId]);
 
   useEffect(() => {
     setReaderZoom(1);
@@ -3004,6 +3063,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => updateReaderZoom(readerZoom + 0.12)}>
                         <ZoomIn className="h-4 w-4" />
                       </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => applyFitZoom(true)}>
+                        Ajustar hoja
+                      </Button>
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => {
                         setReaderPageDialogInput(String(readerPage));
                         setReaderPageInfoOpen((prev) => !prev);
@@ -3169,20 +3231,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       </div>
                     ) : previewPages.length ? (
                       <div className={immersiveMode && readerToolMode === "lectura" ? "relative h-full bg-[#050505]" : "relative"}>
-                        {immersiveMode && readerToolMode === "lectura" && nearbyRenderProgress ? (
-                          <div className="pointer-events-none absolute right-3 top-3 z-20 w-[min(52vw,220px)] rounded-md border border-white/20 bg-black/70 px-2 py-1.5 text-[10px] text-white/85 backdrop-blur-md">
-                            <div className="flex items-center justify-between gap-2">
-                              <span>Pág {nearbyRenderProgress.start}-{nearbyRenderProgress.end}</span>
-                              <span>{nearbyRenderProgress.percent}%</span>
-                            </div>
-                            <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/20">
-                              <div className="h-full rounded-full bg-cyan-300 transition-all" style={{ width: `${nearbyRenderProgress.percent}%` }} />
-                            </div>
-                            <div className="mt-1 text-[9px] text-white/75">
-                              {nearbyRenderProgress.loaded}/{nearbyRenderProgress.total} · {nearbyRenderProgress.rendering} render · {nearbyRenderProgress.pending} cola · {nearbyRenderProgress.failed} retry
-                            </div>
-                          </div>
-                        ) : null}
                         {!(immersiveMode && readerToolMode === "lectura") ? (
                           <div className="border-b border-white/10 px-3 py-2 text-[11px] text-white/70">
                             Página actual detectada: <span className="font-semibold text-white">{readerPage}</span>
@@ -3207,9 +3255,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           {immersiveMode && readerToolMode === "lectura" ? (
                             <QuickPinchZoom
                               onUpdate={handleGestureUpdate}
-                              minZoom={1}
+                              minZoom={readerMinGestureScale}
                               maxZoom={3.2}
-                              draggableUnZoomed={false}
+                              draggableUnZoomed
                               centerContained
                               inertia
                               inertiaFriction={0.9}
@@ -3220,14 +3268,15 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                 },
                               }}
                             >
-                              <div
-                                className="mx-auto flex w-[min(96vw,1080px)] flex-col gap-4 will-change-transform"
-                                style={{
-                                  transformOrigin: "top center",
-                                  transform: `translate3d(${Math.round(readerPan.x)}px, ${Math.round(readerPan.y)}px, 0) scale(${readerEffectiveZoom})`,
-                                }}
-                              >
-                                {previewPages.map((pageSrc, idx) => (
+                              <div className="flex min-h-full items-center justify-center px-3 py-6">
+                                <div
+                                  className="mx-auto flex w-[min(92vw,980px)] flex-col gap-4 will-change-transform"
+                                  style={{
+                                    transformOrigin: "center center",
+                                    transform: `translate3d(${Math.round(readerPan.x)}px, ${Math.round(readerPan.y)}px, 0) scale(${readerEffectiveZoom})`,
+                                  }}
+                                >
+                                  {previewPages.map((pageSrc, idx) => (
                                   <section
                                     key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
                                     data-preview-page={idx + 1}
@@ -3287,7 +3336,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                       </div>
                                     )}
                                   </section>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
                             </QuickPinchZoom>
                           ) : (
