@@ -160,8 +160,8 @@ const READER_SHORTCUT_ACTION_LABELS: Record<ReaderShortcutAction, string> = {
   nextBookmark: "Marcador siguiente",
 };
 const READER_GESTURE_ACTIVE_ZOOM = 1.08;
-const PDF_RENDER_MAX_PIXELS_TOUCH = 7_500_000;
-const PDF_RENDER_MAX_PIXELS_DESKTOP = 12_000_000;
+const PDF_RENDER_MAX_PIXELS_TOUCH = 10_000_000;
+const PDF_RENDER_MAX_PIXELS_DESKTOP = 16_000_000;
 const LARGE_PDF_COMPATIBILITY_BYTES_TOUCH = 90 * 1024 * 1024;
 const LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP = 140 * 1024 * 1024;
 const LARGE_PDF_REMOTE_URL_STORAGE_KEY = "somagnus:resources:large-pdf-remote-url-by-id:v1";
@@ -236,7 +236,7 @@ async function renderPdfPageAssetFromRemoteUrl(remoteUrl: string, pageNumber: nu
           canvas,
           transform: [effectiveDpr, 0, 0, effectiveDpr, 0, 0],
         }).promise;
-        imageSrc = canvas.toDataURL("image/jpeg", 0.92);
+        imageSrc = canvas.toDataURL("image/jpeg", 0.96);
         if (imageSrc) break;
       } catch (error) {
         imageSrc = "";
@@ -477,8 +477,8 @@ async function renderPdfPagesFromRemoteUrl(remoteUrl: string): Promise<{ pages: 
 function resolvePdfTargetWidth() {
   const lightProfile = prefersLightPdfRenderProfile();
   const viewportWidth = typeof window === "undefined" ? 1200 : Math.max(360, window.innerWidth);
-  const maxWidth = lightProfile ? 960 : 1280;
-  const minWidth = lightProfile ? 680 : 860;
+  const maxWidth = lightProfile ? 1100 : 1360;
+  const minWidth = lightProfile ? 760 : 920;
   return Math.min(maxWidth, Math.max(minWidth, Math.floor(viewportWidth * 0.9)));
 }
 
@@ -593,7 +593,7 @@ async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number): P
           canvas,
           transform: [effectiveDpr, 0, 0, effectiveDpr, 0, 0],
         }).promise;
-        imageSrc = canvas.toDataURL("image/jpeg", 0.92);
+        imageSrc = canvas.toDataURL("image/jpeg", 0.96);
         if (imageSrc) break;
       } catch (error) {
         imageSrc = "";
@@ -1244,13 +1244,17 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           const target = entry.target as HTMLElement;
           const page = Number(target.dataset.previewPage);
           if (!Number.isFinite(page)) continue;
+          requestPageRender(page - 1);
           requestPageRender(page);
           requestPageRender(page + 1);
+          requestPageRender(page + 2);
+          requestPageRender(page + 3);
+          requestPageRender(page + 4);
         }
       },
       {
         root,
-        rootMargin: "120% 0px 140% 0px",
+        rootMargin: "180% 0px 220% 0px",
         threshold: 0.01,
       },
     );
@@ -1258,8 +1262,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const nodes = Array.from(root.querySelectorAll<HTMLElement>("[data-preview-page]"));
     for (const node of nodes) observer.observe(node);
 
+    requestPageRender(readerPage - 1);
     requestPageRender(readerPage);
     requestPageRender(readerPage + 1);
+    requestPageRender(readerPage + 2);
+    requestPageRender(readerPage + 3);
+    requestPageRender(readerPage + 4);
 
     return () => {
       disposed = true;
@@ -1868,7 +1876,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
   useEffect(() => {
     if (!previewPages.length) return;
-    const pageToAlign = initialPageAlignRef.current ?? 1;
+    if (initialPageAlignRef.current === null) return;
+    const pageToAlign = initialPageAlignRef.current;
     const id = window.requestAnimationFrame(() => {
       scrollToPreviewPage(pageToAlign, "auto");
     });
