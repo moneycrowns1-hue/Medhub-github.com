@@ -163,7 +163,8 @@ const PDF_RENDER_MAX_PIXELS_TOUCH = 7_500_000;
 const PDF_RENDER_MAX_PIXELS_DESKTOP = 12_000_000;
 const LARGE_PDF_COMPATIBILITY_BYTES_TOUCH = 90 * 1024 * 1024;
 const LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP = 140 * 1024 * 1024;
-const LARGE_PDF_REMOTE_URL_BY_TITLE: Record<string, string> = {
+const LARGE_PDF_REMOTE_URL_STORAGE_KEY = "somagnus:resources:large-pdf-remote-url-by-id:v1";
+const LARGE_PDF_REMOTE_URL_BY_TITLE_FALLBACK: Record<string, string> = {
   "biologia-celular-karp-8a-edicion.pdf": "https://pub-57389a5b13254711a5cf7f7bb285a332.r2.dev/biologia-celular-karp-8a-edicion.pdf",
 };
 
@@ -171,13 +172,53 @@ function normalizePdfTitleKey(title: string) {
   return title.trim().toLowerCase();
 }
 
-function resolveLargePdfRemoteUrl(resource: Pick<PdfResource, "title"> | null): string | null {
+function isValidHttpUrl(value: string) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function loadLargePdfRemoteUrlById(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(LARGE_PDF_REMOTE_URL_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof key !== "string" || typeof value !== "string") continue;
+      const normalized = value.trim();
+      if (!normalized || !isValidHttpUrl(normalized)) continue;
+      out[key] = normalized;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function persistLargePdfRemoteUrlById(map: Record<string, string>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LARGE_PDF_REMOTE_URL_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // ignore
+  }
+}
+
+function resolveLargePdfRemoteUrl(resource: Pick<PdfResource, "id" | "title"> | null, byId: Record<string, string>): string | null {
   if (!resource) return null;
-  const exact = LARGE_PDF_REMOTE_URL_BY_TITLE[normalizePdfTitleKey(resource.title)];
+  const byResourceId = byId[resource.id]?.trim();
+  if (byResourceId && isValidHttpUrl(byResourceId)) return byResourceId;
+
+  const exact = LARGE_PDF_REMOTE_URL_BY_TITLE_FALLBACK[normalizePdfTitleKey(resource.title)];
   if (exact) return exact;
 
   const withExt = `${normalizePdfTitleKey(resource.title)}.pdf`;
-  return LARGE_PDF_REMOTE_URL_BY_TITLE[withExt] ?? null;
+  return LARGE_PDF_REMOTE_URL_BY_TITLE_FALLBACK[withExt] ?? null;
 }
 
 function normalizeShortcutToken(raw: string) {
@@ -496,6 +537,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [bulkTagsInput, setBulkTagsInput] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [largePdfRemoteUrlById, setLargePdfRemoteUrlById] = useState<Record<string, string>>({});
+  const [remotePdfUrlInput, setRemotePdfUrlInput] = useState("");
   const [items, setItems] = useState<PdfResource[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -614,6 +657,14 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [props.initialSelectedId, openQueryPdfId]);
 
   useEffect(() => {
+    setLargePdfRemoteUrlById(loadLargePdfRemoteUrlById());
+  }, []);
+
+  useEffect(() => {
+    persistLargePdfRemoteUrlById(largePdfRemoteUrlById);
+  }, [largePdfRemoteUrlById]);
+
+  useEffect(() => {
     setSrsLib(loadSrsLibrary());
   }, []);
 
@@ -701,7 +752,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       const isTouch = isTouchInputDevice();
       const compatibilityThreshold = isTouch ? LARGE_PDF_COMPATIBILITY_BYTES_TOUCH : LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP;
       const useCompatibilityMode = Boolean(selectedMeta && selectedMeta.sizeBytes >= compatibilityThreshold);
-      const remoteCompatibilityUrl = useCompatibilityMode ? resolveLargePdfRemoteUrl(selectedMeta) : null;
+      const remoteCompatibilityUrl = useCompatibilityMode ? resolveLargePdfRemoteUrl(selectedMeta, largePdfRemoteUrlById) : null;
 
       const cached = PDF_PREVIEW_CACHE.get(selectedId);
       if (cached && !useCompatibilityMode) {
@@ -739,6 +790,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         setPreviewLoading(false);
         setPreviewStalled(false);
         setPreviewError(null);
+        return;
+      }
+
+      if (useCompatibilityMode) {
+        setPreviewUrl(null);
+        setPreviewPages([]);
+        setPreviewTextLayers([]);
+        clearRenderRetryState();
+        setPageCount(null);
+        setPreviewLoading(false);
+        setPreviewStalled(false);
+        setPreviewError("Este PDF es grande y requiere URL remota (R2). Configura la URL en Vista gestión → URL remota (R2).");
         return;
       }
 
@@ -801,7 +864,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     };
 
     void run();
-  }, [selectedId, immersiveMode, items, isTouchInputDevice]);
+  }, [selectedId, immersiveMode, items, isTouchInputDevice, largePdfRemoteUrlById]);
 
   useEffect(() => {
     if (!immersiveMode || readerToolMode !== "lectura" || !selectedId || !previewPages.length) return;
@@ -1311,6 +1374,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [filtered, selectedId]);
 
   const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
+  const selectedRemotePdfUrl = useMemo(() => resolveLargePdfRemoteUrl(selected, largePdfRemoteUrlById), [selected, largePdfRemoteUrlById]);
   const isLargePdfCompatibilityMode = useMemo(() => {
     if (!selected) return false;
     const threshold = isTouchInputDevice() ? LARGE_PDF_COMPATIBILITY_BYTES_TOUCH : LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP;
@@ -1351,6 +1415,36 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       nextBookmark: normalizeShortcutBinding(readerShortcuts.nextBookmark),
     } satisfies ReaderShortcutConfig;
   }, [readerShortcuts]);
+
+  useEffect(() => {
+    if (!selected) {
+      setRemotePdfUrlInput("");
+      return;
+    }
+    setRemotePdfUrlInput(selectedRemotePdfUrl ?? "");
+  }, [selected, selectedRemotePdfUrl]);
+
+  const saveSelectedRemotePdfUrl = useCallback(() => {
+    if (!selected) return;
+    const nextUrl = remotePdfUrlInput.trim();
+    if (!nextUrl) {
+      setLargePdfRemoteUrlById((prev) => {
+        if (!(selected.id in prev)) return prev;
+        const next = { ...prev };
+        delete next[selected.id];
+        return next;
+      });
+      pushNotice("URL remota eliminada", "Este PDF volverá a usar fuente local.");
+      return;
+    }
+    if (!isValidHttpUrl(nextUrl)) {
+      pushNotice("URL inválida", "Usa una URL completa que empiece con http:// o https://");
+      return;
+    }
+    setLargePdfRemoteUrlById((prev) => ({ ...prev, [selected.id]: nextUrl }));
+    pushNotice("URL remota guardada", "Este PDF grande abrirá desde R2 en modo compatibilidad.");
+  }, [selected, remotePdfUrlInput, pushNotice]);
+
   const shortcutConflictByAction = useMemo(() => {
     const byBinding = new Map<string, ReaderShortcutAction[]>();
     for (const action of READER_SHORTCUT_ACTIONS) {
@@ -2702,6 +2796,28 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       placeholder="Ej: parcial, repaso, importante"
                       className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
                     />
+                  </div>
+                  <div className="space-y-1 lg:col-span-3">
+                    <div className="text-xs uppercase tracking-wider text-muted-foreground">URL remota (R2) para PDF grande</div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        value={remotePdfUrlInput}
+                        onChange={(e) => setRemotePdfUrlInput(e.target.value)}
+                        placeholder="https://pub-xxxx.r2.dev/tu-libro.pdf"
+                        className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/15"
+                        onClick={saveSelectedRemotePdfUrl}
+                      >
+                        Guardar URL R2
+                      </Button>
+                    </div>
+                    <div className="text-[11px] text-white/65">
+                      Si este PDF supera el umbral de compatibilidad, se abrirá desde esta URL para evitar quedarse en la primera página.
+                    </div>
                   </div>
                 </div>
               ) : null}
