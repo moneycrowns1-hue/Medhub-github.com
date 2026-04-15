@@ -1380,6 +1380,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const threshold = isTouchInputDevice() ? LARGE_PDF_COMPATIBILITY_BYTES_TOUCH : LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP;
     return selected.sizeBytes >= threshold;
   }, [selected, isTouchInputDevice]);
+  const isTouchDevice = useMemo(() => isTouchInputDevice(), [isTouchInputDevice]);
+  const useExternalCompatibilityViewer = isLargePdfCompatibilityMode && isTouchDevice;
   const largePdfCompatibilityThresholdLabel = useMemo(() => {
     const threshold = isTouchInputDevice() ? LARGE_PDF_COMPATIBILITY_BYTES_TOUCH : LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP;
     return formatPdfSizeLabel(threshold);
@@ -3043,15 +3045,42 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       <div className="relative flex h-full w-full items-center justify-center bg-[#050505] px-3 pb-6 pt-6">
                         {isLargePdfCompatibilityMode ? (
                           <div className="absolute left-3 top-3 z-10 max-w-[min(96vw,760px)] rounded-lg border border-amber-300/35 bg-amber-200/12 px-3 py-2 text-[11px] text-amber-100 backdrop-blur-sm">
-                            Modo compatibilidad activo para PDF pesado ({formatPdfSizeLabel(selected?.sizeBytes ?? 0)}). Se usa visor nativo para evitar fallos de memoria. Umbral actual: {largePdfCompatibilityThresholdLabel}.
+                            Modo compatibilidad activo para PDF pesado ({formatPdfSizeLabel(selected?.sizeBytes ?? 0)}). Se usa visor nativo para evitar fallos de memoria. Umbral actual: {largePdfCompatibilityThresholdLabel}.{useExternalCompatibilityViewer ? " En iPad/touch se abre en visor nativo externo para evitar bloqueo en primera página." : ""}
                           </div>
                         ) : null}
-                        <iframe
-                          key={selected?.id ?? "pdf"}
-                          src={`${previewUrl}#zoom=page-width`}
-                          title={selected?.title ?? "Visor PDF"}
-                          className="h-full w-[min(96vw,1080px)] rounded-sm bg-white shadow-[0_34px_90px_-38px_rgba(0,0,0,0.95)]"
-                        />
+                        {useExternalCompatibilityViewer ? (
+                          <div className="flex w-full max-w-[min(96vw,860px)] flex-col items-center gap-3 rounded-xl border border-white/15 bg-black/35 px-4 py-5 text-center">
+                            <p className="text-sm text-white/85">Este PDF se abrirá en el visor nativo completo para evitar quedarse solo en la primera página.</p>
+                            <div className="flex flex-wrap items-center justify-center gap-2">
+                              <a
+                                href={`${previewUrl}#page=${Math.max(1, readerPage)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex h-10 items-center rounded-xl border border-white/25 bg-white/10 px-3 text-sm text-white hover:bg-white/15"
+                              >
+                                Abrir PDF completo
+                              </a>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-10 rounded-xl border-white/25 bg-white/10 px-3 text-sm text-white hover:bg-white/15"
+                                onClick={() => {
+                                  if (typeof window === "undefined") return;
+                                  window.location.href = `${previewUrl}#page=${Math.max(1, readerPage)}`;
+                                }}
+                              >
+                                Abrir en esta pestaña
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <iframe
+                            key={selected?.id ?? "pdf"}
+                            src={`${previewUrl}#zoom=page-width`}
+                            title={selected?.title ?? "Visor PDF"}
+                            className="h-full w-[min(96vw,1080px)] rounded-sm bg-white shadow-[0_34px_90px_-38px_rgba(0,0,0,0.95)]"
+                          />
+                        )}
                       </div>
                     ) : (
                       <div className="flex h-[62svh] min-h-[420px] w-full items-center justify-center text-sm text-foreground/70 md:h-[640px]">
