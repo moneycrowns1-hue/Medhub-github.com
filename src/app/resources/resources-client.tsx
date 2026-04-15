@@ -705,6 +705,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [readerZoom, setReaderZoom] = useState<number>(1);
   const [readerMinZoom, setReaderMinZoom] = useState<number>(0.55);
   const [readerFitMode, setReaderFitMode] = useState<"reading" | "full">("reading");
+  const [readerRecoverNonce, setReaderRecoverNonce] = useState(0);
   const [readerGestureZoom, setReaderGestureZoom] = useState<number>(1);
   const [readerPan, setReaderPan] = useState({ x: 0, y: 0 });
   const [readerPageInfoOpen, setReaderPageInfoOpen] = useState(false);
@@ -739,6 +740,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerEffectiveZoomRef = useRef(1);
   const readerFitZoomAppliedRef = useRef(false);
   const readerScrollSyncPauseUntilRef = useRef(0);
+  const readerViewportMissCountRef = useRef(0);
+  const readerLastRecoverAtRef = useRef(0);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
     return selected?.subjectSlug === "anatomia" ||
@@ -1898,6 +1901,25 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     pauseReaderScrollSync(force ? 420 : 240);
   }, [computeReaderFitZoom, pauseReaderScrollSync]);
 
+  const recoverReaderViewport = useCallback((reason: string) => {
+    const now = Date.now();
+    if (now - readerLastRecoverAtRef.current < 1800) return;
+    readerLastRecoverAtRef.current = now;
+    setReaderPan({ x: 0, y: 0 });
+    setReaderGestureZoom(1);
+    pauseReaderScrollSync(520);
+    setReaderRecoverNonce((prev) => prev + 1);
+    window.requestAnimationFrame(() => applyFitZoom(true));
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[reader] viewport auto-recovery", {
+        reason,
+        selectedId,
+        readerPage: readerPageRef.current,
+        zoom: readerEffectiveZoomRef.current,
+      });
+    }
+  }, [applyFitZoom, pauseReaderScrollSync, selectedId]);
+
   const updateReaderZoom = useCallback((next: number) => {
     setReaderZoom(clamp(Number(next) || readerMinZoom, readerMinZoom, 2.4));
     setReaderGestureZoom(1);
@@ -2029,6 +2051,39 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       window.removeEventListener("resize", onResize);
     };
   }, [immersiveMode, readerToolMode, previewPages.length, selectedId, applyFitZoom]);
+
+  useEffect(() => {
+    if (!(immersiveMode && readerToolMode === "lectura")) return;
+    if (!previewPages.length) return;
+    const root = previewScrollRef.current;
+    if (!root) return;
+
+    const timer = window.setInterval(() => {
+      const firstPage = root.querySelector<HTMLElement>("[data-preview-page='1']");
+      if (!firstPage) return;
+      const firstRect = firstPage.getBoundingClientRect();
+      if (firstRect.width < 20 || firstRect.height < 20) return;
+      const rootRect = root.getBoundingClientRect();
+      const visible = Math.max(0, Math.min(firstRect.bottom, rootRect.bottom) - Math.max(firstRect.top, rootRect.top));
+      const visibleByHeight = visible / Math.max(1, firstRect.height);
+
+      if (visibleByHeight >= 0.06) {
+        readerViewportMissCountRef.current = 0;
+        return;
+      }
+
+      readerViewportMissCountRef.current += 1;
+      if (readerViewportMissCountRef.current >= 6) {
+        readerViewportMissCountRef.current = 0;
+        recoverReaderViewport("first-page-not-visible");
+      }
+    }, 240);
+
+    return () => {
+      window.clearInterval(timer);
+      readerViewportMissCountRef.current = 0;
+    };
+  }, [immersiveMode, readerToolMode, previewPages.length, recoverReaderViewport]);
 
   useEffect(() => {
     if (!(immersiveMode && readerToolMode === "lectura")) return;
@@ -3290,7 +3345,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         >
                           {immersiveMode && readerToolMode === "lectura" ? (
                             <QuickPinchZoom
-                              key={`qz-${selected?.id ?? "none"}-${readerFitMode}`}
+                              key={`qz-${selected?.id ?? "none"}-${readerFitMode}-${readerRecoverNonce}`}
                               onUpdate={handleGestureUpdate}
                               minZoom={1}
                               maxZoom={3.2}
