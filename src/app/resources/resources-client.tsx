@@ -776,6 +776,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerEffectiveZoom = readerZoom * readerGestureZoom;
   const readerMinGestureScale = 1;
   const readerGestureActive = readerEffectiveZoom > READER_GESTURE_ACTIVE_ZOOM;
+  const stableReaderWidth = useMemo(() => {
+    const vw = Math.max(56, Number((92 * readerZoom).toFixed(2)));
+    const px = Math.max(560, Math.round(980 * readerZoom));
+    return `min(${vw}vw, ${px}px)`;
+  }, [readerZoom]);
 
   const pushNotice = useCallback((title: string, body: string) => {
     const id = `res_notice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -2109,7 +2114,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     readerFitZoomAppliedRef.current = false;
     readerRecoveryBurstRef.current = [];
     setReaderSafeMode(false);
-    setReaderGesturesEnabled(!isTouchInputDevice());
+    setReaderGesturesEnabled(false);
   }, [selectedId]);
 
   useEffect(() => {
@@ -3165,21 +3170,19 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       </Button>
                       <Button
                         type="button"
-                        variant={readerGesturesEnabled ? "secondary" : "outline"}
+                        variant="outline"
                         size="sm"
                         className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15"
                         onClick={() => {
-                          setReaderGesturesEnabled((prev) => {
-                            const next = !prev;
-                            if (!next) {
-                              setReaderGestureZoom(1);
-                              setReaderPan({ x: 0, y: 0 });
-                            }
-                            return next;
-                          });
+                          setReaderGesturesEnabled(false);
+                          setReaderGestureZoom(1);
+                          setReaderPan({ x: 0, y: 0 });
+                          setReaderSafeMode(false);
+                          setReaderRecoverNonce((prev) => prev + 1);
+                          window.requestAnimationFrame(() => applyFitZoom(true));
                         }}
                       >
-                        Gestos {readerGesturesEnabled ? "ON" : "OFF"} (beta)
+                        Modo estable
                       </Button>
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => updateReaderZoom(readerZoom - 0.12)}>
                         <ZoomOut className="h-4 w-4" />
@@ -3502,8 +3505,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                               style={
                                 immersiveMode && readerToolMode === "lectura"
                                   ? {
-                                      transformOrigin: "center center",
-                                      transform: `scale(${readerZoom})`,
+                                      width: stableReaderWidth,
                                     }
                                   : undefined
                               }
