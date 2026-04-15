@@ -1101,7 +1101,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       }
     };
 
-    const requestPageRender = (pageNumber: number) => {
+    const requestPageRender = (pageNumber: number, priority: "normal" | "high" = "normal") => {
       if (disposed) return;
       if (!Number.isFinite(pageNumber)) return;
       const totalPages = previewPagesRef.current.length;
@@ -1120,7 +1120,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         return;
       }
       if (previewRenderInFlightRef.current.has(safePage) || renderQueue.has(safePage)) return;
+
+      if (priority === "high" && previewRenderInFlightRef.current.size < maxConcurrentRenders) {
+        startPageRender(safePage);
+        return;
+      }
+
       renderQueue.add(safePage);
+      if (priority === "high") {
+        const ordered = [safePage, ...Array.from(renderQueue).filter((page) => page !== safePage)];
+        renderQueue.clear();
+        for (const page of ordered) renderQueue.add(page);
+      }
       pumpRenderQueue();
     };
 
@@ -1279,28 +1290,25 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           requestPageRender(page + 2);
           requestPageRender(page + 3);
           requestPageRender(page + 4);
-          requestPageRender(page + 5);
-          requestPageRender(page + 6);
         }
       },
       {
         root,
-        rootMargin: "140% 0px 180% 0px",
+        rootMargin: "90% 0px 120% 0px",
         threshold: 0.01,
       },
     );
 
+    requestPageRender(readerPage, "high");
+    requestPageRender(readerPage - 1, "high");
+    requestPageRender(readerPage + 1, "high");
     const nodes = Array.from(root.querySelectorAll<HTMLElement>("[data-preview-page]"));
     for (const node of nodes) observer.observe(node);
 
-    requestPageRender(readerPage - 1);
-    requestPageRender(readerPage);
-    requestPageRender(readerPage + 1);
-    requestPageRender(readerPage + 2);
-    requestPageRender(readerPage + 3);
+    requestPageRender(readerPage + 2, "high");
+    requestPageRender(readerPage + 3, "high");
     requestPageRender(readerPage + 4);
     requestPageRender(readerPage + 5);
-    requestPageRender(readerPage + 6);
 
     return () => {
       disposed = true;
@@ -1674,6 +1682,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       else if (failedPreviewPages.has(page)) failed += 1;
     }
 
+    const pending = Math.max(0, rangePages.length - loaded - rendering - failed);
     const percent = Math.round((loaded / rangePages.length) * 100);
     return {
       start,
@@ -1681,6 +1690,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       loaded,
       rendering,
       failed,
+      pending,
       total: rangePages.length,
       percent,
     };
@@ -1919,6 +1929,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     let rafId = 0;
 
     const updateCurrentPageFromScroll = () => {
+      if (initialPageAlignRef.current !== null) return;
       const rootRect = root.getBoundingClientRect();
       const targetY = rootRect.top + root.clientHeight * 0.35;
       let closestPage = readerPage;
@@ -1991,8 +2002,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const pageToAlign = initialPageAlignRef.current;
     const id = window.requestAnimationFrame(() => {
       scrollToPreviewPage(pageToAlign, "auto");
+      initialPageAlignRef.current = null;
     });
-    initialPageAlignRef.current = null;
     return () => window.cancelAnimationFrame(id);
   }, [previewPages, selectedId, scrollToPreviewPage]);
 
@@ -3143,18 +3154,16 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                     ) : previewPages.length ? (
                       <div className={immersiveMode && readerToolMode === "lectura" ? "relative h-full bg-[#050505]" : "relative"}>
                         {immersiveMode && readerToolMode === "lectura" && nearbyRenderProgress ? (
-                          <div className="pointer-events-none absolute left-3 right-3 top-3 z-20 rounded-lg border border-white/20 bg-black/65 px-3 py-2 text-[11px] text-white/85 backdrop-blur-md">
+                          <div className="pointer-events-none absolute right-3 top-3 z-20 w-[min(52vw,220px)] rounded-md border border-white/20 bg-black/70 px-2 py-1.5 text-[10px] text-white/85 backdrop-blur-md">
                             <div className="flex items-center justify-between gap-2">
-                              <span>
-                                Cargando zona activa (pág. {nearbyRenderProgress.start}-{nearbyRenderProgress.end})
-                              </span>
+                              <span>Pág {nearbyRenderProgress.start}-{nearbyRenderProgress.end}</span>
                               <span>{nearbyRenderProgress.percent}%</span>
                             </div>
-                            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/20">
+                            <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/20">
                               <div className="h-full rounded-full bg-cyan-300 transition-all" style={{ width: `${nearbyRenderProgress.percent}%` }} />
                             </div>
-                            <div className="mt-1 text-[10px] text-white/75">
-                              {nearbyRenderProgress.loaded}/{nearbyRenderProgress.total} listas · {nearbyRenderProgress.rendering} renderizando · {nearbyRenderProgress.failed} en retry
+                            <div className="mt-1 text-[9px] text-white/75">
+                              {nearbyRenderProgress.loaded}/{nearbyRenderProgress.total} · {nearbyRenderProgress.rendering} render · {nearbyRenderProgress.pending} cola · {nearbyRenderProgress.failed} retry
                             </div>
                           </div>
                         ) : null}
