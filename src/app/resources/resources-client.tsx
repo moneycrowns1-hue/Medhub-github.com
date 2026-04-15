@@ -3179,7 +3179,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           });
                         }}
                       >
-                        Gestos {readerGesturesEnabled ? "ON" : "OFF"}
+                        Gestos {readerGesturesEnabled ? "ON" : "OFF"} (beta)
                       </Button>
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => updateReaderZoom(readerZoom - 0.12)}>
                         <ZoomOut className="h-4 w-4" />
@@ -3493,13 +3493,31 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                               </div>
                             </QuickPinchZoom>
                           ) : (
-                            <div className="space-y-3">
+                            <div
+                              className={
+                                immersiveMode && readerToolMode === "lectura"
+                                  ? "mx-auto flex w-[min(92vw,980px)] flex-col gap-4 py-6 will-change-transform"
+                                  : "space-y-3"
+                              }
+                              style={
+                                immersiveMode && readerToolMode === "lectura"
+                                  ? {
+                                      transformOrigin: "center center",
+                                      transform: `scale(${readerZoom})`,
+                                    }
+                                  : undefined
+                              }
+                            >
                               {previewPages.map((pageSrc, idx) => (
                                 <section
                                   key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
                                   data-preview-page={idx + 1}
                                   className={`relative overflow-hidden rounded-lg border bg-white transition ${
-                                    readerPage === idx + 1 ? "border-white/35 ring-1 ring-white/25" : "border-white/10"
+                                    readerPage === idx + 1
+                                      ? "border-white/35 ring-1 ring-white/25"
+                                      : immersiveMode && readerToolMode === "lectura"
+                                        ? "border-black/20"
+                                        : "border-white/10"
                                   }`}
                                 >
                                   <div className="pointer-events-none absolute right-2 top-2 z-10 rounded-md bg-black/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
