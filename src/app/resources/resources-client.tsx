@@ -1906,6 +1906,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [readerMinZoom, pauseReaderScrollSync]);
 
   const handleGestureUpdate = useCallback(({ x, y, scale }: { x: number; y: number; scale: number }) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(scale)) return;
     pauseReaderScrollSync(360);
     const safeScale = clamp(scale || 1, readerMinGestureScale, 3.2);
     if (safeScale <= readerMinGestureScale + 0.02) {
@@ -1913,7 +1914,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       setReaderGestureZoom(1);
       return;
     }
-    setReaderPan({ x, y });
+    setReaderPan({
+      x: clamp(x, -2400, 2400),
+      y: clamp(y, -3200, 3200),
+    });
     setReaderGestureZoom(safeScale);
   }, [readerMinGestureScale, pauseReaderScrollSync]);
 
@@ -3286,6 +3290,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         >
                           {immersiveMode && readerToolMode === "lectura" ? (
                             <QuickPinchZoom
+                              key={`qz-${selected?.id ?? "none"}-${readerFitMode}`}
                               onUpdate={handleGestureUpdate}
                               minZoom={1}
                               maxZoom={3.2}
