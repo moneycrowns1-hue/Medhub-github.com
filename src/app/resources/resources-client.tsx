@@ -733,6 +733,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const previewRenderRetryCountRef = useRef<Map<number, number>>(new Map());
   const previewRenderRetryTimerRef = useRef<Map<number, number>>(new Map());
   const previewPagesRef = useRef<Array<string | null>>([]);
+  const readerPageRef = useRef(1);
   const rabbitRenderPulseAtRef = useRef(0);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
@@ -1027,6 +1028,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   useEffect(() => {
     previewPagesRef.current = previewPages;
   }, [previewPages]);
+
+  useEffect(() => {
+    readerPageRef.current = readerPage;
+  }, [readerPage]);
 
   useEffect(() => {
     if (!immersiveMode || readerToolMode !== "lectura" || !selectedId || !previewPages.length) return;
@@ -1931,26 +1936,37 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const updateCurrentPageFromScroll = () => {
       if (initialPageAlignRef.current !== null) return;
       const rootRect = root.getBoundingClientRect();
-      const targetY = rootRect.top + root.clientHeight * 0.35;
-      let closestPage = readerPage;
-      let closestDistance = Number.POSITIVE_INFINITY;
+      const currentPage = clamp(Math.floor(readerPageRef.current || 1), 1, Math.max(1, previewPages.length));
+      const visibilityByPage = new Map<number, number>();
 
       for (const node of nodes) {
         const page = Number(node.dataset.previewPage);
         if (!Number.isFinite(page)) continue;
         const rect = node.getBoundingClientRect();
-        const pageCenter = rect.top + rect.height * 0.5;
-        const distance = Math.abs(pageCenter - targetY);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestPage = page;
-        }
+        const visible = Math.max(0, Math.min(rect.bottom, rootRect.bottom) - Math.max(rect.top, rootRect.top));
+        const ratio = rect.height > 0 ? visible / rect.height : 0;
+        visibilityByPage.set(page, ratio);
+      }
+
+      if (!visibilityByPage.size) return;
+      const currentRatio = visibilityByPage.get(currentPage) ?? 0;
+      const candidate = Array.from(visibilityByPage.entries()).reduce(
+        (best, [page, ratio]) => (ratio > best.ratio ? { page, ratio } : best),
+        { page: currentPage, ratio: currentRatio },
+      );
+
+      let nextPage = currentPage;
+      if (
+        candidate.page !== currentPage &&
+        (candidate.ratio >= 0.58 || candidate.ratio >= currentRatio + 0.18)
+      ) {
+        nextPage = candidate.page;
       }
 
       setReaderPage((prev) => {
-        if (prev === closestPage) return prev;
-        setReaderPageDialogInput(String(closestPage));
-        return closestPage;
+        if (prev === nextPage) return prev;
+        setReaderPageDialogInput(String(nextPage));
+        return nextPage;
       });
     };
 
@@ -1971,7 +1987,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       window.removeEventListener("resize", schedule);
       if (rafId) window.cancelAnimationFrame(rafId);
     };
-  }, [previewPages, selectedId, readerZoom, readerToolMode, immersiveMode, readerPage]);
+  }, [previewPages.length, selectedId, readerZoom, readerToolMode, immersiveMode]);
 
   useEffect(() => {
     setReaderZoom(1);
