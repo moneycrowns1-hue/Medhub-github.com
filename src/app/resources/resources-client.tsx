@@ -1875,6 +1875,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     if (!root) return null;
     const firstPage = root.querySelector<HTMLElement>("[data-preview-page='1']");
     if (!firstPage) return null;
+    const firstImage = firstPage.querySelector<HTMLImageElement>("img");
+    if (!firstImage || !firstImage.complete || firstImage.naturalWidth <= 0 || firstImage.naturalHeight <= 0) {
+      return null;
+    }
 
     const pageRect = firstPage.getBoundingClientRect();
     if (pageRect.width <= 0 || pageRect.height <= 0) return null;
@@ -2109,6 +2113,15 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     });
     return () => window.cancelAnimationFrame(id);
   }, [readerFitMode, immersiveMode, readerToolMode, previewPages.length, applyFitZoom]);
+
+  useEffect(() => {
+    if (!(immersiveMode && readerToolMode === "lectura")) return;
+    if (!previewPages[0]) return;
+    const id = window.requestAnimationFrame(() => {
+      applyFitZoom(true);
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [immersiveMode, readerToolMode, selectedId, previewPages[0], applyFitZoom]);
 
   useEffect(() => {
     readerFitZoomAppliedRef.current = false;
