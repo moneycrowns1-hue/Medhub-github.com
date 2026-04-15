@@ -3197,29 +3197,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       >
                         Modo estable
                       </Button>
-                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => updateReaderZoom(readerZoom - 0.12)}>
-                        <ZoomOut className="h-4 w-4" />
+                      <Button type="button" variant="outline" size="sm" className="h-10 min-w-[48px] border-white/25 bg-white/12 px-3 text-white hover:bg-white/20" onClick={() => updateReaderZoom(readerZoom - 0.12)}>
+                        <ZoomOut className="h-5 w-5" />
                       </Button>
-                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => updateReaderZoom(readerZoom + 0.12)}>
-                        <ZoomIn className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={readerFitMode === "reading" ? "secondary" : "outline"}
-                        size="sm"
-                        className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15"
-                        onClick={() => setReaderFitMode("reading")}
-                      >
-                        Fit lectura
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={readerFitMode === "full" ? "secondary" : "outline"}
-                        size="sm"
-                        className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15"
-                        onClick={() => setReaderFitMode("full")}
-                      >
-                        Fit 100%
+                      <Button type="button" variant="outline" size="sm" className="h-10 min-w-[48px] border-white/25 bg-white/12 px-3 text-white hover:bg-white/20" onClick={() => updateReaderZoom(readerZoom + 0.12)}>
+                        <ZoomIn className="h-5 w-5" />
                       </Button>
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => applyFitZoom(true)}>
                         Ajustar hoja
@@ -3592,27 +3574,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         {immersiveMode && readerToolMode === "lectura" ? (
                           <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg border border-white/15 bg-black/55 px-2.5 py-1 text-xs text-white/80 backdrop-blur-xl">
                             {readerPage} / {Math.max(1, pageCount ?? previewPages.length ?? 1)} · {Math.round(readerEffectiveZoom * 100)}%
-                          </div>
-                        ) : null}
-                        {immersiveMode && readerToolMode === "lectura" && readerSafeMode ? (
-                          <div className="absolute left-4 top-4 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300/45 bg-amber-200/15 px-2.5 py-1.5 text-[11px] text-amber-100 backdrop-blur-sm">
-                            <span>Modo seguro activo (recuperación anti pantalla negra).</span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 border-amber-200/50 bg-amber-100/10 px-2 text-[11px] text-amber-50 hover:bg-amber-100/15"
-                              onClick={() => {
-                                readerRecoveryBurstRef.current = [];
-                                setReaderSafeMode(false);
-                                setReaderPan({ x: 0, y: 0 });
-                                setReaderGestureZoom(1);
-                                setReaderRecoverNonce((prev) => prev + 1);
-                                window.requestAnimationFrame(() => applyFitZoom(true));
-                              }}
-                            >
-                              Reintentar gestos
-                            </Button>
                           </div>
                         ) : null}
                         {previewStalled && !(immersiveMode && readerToolMode === "lectura") ? (
