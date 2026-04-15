@@ -1332,7 +1332,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [immersiveMode, readerToolMode, selectedId, previewPages.length, readerPage]);
 
   useEffect(() => {
-    if (!immersiveMode || readerToolMode !== "lectura" || !selectedId || !previewPages.length) return;
+    if (!selectedId || !previewPages.length) return;
+    if (immersiveMode && readerToolMode === "lectura") return;
     const keepBehind = 4;
     const keepAhead = 12;
 
