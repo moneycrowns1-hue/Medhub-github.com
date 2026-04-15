@@ -163,6 +163,22 @@ const PDF_RENDER_MAX_PIXELS_TOUCH = 7_500_000;
 const PDF_RENDER_MAX_PIXELS_DESKTOP = 12_000_000;
 const LARGE_PDF_COMPATIBILITY_BYTES_TOUCH = 90 * 1024 * 1024;
 const LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP = 140 * 1024 * 1024;
+const LARGE_PDF_REMOTE_URL_BY_TITLE: Record<string, string> = {
+  "biologia-celular-karp-8a-edicion.pdf": "https://pub-57389a5b13254711a5cf7f7bb285a332.r2.dev/biologia-celular-karp-8a-edicion.pdf",
+};
+
+function normalizePdfTitleKey(title: string) {
+  return title.trim().toLowerCase();
+}
+
+function resolveLargePdfRemoteUrl(resource: Pick<PdfResource, "title"> | null): string | null {
+  if (!resource) return null;
+  const exact = LARGE_PDF_REMOTE_URL_BY_TITLE[normalizePdfTitleKey(resource.title)];
+  if (exact) return exact;
+
+  const withExt = `${normalizePdfTitleKey(resource.title)}.pdf`;
+  return LARGE_PDF_REMOTE_URL_BY_TITLE[withExt] ?? null;
+}
 
 function normalizeShortcutToken(raw: string) {
   const token = raw.trim().toLowerCase();
@@ -685,6 +701,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       const isTouch = isTouchInputDevice();
       const compatibilityThreshold = isTouch ? LARGE_PDF_COMPATIBILITY_BYTES_TOUCH : LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP;
       const useCompatibilityMode = Boolean(selectedMeta && selectedMeta.sizeBytes >= compatibilityThreshold);
+      const remoteCompatibilityUrl = useCompatibilityMode ? resolveLargePdfRemoteUrl(selectedMeta) : null;
 
       const cached = PDF_PREVIEW_CACHE.get(selectedId);
       if (cached && !useCompatibilityMode) {
@@ -712,6 +729,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       setExtractError(null);
       setAiNotes(null);
       setAiError(null);
+
+      if (remoteCompatibilityUrl) {
+        setPreviewUrl(remoteCompatibilityUrl);
+        setPreviewPages([]);
+        setPreviewTextLayers([]);
+        clearRenderRetryState();
+        setPageCount(null);
+        setPreviewLoading(false);
+        setPreviewStalled(false);
+        setPreviewError(null);
+        return;
+      }
 
       const blob = await getPdfResourceBlob(selectedId);
       if (!blob) {
