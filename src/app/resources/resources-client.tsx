@@ -707,6 +707,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [readerFitMode, setReaderFitMode] = useState<"reading" | "full">("reading");
   const [readerRecoverNonce, setReaderRecoverNonce] = useState(0);
   const [readerSafeMode, setReaderSafeMode] = useState(false);
+  const [readerGesturesEnabled, setReaderGesturesEnabled] = useState(false);
   const [readerGestureZoom, setReaderGestureZoom] = useState<number>(1);
   const [readerPan, setReaderPan] = useState({ x: 0, y: 0 });
   const [readerPageInfoOpen, setReaderPageInfoOpen] = useState(false);
@@ -2108,6 +2109,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     readerFitZoomAppliedRef.current = false;
     readerRecoveryBurstRef.current = [];
     setReaderSafeMode(false);
+    setReaderGesturesEnabled(!isTouchInputDevice());
   }, [selectedId]);
 
   useEffect(() => {
@@ -2124,11 +2126,30 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     root.addEventListener("gesturestart", preventSafariGestureZoom as EventListener, { passive: false });
     root.addEventListener("gesturechange", preventSafariGestureZoom as EventListener, { passive: false });
     root.addEventListener("gestureend", preventSafariGestureZoom as EventListener, { passive: false });
+    const preventDoubleClickZoom = (event: Event) => {
+      const target = event.target as Node | null;
+      if (!target || !root.contains(target)) return;
+      event.preventDefault();
+    };
+    let lastTouchEndAt = 0;
+    const preventDoubleTapZoom = (event: TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target || !root.contains(target)) return;
+      const now = Date.now();
+      if (now - lastTouchEndAt < 280) {
+        event.preventDefault();
+      }
+      lastTouchEndAt = now;
+    };
+    root.addEventListener("dblclick", preventDoubleClickZoom as EventListener, { passive: false });
+    root.addEventListener("touchend", preventDoubleTapZoom, { passive: false });
 
     return () => {
       root.removeEventListener("gesturestart", preventSafariGestureZoom as EventListener);
       root.removeEventListener("gesturechange", preventSafariGestureZoom as EventListener);
       root.removeEventListener("gestureend", preventSafariGestureZoom as EventListener);
+      root.removeEventListener("dblclick", preventDoubleClickZoom as EventListener);
+      root.removeEventListener("touchend", preventDoubleTapZoom as EventListener);
     };
   }, [immersiveMode, readerToolMode, selectedId]);
 
@@ -3142,6 +3163,24 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       <Button type="button" variant={readerToolMode === "generador" ? "secondary" : "outline"} size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderToolMode("generador")}>
                         <Sparkles className="h-4 w-4" />
                       </Button>
+                      <Button
+                        type="button"
+                        variant={readerGesturesEnabled ? "secondary" : "outline"}
+                        size="sm"
+                        className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15"
+                        onClick={() => {
+                          setReaderGesturesEnabled((prev) => {
+                            const next = !prev;
+                            if (!next) {
+                              setReaderGestureZoom(1);
+                              setReaderPan({ x: 0, y: 0 });
+                            }
+                            return next;
+                          });
+                        }}
+                      >
+                        Gestos {readerGesturesEnabled ? "ON" : "OFF"}
+                      </Button>
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => updateReaderZoom(readerZoom - 0.12)}>
                         <ZoomOut className="h-4 w-4" />
                       </Button>
@@ -3169,6 +3208,16 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => applyFitZoom(true)}>
                         Ajustar hoja
                       </Button>
+                      {selectedRemotePdfUrl ? (
+                        <a
+                          href={selectedRemotePdfUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-8 items-center rounded-md border border-white/20 bg-white/10 px-2 text-xs text-white hover:bg-white/15"
+                        >
+                          Probar fuente PDF
+                        </a>
+                      ) : null}
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => {
                         setReaderPageDialogInput(String(readerPage));
                         setReaderPageInfoOpen((prev) => !prev);
@@ -3355,12 +3404,13 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                               : "h-[58svh] min-h-[360px] overflow-y-auto bg-black/35 p-2 md:h-[600px]"
                           }
                         >
-                          {immersiveMode && readerToolMode === "lectura" && !readerSafeMode ? (
+                          {immersiveMode && readerToolMode === "lectura" && !readerSafeMode && readerGesturesEnabled ? (
                             <QuickPinchZoom
                               key={`qz-${selected?.id ?? "none"}-${readerFitMode}-${readerRecoverNonce}`}
                               onUpdate={handleGestureUpdate}
                               minZoom={1}
                               maxZoom={3.2}
+                              tapZoomFactor={1}
                               draggableUnZoomed={false}
                               centerContained
                               inertia
