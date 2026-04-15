@@ -160,8 +160,8 @@ const READER_SHORTCUT_ACTION_LABELS: Record<ReaderShortcutAction, string> = {
   nextBookmark: "Marcador siguiente",
 };
 const READER_GESTURE_ACTIVE_ZOOM = 1.08;
-const PDF_RENDER_MAX_PIXELS_TOUCH = 10_000_000;
-const PDF_RENDER_MAX_PIXELS_DESKTOP = 16_000_000;
+const PDF_RENDER_MAX_PIXELS_TOUCH = 8_500_000;
+const PDF_RENDER_MAX_PIXELS_DESKTOP = 12_000_000;
 const LARGE_PDF_COMPATIBILITY_BYTES_TOUCH = 90 * 1024 * 1024;
 const LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP = 140 * 1024 * 1024;
 const LARGE_PDF_REMOTE_URL_STORAGE_KEY = "somagnus:resources:large-pdf-remote-url-by-id:v1";
@@ -236,7 +236,7 @@ async function renderPdfPageAssetFromRemoteUrl(remoteUrl: string, pageNumber: nu
           canvas,
           transform: [effectiveDpr, 0, 0, effectiveDpr, 0, 0],
         }).promise;
-        imageSrc = canvas.toDataURL("image/jpeg", 0.96);
+        imageSrc = canvas.toDataURL("image/jpeg", 0.93);
         if (imageSrc) break;
       } catch (error) {
         imageSrc = "";
@@ -477,8 +477,8 @@ async function renderPdfPagesFromRemoteUrl(remoteUrl: string): Promise<{ pages: 
 function resolvePdfTargetWidth() {
   const lightProfile = prefersLightPdfRenderProfile();
   const viewportWidth = typeof window === "undefined" ? 1200 : Math.max(360, window.innerWidth);
-  const maxWidth = lightProfile ? 1100 : 1360;
-  const minWidth = lightProfile ? 760 : 920;
+  const maxWidth = lightProfile ? 980 : 1280;
+  const minWidth = lightProfile ? 680 : 860;
   return Math.min(maxWidth, Math.max(minWidth, Math.floor(viewportWidth * 0.9)));
 }
 
@@ -593,7 +593,7 @@ async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number): P
           canvas,
           transform: [effectiveDpr, 0, 0, effectiveDpr, 0, 0],
         }).promise;
-        imageSrc = canvas.toDataURL("image/jpeg", 0.96);
+        imageSrc = canvas.toDataURL("image/jpeg", 0.93);
         if (imageSrc) break;
       } catch (error) {
         imageSrc = "";
@@ -729,8 +729,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const initialPageAlignRef = useRef<number | null>(null);
   const shortcutConflictNoticeAtRef = useRef(0);
   const previewRenderInFlightRef = useRef<Set<number>>(new Set());
+  const previewRenderQueuedRef = useRef<Set<number>>(new Set());
   const previewRenderRetryCountRef = useRef<Map<number, number>>(new Map());
   const previewRenderRetryTimerRef = useRef<Map<number, number>>(new Map());
+  const previewPagesRef = useRef<Array<string | null>>([]);
   const rabbitRenderPulseAtRef = useRef(0);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
@@ -848,6 +850,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       setFailedPreviewPages(new Set());
       setPreviewPageFailures({});
       previewRenderInFlightRef.current.clear();
+      previewRenderQueuedRef.current.clear();
       previewRenderRetryCountRef.current.clear();
       for (const timeoutId of previewRenderRetryTimerRef.current.values()) {
         window.clearTimeout(timeoutId);
@@ -1019,14 +1022,20 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     };
 
     void run();
-  }, [selectedId, immersiveMode, items, isTouchInputDevice, largePdfRemoteUrlById]);
+  }, [selectedId, immersiveMode, items, largePdfRemoteUrlById, isTouchInputDevice]);
+
+  useEffect(() => {
+    previewPagesRef.current = previewPages;
+  }, [previewPages]);
 
   useEffect(() => {
     if (!immersiveMode || readerToolMode !== "lectura" || !selectedId || !previewPages.length) return;
     const root = previewScrollRef.current;
     if (!root) return;
     const { targetWidth, dprBucket } = resolvePdfRenderProfile();
+    const maxConcurrentRenders = prefersLightPdfRenderProfile() ? 1 : 2;
     const retryTimerMap = previewRenderRetryTimerRef.current;
+    const renderQueue = previewRenderQueuedRef.current;
     let disposed = false;
 
     const setPageFailure = (page: number, reason: PageRenderFailureReason, detail = "") => {
@@ -1081,11 +1090,24 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       retryTimerMap.set(page, timeoutId);
     };
 
+    const pumpRenderQueue = () => {
+      if (disposed) return;
+      if (!renderQueue.size) return;
+      while (previewRenderInFlightRef.current.size < maxConcurrentRenders) {
+        const nextPage = renderQueue.values().next().value as number | undefined;
+        if (!nextPage) return;
+        renderQueue.delete(nextPage);
+        startPageRender(nextPage);
+      }
+    };
+
     const requestPageRender = (pageNumber: number) => {
       if (disposed) return;
       if (!Number.isFinite(pageNumber)) return;
-      const safePage = clamp(Math.floor(pageNumber), 1, previewPages.length);
-      if (previewPages[safePage - 1]) {
+      const totalPages = previewPagesRef.current.length;
+      if (!totalPages) return;
+      const safePage = clamp(Math.floor(pageNumber), 1, totalPages);
+      if (previewPagesRef.current[safePage - 1]) {
         previewRenderRetryCountRef.current.delete(safePage);
         clearRetryTimer(safePage);
         clearPageFailure(safePage);
@@ -1097,7 +1119,13 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         });
         return;
       }
-      if (previewRenderInFlightRef.current.has(safePage)) return;
+      if (previewRenderInFlightRef.current.has(safePage) || renderQueue.has(safePage)) return;
+      renderQueue.add(safePage);
+      pumpRenderQueue();
+    };
+
+    const startPageRender = (safePage: number) => {
+      if (disposed) return;
 
       const entry = PDF_PREVIEW_CACHE.get(selectedId);
       if (!entry) {
@@ -1233,6 +1261,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
             next.delete(safePage);
             return next;
           });
+          pumpRenderQueue();
         }
       })();
     };
@@ -1250,11 +1279,13 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           requestPageRender(page + 2);
           requestPageRender(page + 3);
           requestPageRender(page + 4);
+          requestPageRender(page + 5);
+          requestPageRender(page + 6);
         }
       },
       {
         root,
-        rootMargin: "180% 0px 220% 0px",
+        rootMargin: "140% 0px 180% 0px",
         threshold: 0.01,
       },
     );
@@ -1268,6 +1299,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     requestPageRender(readerPage + 2);
     requestPageRender(readerPage + 3);
     requestPageRender(readerPage + 4);
+    requestPageRender(readerPage + 5);
+    requestPageRender(readerPage + 6);
 
     return () => {
       disposed = true;
@@ -1277,8 +1310,55 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         window.clearTimeout(timeoutId);
       }
       retryTimerMap.clear();
+      renderQueue.clear();
     };
-  }, [immersiveMode, readerToolMode, selectedId, previewPages, readerPage]);
+  }, [immersiveMode, readerToolMode, selectedId, previewPages.length, readerPage]);
+
+  useEffect(() => {
+    if (!immersiveMode || readerToolMode !== "lectura" || !selectedId || !previewPages.length) return;
+    const keepBehind = 4;
+    const keepAhead = 12;
+
+    setPreviewPages((prev) => {
+      if (!prev.length) return prev;
+      const next = [...prev];
+      let changed = false;
+      for (let idx = 0; idx < next.length; idx += 1) {
+        const page = idx + 1;
+        const shouldKeep = page >= readerPage - keepBehind && page <= readerPage + keepAhead;
+        if (shouldKeep) continue;
+        if (!next[idx]) continue;
+        if (renderingPreviewPages.has(page)) continue;
+        next[idx] = null;
+        changed = true;
+      }
+      if (!changed) return prev;
+
+      const cacheEntry = PDF_PREVIEW_CACHE.get(selectedId);
+      if (cacheEntry) cacheEntry.pages = [...next];
+      return next;
+    });
+
+    setPreviewTextLayers((prev) => {
+      if (!prev.length) return prev;
+      const next = [...prev];
+      let changed = false;
+      for (let idx = 0; idx < next.length; idx += 1) {
+        const page = idx + 1;
+        const shouldKeep = page >= readerPage - keepBehind && page <= readerPage + keepAhead;
+        if (shouldKeep) continue;
+        if (!next[idx]) continue;
+        if (renderingPreviewPages.has(page)) continue;
+        next[idx] = null;
+        changed = true;
+      }
+      if (!changed) return prev;
+
+      const cacheEntry = PDF_PREVIEW_CACHE.get(selectedId);
+      if (cacheEntry) cacheEntry.textLayers = [...next];
+      return next;
+    });
+  }, [immersiveMode, readerToolMode, selectedId, previewPages.length, readerPage, renderingPreviewPages]);
 
   useEffect(() => {
     if (!previewLoading || !previewUrl) return;
@@ -1574,6 +1654,37 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [readerBookmarks, bookmarkFilterQuery]);
   const bookmarkPageSet = useMemo(() => new Set(readerBookmarks.map((b) => b.page)), [readerBookmarks]);
   const notePageSet = useMemo(() => new Set(readerNotes.map((n) => n.page)), [readerNotes]);
+  const nearbyRenderProgress = useMemo(() => {
+    const totalPages = pageCount ?? previewPages.length;
+    if (!totalPages) return null;
+    const start = Math.max(1, readerPage - 2);
+    const end = Math.min(totalPages, readerPage + 3);
+    const rangePages: number[] = [];
+    for (let page = start; page <= end; page += 1) {
+      rangePages.push(page);
+    }
+    if (!rangePages.length) return null;
+
+    let loaded = 0;
+    let rendering = 0;
+    let failed = 0;
+    for (const page of rangePages) {
+      if (previewPages[page - 1]) loaded += 1;
+      else if (renderingPreviewPages.has(page)) rendering += 1;
+      else if (failedPreviewPages.has(page)) failed += 1;
+    }
+
+    const percent = Math.round((loaded / rangePages.length) * 100);
+    return {
+      start,
+      end,
+      loaded,
+      rendering,
+      failed,
+      total: rangePages.length,
+      percent,
+    };
+  }, [pageCount, previewPages, readerPage, renderingPreviewPages, failedPreviewPages]);
   const filteredReaderNotes = useMemo(() => {
     const q = noteSearchQuery.trim().toLowerCase();
     if (!q) return readerNotes;
@@ -3031,6 +3142,22 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       </div>
                     ) : previewPages.length ? (
                       <div className={immersiveMode && readerToolMode === "lectura" ? "relative h-full bg-[#050505]" : "relative"}>
+                        {immersiveMode && readerToolMode === "lectura" && nearbyRenderProgress ? (
+                          <div className="pointer-events-none absolute left-3 right-3 top-3 z-20 rounded-lg border border-white/20 bg-black/65 px-3 py-2 text-[11px] text-white/85 backdrop-blur-md">
+                            <div className="flex items-center justify-between gap-2">
+                              <span>
+                                Cargando zona activa (pág. {nearbyRenderProgress.start}-{nearbyRenderProgress.end})
+                              </span>
+                              <span>{nearbyRenderProgress.percent}%</span>
+                            </div>
+                            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/20">
+                              <div className="h-full rounded-full bg-cyan-300 transition-all" style={{ width: `${nearbyRenderProgress.percent}%` }} />
+                            </div>
+                            <div className="mt-1 text-[10px] text-white/75">
+                              {nearbyRenderProgress.loaded}/{nearbyRenderProgress.total} listas · {nearbyRenderProgress.rendering} renderizando · {nearbyRenderProgress.failed} en retry
+                            </div>
+                          </div>
+                        ) : null}
                         {!(immersiveMode && readerToolMode === "lectura") ? (
                           <div className="border-b border-white/10 px-3 py-2 text-[11px] text-white/70">
                             Página actual detectada: <span className="font-semibold text-white">{readerPage}</span>
