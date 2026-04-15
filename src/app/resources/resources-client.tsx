@@ -117,7 +117,8 @@ async function readPdfFileWithProgress(file: File, onProgress: (ratio: number) =
 
 type PdfPreviewCacheEntry = {
   objectUrl: string;
-  sourceData: Uint8Array;
+  sourceData: Uint8Array | null;
+  remoteUrl: string | null;
   pages: Array<string | null>;
   textLayers: Array<string | null>;
   pageCount: number;
@@ -179,6 +180,121 @@ function isValidHttpUrl(value: string) {
   } catch {
     return false;
   }
+}
+
+async function renderPdfPageAssetFromRemoteUrl(remoteUrl: string, pageNumber: number): Promise<RenderPdfPageAssetResult> {
+  ensurePdfWorker();
+  const task = getDocument({
+    url: remoteUrl,
+    disableStream: false,
+    disableAutoFetch: false,
+    disableRange: false,
+    rangeChunkSize: 262144,
+  });
+  let pdf: Awaited<typeof task.promise> | null = null;
+  try {
+    pdf = await task.promise;
+    const safePage = clamp(Math.floor(pageNumber || 1), 1, Math.max(1, pdf.numPages));
+    const page = await pdf.getPage(safePage);
+    const firstViewport = page.getViewport({ scale: 1 });
+    const { targetWidth, devicePixelRatio, lightProfile } = resolvePdfRenderProfile();
+    const attempts = [
+      { targetWidth, devicePixelRatio },
+      {
+        targetWidth: Math.max(620, Math.floor(targetWidth * 0.84)),
+        devicePixelRatio: Math.min(devicePixelRatio, 1.8),
+      },
+      {
+        targetWidth: Math.max(520, Math.floor(targetWidth * 0.72)),
+        devicePixelRatio: 1,
+      },
+    ];
+
+    let imageSrc = "";
+    let failureReason: PageRenderFailureReason | null = null;
+    let failureDetail = "";
+    const maxPixels = lightProfile ? PDF_RENDER_MAX_PIXELS_TOUCH : PDF_RENDER_MAX_PIXELS_DESKTOP;
+    for (const attempt of attempts) {
+      const scale = attempt.targetWidth / firstViewport.width;
+      const viewport = page.getViewport({ scale });
+      const dprByPixels = Math.sqrt(maxPixels / Math.max(1, viewport.width * viewport.height));
+      const effectiveDpr = clamp(attempt.devicePixelRatio, 1, Math.max(1, dprByPixels));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.floor(viewport.width * effectiveDpr));
+      canvas.height = Math.max(1, Math.floor(viewport.height * effectiveDpr));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        failureReason = "canvas-context";
+        failureDetail = "ctx-null";
+        continue;
+      }
+
+      try {
+        await page.render({
+          canvasContext: ctx,
+          viewport,
+          canvas,
+          transform: [effectiveDpr, 0, 0, effectiveDpr, 0, 0],
+        }).promise;
+        imageSrc = canvas.toDataURL("image/jpeg", 0.92);
+        if (imageSrc) break;
+      } catch (error) {
+        imageSrc = "";
+        failureReason = classifyPageRenderFailure(error);
+        failureDetail = normalizeErrorMessage(error);
+      }
+    }
+
+    if (!imageSrc) {
+      return {
+        imageSrc: "",
+        textLayer: "",
+        failureReason: failureReason ?? "empty-image",
+        failureDetail: failureDetail || "canvas-vacio",
+      };
+    }
+
+    let textLayer = "";
+    try {
+      const textContent = await page.getTextContent();
+      textLayer = textContent.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+    } catch {
+      textLayer = "";
+    }
+
+    return {
+      imageSrc,
+      textLayer,
+      failureReason: null,
+      failureDetail: "",
+    };
+  } catch (error) {
+    return {
+      imageSrc: "",
+      textLayer: "",
+      failureReason: classifyPageRenderFailure(error),
+      failureDetail: normalizeErrorMessage(error),
+    };
+  } finally {
+    try {
+      await pdf?.destroy();
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function classifyRemotePdfLoadError(error: unknown) {
+  const detail = normalizeErrorMessage(error);
+  const lower = detail.toLowerCase();
+  if (lower.includes("cors") || lower.includes("failed to fetch") || lower.includes("network") || lower.includes("load")) {
+    return "No se pudo leer el PDF remoto (R2). Verifica CORS del bucket y que la URL pública sea accesible.";
+  }
+  return detail;
 }
 
 function loadLargePdfRemoteUrlById(): Record<string, string> {
@@ -337,6 +453,25 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: Array<string | null>
     // ignore
   }
   return { pages: Array(totalPages).fill(null), pageCount: totalPages, sourceData };
+}
+
+async function renderPdfPagesFromRemoteUrl(remoteUrl: string): Promise<{ pages: Array<string | null>; pageCount: number }> {
+  ensurePdfWorker();
+  const task = getDocument({
+    url: remoteUrl,
+    disableStream: false,
+    disableAutoFetch: false,
+    disableRange: false,
+    rangeChunkSize: 262144,
+  });
+  const pdf = await task.promise;
+  const totalPages = pdf.numPages;
+  try {
+    await pdf.destroy();
+  } catch {
+    // ignore
+  }
+  return { pages: Array(totalPages).fill(null), pageCount: totalPages };
 }
 
 function resolvePdfTargetWidth() {
@@ -781,27 +916,46 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       setAiNotes(null);
       setAiError(null);
 
-      if (remoteCompatibilityUrl) {
-        setPreviewUrl(remoteCompatibilityUrl);
-        setPreviewPages([]);
-        setPreviewTextLayers([]);
-        clearRenderRetryState();
-        setPageCount(null);
-        setPreviewLoading(false);
-        setPreviewStalled(false);
-        setPreviewError(null);
-        return;
-      }
-
       if (useCompatibilityMode) {
-        setPreviewUrl(null);
-        setPreviewPages([]);
-        setPreviewTextLayers([]);
-        clearRenderRetryState();
-        setPageCount(null);
-        setPreviewLoading(false);
-        setPreviewStalled(false);
-        setPreviewError("Este PDF es grande y requiere URL remota (R2). Configura la URL en Vista gestión → URL remota (R2).");
+        if (!remoteCompatibilityUrl) {
+          setPreviewUrl(null);
+          setPreviewPages([]);
+          setPreviewTextLayers([]);
+          clearRenderRetryState();
+          setPageCount(null);
+          setPreviewLoading(false);
+          setPreviewStalled(false);
+          setPreviewError("Este PDF es grande y requiere URL remota (R2). Configura la URL en Vista gestión → URL remota (R2).");
+          return;
+        }
+
+        try {
+          const rendered = await renderPdfPagesFromRemoteUrl(remoteCompatibilityUrl);
+          const entry: PdfPreviewCacheEntry = {
+            objectUrl: remoteCompatibilityUrl,
+            sourceData: null,
+            remoteUrl: remoteCompatibilityUrl,
+            pages: rendered.pages,
+            textLayers: Array(rendered.pageCount).fill(null),
+            pageCount: rendered.pageCount,
+          };
+          PDF_PREVIEW_CACHE.set(selectedId, entry);
+          setPreviewUrl(entry.objectUrl);
+          setPreviewPages(entry.pages);
+          setPreviewTextLayers(entry.textLayers);
+          clearRenderRetryState();
+          setPageCount(entry.pageCount);
+          setPreviewLoading(false);
+          setPreviewStalled(false);
+          setPreviewError(null);
+        } catch (error) {
+          setPreviewUrl(remoteCompatibilityUrl);
+          setPreviewLoading(false);
+          setPreviewPages([]);
+          setPreviewTextLayers([]);
+          clearRenderRetryState();
+          setPreviewError(classifyRemotePdfLoadError(error));
+        }
         return;
       }
 
@@ -841,6 +995,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         const entry: PdfPreviewCacheEntry = {
           objectUrl,
           sourceData: rendered.sourceData,
+          remoteUrl: null,
           pages: rendered.pages,
           textLayers: Array(rendered.pageCount).fill(null),
           pageCount: rendered.pageCount,
@@ -1017,7 +1172,17 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
             );
           }
 
-          const { imageSrc, textLayer, failureReason, failureDetail } = await renderPdfPageAsset(entry.sourceData, safePage);
+          const pageResult = entry.sourceData
+            ? await renderPdfPageAsset(entry.sourceData, safePage)
+            : entry.remoteUrl
+              ? await renderPdfPageAssetFromRemoteUrl(entry.remoteUrl, safePage)
+              : {
+                  imageSrc: "",
+                  textLayer: "",
+                  failureReason: "cache-miss" as PageRenderFailureReason,
+                  failureDetail: "source-empty",
+                };
+          const { imageSrc, textLayer, failureReason, failureDetail } = pageResult;
           if (disposed) return;
           if (!imageSrc) {
             scheduleRetry(safePage, failureReason ?? "unknown", failureDetail);
@@ -1380,8 +1545,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const threshold = isTouchInputDevice() ? LARGE_PDF_COMPATIBILITY_BYTES_TOUCH : LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP;
     return selected.sizeBytes >= threshold;
   }, [selected, isTouchInputDevice]);
-  const isTouchDevice = useMemo(() => isTouchInputDevice(), [isTouchInputDevice]);
-  const useExternalCompatibilityViewer = isLargePdfCompatibilityMode && isTouchDevice;
   const largePdfCompatibilityThresholdLabel = useMemo(() => {
     const threshold = isTouchInputDevice() ? LARGE_PDF_COMPATIBILITY_BYTES_TOUCH : LARGE_PDF_COMPATIBILITY_BYTES_DESKTOP;
     return formatPdfSizeLabel(threshold);
@@ -3045,42 +3208,15 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       <div className="relative flex h-full w-full items-center justify-center bg-[#050505] px-3 pb-6 pt-6">
                         {isLargePdfCompatibilityMode ? (
                           <div className="absolute left-3 top-3 z-10 max-w-[min(96vw,760px)] rounded-lg border border-amber-300/35 bg-amber-200/12 px-3 py-2 text-[11px] text-amber-100 backdrop-blur-sm">
-                            Modo compatibilidad activo para PDF pesado ({formatPdfSizeLabel(selected?.sizeBytes ?? 0)}). Se usa visor nativo para evitar fallos de memoria. Umbral actual: {largePdfCompatibilityThresholdLabel}.{useExternalCompatibilityViewer ? " En iPad/touch se abre en visor nativo externo para evitar bloqueo en primera página." : ""}
+                            Modo compatibilidad activo para PDF pesado ({formatPdfSizeLabel(selected?.sizeBytes ?? 0)}). Se usa render remoto en la app para evitar fallos de memoria. Umbral actual: {largePdfCompatibilityThresholdLabel}.
                           </div>
                         ) : null}
-                        {useExternalCompatibilityViewer ? (
-                          <div className="flex w-full max-w-[min(96vw,860px)] flex-col items-center gap-3 rounded-xl border border-white/15 bg-black/35 px-4 py-5 text-center">
-                            <p className="text-sm text-white/85">Este PDF se abrirá en el visor nativo completo para evitar quedarse solo en la primera página.</p>
-                            <div className="flex flex-wrap items-center justify-center gap-2">
-                              <a
-                                href={`${previewUrl}#page=${Math.max(1, readerPage)}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex h-10 items-center rounded-xl border border-white/25 bg-white/10 px-3 text-sm text-white hover:bg-white/15"
-                              >
-                                Abrir PDF completo
-                              </a>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="h-10 rounded-xl border-white/25 bg-white/10 px-3 text-sm text-white hover:bg-white/15"
-                                onClick={() => {
-                                  if (typeof window === "undefined") return;
-                                  window.location.href = `${previewUrl}#page=${Math.max(1, readerPage)}`;
-                                }}
-                              >
-                                Abrir en esta pestaña
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <iframe
-                            key={selected?.id ?? "pdf"}
-                            src={`${previewUrl}#zoom=page-width`}
-                            title={selected?.title ?? "Visor PDF"}
-                            className="h-full w-[min(96vw,1080px)] rounded-sm bg-white shadow-[0_34px_90px_-38px_rgba(0,0,0,0.95)]"
-                          />
-                        )}
+                        <iframe
+                          key={selected?.id ?? "pdf"}
+                          src={`${previewUrl}#zoom=page-width`}
+                          title={selected?.title ?? "Visor PDF"}
+                          className="h-full w-[min(96vw,1080px)] rounded-sm bg-white shadow-[0_34px_90px_-38px_rgba(0,0,0,0.95)]"
+                        />
                       </div>
                     ) : (
                       <div className="flex h-[62svh] min-h-[420px] w-full items-center justify-center text-sm text-foreground/70 md:h-[640px]">
