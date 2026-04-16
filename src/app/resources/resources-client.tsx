@@ -1896,7 +1896,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       ? (viewportLandscape ? 0.94 : 0.995)
       : (viewportLandscape ? 0.88 : 0.96);
     const fitted = Math.min(fitByWidth, fitByHeight, 1) * fitCoverage;
-    return clamp(Number.isFinite(fitted) ? fitted : 1, 0.45, 1);
+    return clamp(Number.isFinite(fitted) ? fitted : 1, 0.55, 1);
   }, [readerFitMode]);
 
   const applyFitZoom = useCallback((force = false) => {
@@ -1998,7 +1998,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const updateCurrentPageFromScroll = () => {
       if (initialPageAlignRef.current !== null) return;
       if (Date.now() < readerScrollSyncPauseUntilRef.current) return;
-      if (readerGestureActive || readerEffectiveZoomRef.current > readerMinZoom + 0.05) return;
+      if (readerGestureActive) return;
       const rootRect = root.getBoundingClientRect();
       const currentPage = clamp(Math.floor(readerPageRef.current || 1), 1, Math.max(1, previewPages.length));
       const visibilityByPage = new Map<number, number>();
@@ -2114,16 +2114,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       applyFitZoom(true);
     });
     return () => window.cancelAnimationFrame(id);
-  }, [readerFitMode, immersiveMode, readerToolMode, previewPages.length, applyFitZoom]);
-
-  useEffect(() => {
-    if (!(immersiveMode && readerToolMode === "lectura")) return;
-    if (!previewPages[0]) return;
-    const id = window.requestAnimationFrame(() => {
-      applyFitZoom(true);
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [immersiveMode, readerToolMode, selectedId, previewPages[0], applyFitZoom]);
+  }, [readerFitMode, immersiveMode, readerToolMode, previewPages.length, selectedId, applyFitZoom]);
 
   useEffect(() => {
     readerFitZoomAppliedRef.current = false;
