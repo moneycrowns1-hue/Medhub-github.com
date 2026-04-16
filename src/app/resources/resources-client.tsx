@@ -143,6 +143,8 @@ type RenderPdfPageAssetResult = {
   failureDetail: string;
 };
 
+const DEFAULT_PREVIEW_PAGE_ASPECT_RATIO = 1 / 1.4142;
+
 const READER_SHORTCUTS_STORAGE_KEY = "somagnus:resources:reader:shortcuts:v2";
 const DEFAULT_READER_SHORTCUTS: ReaderShortcutConfig = {
   save: "ctrl+s",
@@ -681,6 +683,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [previewStalled, setPreviewStalled] = useState(false);
   const [previewPages, setPreviewPages] = useState<Array<string | null>>([]);
   const [previewTextLayers, setPreviewTextLayers] = useState<Array<string | null>>([]);
+  const [previewPageAspectRatios, setPreviewPageAspectRatios] = useState<number[]>([]);
   const [renderingPreviewPages, setRenderingPreviewPages] = useState<Set<number>>(() => new Set());
   const [failedPreviewPages, setFailedPreviewPages] = useState<Set<number>>(() => new Set());
   const [previewPageFailures, setPreviewPageFailures] = useState<Record<number, string>>({});
@@ -746,6 +749,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerEffectiveZoomRef = useRef(1);
   const readerFitZoomAppliedRef = useRef(false);
   const readerScrollSyncPauseUntilRef = useRef(0);
+  const readerManualAnchorAdjustUntilRef = useRef(0);
   const readerViewportMissCountRef = useRef(0);
   const readerLastRecoverAtRef = useRef(0);
   const readerRecoveryBurstRef = useRef<number[]>([]);
@@ -1058,6 +1062,71 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [readerEffectiveZoom]);
 
   useEffect(() => {
+    const expectedCount = Math.max(0, pageCount ?? previewPages.length);
+    if (!expectedCount) {
+      setPreviewPageAspectRatios((prev) => (prev.length ? [] : prev));
+      return;
+    }
+    setPreviewPageAspectRatios((prev) => {
+      const existingSeed = prev.find((ratio) => Number.isFinite(ratio) && ratio > 0);
+      const seed = existingSeed ?? DEFAULT_PREVIEW_PAGE_ASPECT_RATIO;
+      const next = Array.from({ length: expectedCount }, (_, idx) => {
+        const ratio = prev[idx];
+        return Number.isFinite(ratio) && ratio > 0 ? ratio : seed;
+      });
+      if (next.length === prev.length && next.every((ratio, idx) => ratio === prev[idx])) return prev;
+      return next;
+    });
+  }, [pageCount, previewPages.length, selectedId]);
+
+  const updatePreviewPageAspectRatio = useCallback((page: number, ratio: number) => {
+    if (!Number.isFinite(ratio) || ratio < 0.25 || ratio > 2.6) return;
+    setPreviewPageAspectRatios((prev) => {
+      const index = page - 1;
+      if (index < 0) return prev;
+      const targetLength = Math.max(prev.length, index + 1);
+      const next = targetLength === prev.length ? [...prev] : [...prev, ...Array(targetLength - prev.length).fill(DEFAULT_PREVIEW_PAGE_ASPECT_RATIO)];
+      if (Math.abs((next[index] ?? 0) - ratio) < 0.003) return prev;
+      next[index] = ratio;
+      return next;
+    });
+  }, []);
+
+  const resolvePreviewPageAspectRatio = useCallback((page: number) => {
+    const index = page - 1;
+    const direct = previewPageAspectRatios[index];
+    if (Number.isFinite(direct) && direct > 0) return direct;
+
+    let leftIndex = index - 1;
+    while (leftIndex >= 0) {
+      const candidate = previewPageAspectRatios[leftIndex];
+      if (Number.isFinite(candidate) && candidate > 0) break;
+      leftIndex -= 1;
+    }
+
+    let rightIndex = index + 1;
+    while (rightIndex < previewPageAspectRatios.length) {
+      const candidate = previewPageAspectRatios[rightIndex];
+      if (Number.isFinite(candidate) && candidate > 0) break;
+      rightIndex += 1;
+    }
+
+    const leftRatio = leftIndex >= 0 ? previewPageAspectRatios[leftIndex] : undefined;
+    const rightRatio = rightIndex < previewPageAspectRatios.length ? previewPageAspectRatios[rightIndex] : undefined;
+    const leftValid = Number.isFinite(leftRatio) && (leftRatio ?? 0) > 0;
+    const rightValid = Number.isFinite(rightRatio) && (rightRatio ?? 0) > 0;
+
+    if (leftValid && rightValid) {
+      return (index - leftIndex) <= (rightIndex - index)
+        ? Number(leftRatio)
+        : Number(rightRatio);
+    }
+    if (leftValid) return Number(leftRatio);
+    if (rightValid) return Number(rightRatio);
+    return DEFAULT_PREVIEW_PAGE_ASPECT_RATIO;
+  }, [previewPageAspectRatios]);
+
+  useEffect(() => {
     if (!immersiveMode || readerToolMode !== "lectura" || !selectedId || !previewPages.length) return;
     const root = previewScrollRef.current;
     if (!root) return;
@@ -1298,11 +1367,24 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
     const observer = new IntersectionObserver(
       (entries) => {
+        const rootRect = root.getBoundingClientRect();
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
           const target = entry.target as HTMLElement;
           const page = Number(target.dataset.previewPage);
           if (!Number.isFinite(page)) continue;
+          const nearTop = entry.boundingClientRect.top - rootRect.top <= rootRect.height * 0.38;
+
+          if (nearTop) {
+            requestPageRender(page - 5);
+            requestPageRender(page - 4, "high");
+            requestPageRender(page - 3, "high");
+            requestPageRender(page - 2, "high");
+          } else {
+            requestPageRender(page - 3);
+            requestPageRender(page - 2);
+          }
+
           requestPageRender(page - 1);
           requestPageRender(page);
           requestPageRender(page + 1);
@@ -1318,8 +1400,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       },
     );
 
-    requestPageRender(readerPage, "high");
+    requestPageRender(readerPage - 5);
+    requestPageRender(readerPage - 4, "high");
+    requestPageRender(readerPage - 3, "high");
+    requestPageRender(readerPage - 2, "high");
     requestPageRender(readerPage - 1, "high");
+    requestPageRender(readerPage, "high");
     requestPageRender(readerPage + 1, "high");
     const nodes = Array.from(root.querySelectorAll<HTMLElement>("[data-preview-page]"));
     for (const node of nodes) observer.observe(node);
@@ -2210,6 +2296,77 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     });
     return () => window.cancelAnimationFrame(id);
   }, [readerFitMode, immersiveMode, readerToolMode, previewPages.length, selectedId, applyFitZoom]);
+
+  useEffect(() => {
+    if (!(immersiveMode && readerToolMode === "lectura")) return;
+    if (!previewPages.length) return;
+    const root = previewScrollRef.current;
+    if (!root) return;
+    if (typeof ResizeObserver === "undefined") return;
+
+    const nodes = Array.from(root.querySelectorAll<HTMLElement>("[data-preview-page]"));
+    if (!nodes.length) return;
+
+    const heightByPage = new Map<number, number>();
+    for (const node of nodes) {
+      const page = Number(node.dataset.previewPage);
+      if (!Number.isFinite(page)) continue;
+      heightByPage.set(page, node.offsetHeight);
+    }
+
+    let rafId = 0;
+    const scheduleCompensation = (delta: number) => {
+      if (!Number.isFinite(delta) || Math.abs(delta) < 20 || Math.abs(delta) > 900) return;
+      if (rafId) window.cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        if (initialPageAlignRef.current !== null) return;
+        if (pendingResumeFinalSnapRef.current !== null) return;
+        if (Date.now() < readerManualAnchorAdjustUntilRef.current) return;
+        if (Math.abs(delta) < 20) return;
+        const nextScrollTop = Math.max(0, root.scrollTop + delta);
+        if (Math.abs(nextScrollTop - root.scrollTop) < 1) return;
+        root.scrollTop = nextScrollTop;
+        pauseReaderScrollSync(260);
+        readerManualAnchorAdjustUntilRef.current = Date.now() + 96;
+      });
+    };
+
+    const observer = new ResizeObserver((entries) => {
+      if (initialPageAlignRef.current !== null) return;
+      if (pendingResumeFinalSnapRef.current !== null) return;
+      if (Date.now() < readerScrollSyncPauseUntilRef.current) return;
+
+      const rootRect = root.getBoundingClientRect();
+      let deltaAboveViewport = 0;
+
+      for (const entry of entries) {
+        const target = entry.target as HTMLElement;
+        const page = Number(target.dataset.previewPage);
+        if (!Number.isFinite(page)) continue;
+        const nextHeight = Math.max(0, target.offsetHeight);
+        const prevHeight = heightByPage.get(page) ?? nextHeight;
+        if (!Number.isFinite(nextHeight) || !Number.isFinite(prevHeight)) continue;
+        const delta = nextHeight - prevHeight;
+        if (Math.abs(delta) < 1) continue;
+        heightByPage.set(page, nextHeight);
+
+        const rect = target.getBoundingClientRect();
+        if (rect.top <= rootRect.top + 12) {
+          deltaAboveViewport += delta;
+        }
+      }
+
+      scheduleCompensation(deltaAboveViewport);
+    });
+
+    for (const node of nodes) observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+      if (rafId) window.cancelAnimationFrame(rafId);
+    };
+  }, [immersiveMode, readerToolMode, previewPages.length, selectedId, pauseReaderScrollSync]);
 
   useEffect(() => {
     readerFitZoomAppliedRef.current = false;
@@ -3574,6 +3731,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                             const delta = event.deltaY > 0 ? -0.08 : 0.08;
                             updateReaderZoom(readerZoom + delta);
                           }}
+                          style={{ overflowAnchor: "auto" }}
                           className={
                             immersiveMode && readerToolMode === "lectura"
                               ? "h-full touch-pan-y snap-y snap-proximity overflow-auto overscroll-y-contain bg-[#050505] px-3 pb-8 pt-3"
@@ -3637,6 +3795,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                           alt={`Página ${idx + 1}`}
                                           className="block w-full"
                                           loading="lazy"
+                                          onLoad={(event) => {
+                                            const img = event.currentTarget;
+                                            if (!img.naturalWidth || !img.naturalHeight) return;
+                                            updatePreviewPageAspectRatio(idx + 1, img.naturalWidth / img.naturalHeight);
+                                          }}
                                         />
                                         {previewTextLayers[idx] ? (
                                           <div
@@ -3648,7 +3811,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                         ) : null}
                                       </>
                                     ) : (
-                                      <div className="relative w-full bg-slate-100/70" style={{ aspectRatio: "1 / 1.4142" }}>
+                                      <div className="relative w-full bg-slate-100/70" style={{ aspectRatio: String(resolvePreviewPageAspectRatio(idx + 1)) }}>
                                         <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-600">
                                           <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
                                             <span className="inline-block">🐰</span>
@@ -3719,6 +3882,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                         alt={`Página ${idx + 1}`}
                                         className="block w-full"
                                         loading="lazy"
+                                        onLoad={(event) => {
+                                          const img = event.currentTarget;
+                                          if (!img.naturalWidth || !img.naturalHeight) return;
+                                          updatePreviewPageAspectRatio(idx + 1, img.naturalWidth / img.naturalHeight);
+                                        }}
                                       />
                                       {previewTextLayers[idx] ? (
                                         <div
@@ -3730,7 +3898,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                       ) : null}
                                     </>
                                   ) : (
-                                    <div className="relative w-full bg-slate-100/70" style={{ aspectRatio: "1 / 1.4142" }}>
+                                    <div className="relative w-full bg-slate-100/70" style={{ aspectRatio: String(resolvePreviewPageAspectRatio(idx + 1)) }}>
                                       <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-600">
                                         <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
                                           <span className="inline-block">🐰</span>
