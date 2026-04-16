@@ -708,7 +708,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [readerPage, setReaderPage] = useState<number>(1);
   const [committedReaderPage, setCommittedReaderPage] = useState<number>(1);
   const [readerZoom, setReaderZoom] = useState<number>(1);
-  const [readerMinZoom, setReaderMinZoom] = useState<number>(0.55);
+  const [readerMinZoom, setReaderMinZoom] = useState<number>(0.35);
   const [readerFitMode, setReaderFitMode] = useState<"reading" | "full">("reading");
   const [readerRecoverNonce, setReaderRecoverNonce] = useState(0);
   const [readerSafeMode, setReaderSafeMode] = useState(false);
@@ -2223,7 +2223,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       ? (viewportLandscape ? 0.985 : 0.995)
       : (viewportLandscape ? 0.88 : 0.96);
     const fitted = Math.min(fitByWidth, fitByHeight, 1) * fitCoverage;
-    return clamp(Number.isFinite(fitted) ? fitted : 1, 0.55, 1);
+    return clamp(Number.isFinite(fitted) ? fitted : 1, 0.35, 1);
   }, [readerFitMode]);
 
   const applyFitZoom = useCallback((force = false) => {
@@ -2671,8 +2671,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [immersiveMode, readerToolMode, selectedId]);
 
   useEffect(() => {
-    setReaderZoom(0.55);
-    setReaderMinZoom(0.55);
+    setReaderZoom(0.35);
+    setReaderMinZoom(0.35);
     setReaderGestureZoom(1);
     setReaderPan({ x: 0, y: 0 });
     setReaderPageInfoOpen(false);
