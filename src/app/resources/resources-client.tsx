@@ -2152,6 +2152,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     pauseReaderScrollSync(320);
   }, [readerMinZoom, pauseReaderScrollSync]);
 
+  const resolveVisibleRatioForPage = useCallback((page: number) => {
+    const root = previewScrollRef.current;
+    if (!root) return 0;
+    const node = root.querySelector<HTMLElement>(`[data-preview-page="${page}"]`);
+    if (!node) return 0;
+    const rootRect = root.getBoundingClientRect();
+    const rect = node.getBoundingClientRect();
+    const visible = Math.max(0, Math.min(rect.bottom, rootRect.bottom) - Math.max(rect.top, rootRect.top));
+    if (rect.height <= 0) return 0;
+    return clamp(visible / rect.height, 0, 1);
+  }, []);
+
   const handleGestureUpdate = useCallback(({ x, y, scale }: { x: number; y: number; scale: number }) => {
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(scale)) return;
     pauseReaderScrollSync(360);
@@ -2188,9 +2200,19 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       || pendingResumeFinalSnapRef.current !== null
       || Date.now() < readerScrollSyncPauseUntilRef.current
       || hasNearbyRendering;
-    const topVisiblePage = isLayoutUnstable
+    let topVisiblePage = isLayoutUnstable
       ? currentStablePage
       : (resolveTopVisiblePreviewPage("save", requestedPage) ?? requestedPage);
+    if (
+      !isLayoutUnstable
+      && isTouchInputDevice()
+      && topVisiblePage === currentStablePage - 1
+    ) {
+      const currentStableRatio = resolveVisibleRatioForPage(currentStablePage);
+      if (currentStableRatio >= 0.12) {
+        topVisiblePage = currentStablePage;
+      }
+    }
     const safe = clamp(topVisiblePage, 1, maxPage);
     const resumeHref = `/biblioteca?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${safe}`;
     markPdfProgress({
@@ -2209,7 +2231,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       actions: [{ href: resumeHref, label: "Ir a mi página", primary: true }],
       durationMs: 4200,
     });
-  }, [selected, pageCount, previewPages.length, resolveTopVisiblePreviewPage, selectedSubjectSlug]);
+  }, [selected, pageCount, previewPages.length, resolveTopVisiblePreviewPage, selectedSubjectSlug, isTouchInputDevice, resolveVisibleRatioForPage]);
 
   const hasPendingReaderChanges = Boolean(selected && readerPage !== committedReaderPage);
 
