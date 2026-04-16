@@ -2175,8 +2175,23 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const maxPage = Number.isFinite(inferredMaxPage) && Number(inferredMaxPage) > 0
       ? Math.max(1, Math.floor(Number(inferredMaxPage)))
       : requestedPage;
-    const topVisiblePage = resolveTopVisiblePreviewPage("save", requestedPage);
-    const safe = clamp(topVisiblePage ?? requestedPage, 1, maxPage);
+    const currentStablePage = clamp(Math.floor(readerPageRef.current || requestedPage), 1, maxPage);
+    const renderingNow = renderingPreviewPagesRef.current;
+    const hasNearbyRendering =
+      renderingNow.has(currentStablePage)
+      || renderingNow.has(currentStablePage - 1)
+      || renderingNow.has(currentStablePage + 1)
+      || renderingNow.has(currentStablePage - 2)
+      || renderingNow.has(currentStablePage + 2);
+    const isLayoutUnstable =
+      initialPageAlignRef.current !== null
+      || pendingResumeFinalSnapRef.current !== null
+      || Date.now() < readerScrollSyncPauseUntilRef.current
+      || hasNearbyRendering;
+    const topVisiblePage = isLayoutUnstable
+      ? currentStablePage
+      : (resolveTopVisiblePreviewPage("save", requestedPage) ?? requestedPage);
+    const safe = clamp(topVisiblePage, 1, maxPage);
     const resumeHref = `/biblioteca?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${safe}`;
     markPdfProgress({
       resourceId: selected.id,
@@ -2326,15 +2341,16 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
     let rafId = 0;
     const scheduleCompensation = (delta: number) => {
-      if (!Number.isFinite(delta) || Math.abs(delta) < 20 || Math.abs(delta) > 900) return;
+      if (!Number.isFinite(delta) || Math.abs(delta) < 20 || Math.abs(delta) > 2400) return;
+      const boundedDelta = clamp(delta, -360, 360);
       if (rafId) window.cancelAnimationFrame(rafId);
       rafId = window.requestAnimationFrame(() => {
         rafId = 0;
         if (initialPageAlignRef.current !== null) return;
         if (pendingResumeFinalSnapRef.current !== null) return;
         if (Date.now() < readerManualAnchorAdjustUntilRef.current) return;
-        if (Math.abs(delta) < 20) return;
-        const nextScrollTop = Math.max(0, root.scrollTop + delta);
+        if (Math.abs(boundedDelta) < 20) return;
+        const nextScrollTop = Math.max(0, root.scrollTop + boundedDelta);
         if (Math.abs(nextScrollTop - root.scrollTop) < 1) return;
         root.scrollTop = nextScrollTop;
         pauseReaderScrollSync(260);
