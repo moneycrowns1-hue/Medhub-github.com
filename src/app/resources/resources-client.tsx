@@ -709,7 +709,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [committedReaderPage, setCommittedReaderPage] = useState<number>(1);
   const [readerZoom, setReaderZoom] = useState<number>(1);
   const [readerMinZoom, setReaderMinZoom] = useState<number>(0.55);
-  const [readerFitMode, setReaderFitMode] = useState<"reading" | "full">("reading");
+  const [readerFitMode, setReaderFitMode] = useState<"reading" | "full">("full");
   const [readerRecoverNonce, setReaderRecoverNonce] = useState(0);
   const [readerSafeMode, setReaderSafeMode] = useState(false);
   const [readerGesturesEnabled, setReaderGesturesEnabled] = useState(false);
@@ -793,9 +793,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerMinGestureScale = 1;
   const readerGestureActive = readerEffectiveZoom > READER_GESTURE_ACTIVE_ZOOM;
   const totalReaderPages = Math.max(1, (pageCount ?? previewPages.length) || 1);
-  const readerProgressPercent = totalReaderPages <= 1
-    ? 0
-    : ((clamp(readerPage, 1, totalReaderPages) - 1) / (totalReaderPages - 1)) * 100;
 
   const toggleReaderChrome = useCallback(() => {
     setReaderChromeVisible((prev) => !prev);
@@ -2220,11 +2217,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const fitByHeight = (root.clientHeight - 28) / unscaledPageHeight;
     const viewportLandscape = root.clientWidth > root.clientHeight;
     const fitCoverage = readerFitMode === "full"
-      ? (viewportLandscape ? 0.94 : 0.995)
-      : (viewportLandscape ? 0.88 : 0.96);
+      ? (viewportLandscape ? 1 : 1)
+      : (viewportLandscape ? 0.94 : 0.98);
     const fitted = Math.min(fitByWidth, fitByHeight, 1) * fitCoverage;
-    return clamp(Number.isFinite(fitted) ? fitted : 1, 0.55, 1);
-  }, [readerFitMode]);
+    return clamp(Number.isFinite(fitted) ? fitted : 1, immersiveReadingMode ? 0.96 : 0.55, 1);
+  }, [readerFitMode, immersiveReadingMode]);
 
   const applyFitZoom = useCallback((force = false) => {
     const nextMin = computeReaderFitZoom();
@@ -2671,10 +2668,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [immersiveMode, readerToolMode, selectedId]);
 
   useEffect(() => {
-    setReaderZoom(0.55);
-    setReaderMinZoom(0.55);
+    setReaderZoom(1);
+    setReaderMinZoom(0.96);
     setReaderGestureZoom(1);
     setReaderPan({ x: 0, y: 0 });
+    setReaderFitMode("full");
     setReaderPageInfoOpen(false);
     setReaderPageDialogInput("1");
   }, [selectedId]);
@@ -4244,9 +4242,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           <>
                             <div className={`absolute inset-x-4 bottom-4 z-40 transition-[opacity,transform] duration-300 ease-in-out ${readerChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}>
                               <div className="rounded-xl border border-white/15 bg-black/65 px-3 py-2 backdrop-blur-2xl">
-                                <div className="mb-1.5 h-1 w-full overflow-hidden rounded-full bg-white/15">
-                                  <div className="h-full rounded-full bg-white/85 transition-[width] duration-200" style={{ width: `${readerProgressPercent}%` }} />
-                                </div>
                                 <input
                                   type="range"
                                   min={1}
@@ -4258,14 +4253,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                   }}
                                   className="h-3 w-full cursor-pointer accent-white"
                                 />
-                                <div className="mt-1 flex items-center justify-between text-[11px] text-white/70">
-                                  <span>{Math.round(readerProgressPercent)}% leído</span>
+                                <div className="mt-1 flex items-center justify-end text-[11px] text-white/70">
                                   <span>página {readerPage} de {totalReaderPages}</span>
                                 </div>
                               </div>
-                            </div>
-                            <div className={`absolute bottom-24 left-4 z-40 rounded-lg border border-white/15 bg-black/55 px-2.5 py-1 text-xs text-white/80 backdrop-blur-xl transition-[opacity,transform] duration-300 ease-in-out ${readerChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}>
-                              {readerPage} / {totalReaderPages}
                             </div>
                             <div className={`absolute bottom-24 right-4 z-40 flex items-center gap-2 rounded-2xl border border-white/15 bg-black/70 p-2 backdrop-blur-2xl transition-[opacity,transform] duration-300 ease-in-out ${readerChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}>
                               <Button
