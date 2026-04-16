@@ -2262,13 +2262,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     if (!root) return;
 
     const timer = window.setInterval(() => {
-      const firstPage = root.querySelector<HTMLElement>("[data-preview-page='1']");
-      if (!firstPage) return;
-      const firstRect = firstPage.getBoundingClientRect();
-      if (firstRect.width < 20 || firstRect.height < 20) return;
+      if (initialPageAlignRef.current !== null) return;
+      if (pendingResumeFinalSnapRef.current !== null) return;
+
+      const currentPage = clamp(Math.floor(readerPageRef.current || 1), 1, Math.max(1, previewPages.length));
+      const currentNode = root.querySelector<HTMLElement>(`[data-preview-page='${currentPage}']`)
+        ?? root.querySelector<HTMLElement>("[data-preview-page='1']");
+      if (!currentNode) return;
+      const currentRect = currentNode.getBoundingClientRect();
+      if (currentRect.width < 20 || currentRect.height < 20) return;
       const rootRect = root.getBoundingClientRect();
-      const visible = Math.max(0, Math.min(firstRect.bottom, rootRect.bottom) - Math.max(firstRect.top, rootRect.top));
-      const visibleByHeight = visible / Math.max(1, firstRect.height);
+      const visible = Math.max(0, Math.min(currentRect.bottom, rootRect.bottom) - Math.max(currentRect.top, rootRect.top));
+      const visibleByHeight = visible / Math.max(1, currentRect.height);
 
       if (visibleByHeight >= 0.06) {
         readerViewportMissCountRef.current = 0;
@@ -2278,7 +2283,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       readerViewportMissCountRef.current += 1;
       if (readerViewportMissCountRef.current >= 6) {
         readerViewportMissCountRef.current = 0;
-        recoverReaderViewport("first-page-not-visible");
+        recoverReaderViewport("current-page-not-visible");
       }
     }, 240);
 
