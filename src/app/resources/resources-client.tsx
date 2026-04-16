@@ -759,7 +759,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerRecoveryBurstRef = useRef<number[]>([]);
   const readerLastScrollAtRef = useRef(0);
   const readerCommitIdleTimerRef = useRef<number | null>(null);
-  const readerCenterTapStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
     return selected?.subjectSlug === "anatomia" ||
@@ -4017,26 +4016,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         ) : null}
                         <div
                           ref={previewScrollRef}
-                          onPointerDown={(event) => {
+                          onClick={(event) => {
                             if (!immersiveReadingMode) return;
-                            if (!event.isPrimary) return;
-                            readerCenterTapStartRef.current = {
-                              x: event.clientX,
-                              y: event.clientY,
-                              at: Date.now(),
-                            };
-                          }}
-                          onPointerUp={(event) => {
-                            if (!immersiveReadingMode) return;
-                            if (!event.isPrimary) return;
                             if (readerGestureActive) return;
-                            const start = readerCenterTapStartRef.current;
-                            readerCenterTapStartRef.current = null;
-                            if (!start) return;
-                            const dx = event.clientX - start.x;
-                            const dy = event.clientY - start.y;
-                            const dt = Date.now() - start.at;
-                            if (Math.hypot(dx, dy) > 14 || dt > 300) return;
                             const interactive = (event.target as HTMLElement | null)?.closest("button,a,input,select,textarea,[role='button']");
                             if (interactive) return;
                             const root = previewScrollRef.current;
@@ -4083,7 +4065,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                               }}
                             >
                               <div
-                                className="flex min-w-full flex-row gap-0 py-0 will-change-transform"
+                                className="flex h-full min-w-full flex-row gap-0 py-0 will-change-transform"
                                 style={{
                                   transformOrigin: "center center",
                                   transform: `translate3d(${Math.round(readerPan.x)}px, ${Math.round(readerPan.y)}px, 0) scale(${readerEffectiveZoom})`,
@@ -4119,7 +4101,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                         <img
                                           src={pageSrc}
                                           alt={`Página ${idx + 1}`}
-                                          className={immersiveMode && readerToolMode === "lectura" ? "block max-h-full w-auto max-w-full" : "block w-full"}
+                                          className={immersiveMode && readerToolMode === "lectura" ? "block h-full w-full object-contain" : "block w-full"}
                                           loading="lazy"
                                           onLoad={(event) => {
                                             const img = event.currentTarget;
@@ -4163,7 +4145,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                             <div
                               className={
                                 immersiveMode && readerToolMode === "lectura"
-                                  ? "flex min-w-full flex-row gap-0 py-0 will-change-transform"
+                                  ? "flex h-full min-w-full flex-row gap-0 py-0 will-change-transform"
                                   : "space-y-3"
                               }
                               style={
@@ -4204,7 +4186,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                       <img
                                         src={pageSrc}
                                         alt={`Página ${idx + 1}`}
-                                        className={immersiveMode && readerToolMode === "lectura" ? "block max-h-full w-auto max-w-full" : "block w-full"}
+                                        className={immersiveMode && readerToolMode === "lectura" ? "block h-full w-full object-contain" : "block w-full"}
                                         loading="lazy"
                                         onLoad={(event) => {
                                           const img = event.currentTarget;
