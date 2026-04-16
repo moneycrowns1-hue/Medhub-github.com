@@ -2203,14 +2203,17 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     let topVisiblePage = isLayoutUnstable
       ? currentStablePage
       : (resolveTopVisiblePreviewPage("save", requestedPage) ?? requestedPage);
-    if (
-      !isLayoutUnstable
-      && isTouchInputDevice()
-      && topVisiblePage === currentStablePage - 1
-    ) {
+    if (!isLayoutUnstable && isTouchInputDevice()) {
       const currentStableRatio = resolveVisibleRatioForPage(currentStablePage);
-      if (currentStableRatio >= 0.12) {
+      if (topVisiblePage === currentStablePage - 1 && currentStableRatio >= 0.12) {
         topVisiblePage = currentStablePage;
+      }
+
+      if (topVisiblePage === currentStablePage && currentStablePage < maxPage) {
+        const nextRatio = resolveVisibleRatioForPage(currentStablePage + 1);
+        if (nextRatio >= 0.3 && nextRatio >= currentStableRatio + 0.06) {
+          topVisiblePage = currentStablePage + 1;
+        }
       }
     }
     const safe = clamp(topVisiblePage, 1, maxPage);
