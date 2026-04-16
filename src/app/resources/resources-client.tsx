@@ -3935,7 +3935,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                 </div>
               </div>
             </div>
-            <div className={immersiveMode ? "relative h-dvh space-y-4 p-0" : "space-y-4 p-6"}>
+            <div className={immersiveMode ? "relative h-dvh p-0" : "space-y-4 p-6"}>
               {selected && !immersiveMode ? (
                 <div className="grid gap-3 lg:grid-cols-2">
                   <div className="space-y-1">
@@ -4041,7 +4041,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
               ) : null}
 
               {selected && immersiveMode ? (
-                <div className="rounded-2xl bg-white/7 p-3">
+                <div className="h-full bg-[#050505]">
                   <input
                     ref={readerImportRef}
                     type="file"
@@ -4053,7 +4053,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       e.currentTarget.value = "";
                     }}
                   />
-                  <div className={`mt-2 overflow-hidden ${immersiveMode ? "h-[calc(100dvh-88px)]" : "rounded-xl border border-white/10"}`}>
+                  <div className={`overflow-hidden ${immersiveMode ? "h-full" : "rounded-xl border border-white/10"}`}>
                     {previewLoading ? (
                       <div className="flex h-[62svh] min-h-[420px] w-full flex-col items-center justify-center gap-2 text-xs text-foreground/75 md:h-[640px]">
                         <Loader2 className="h-5 w-5 animate-spin" />
@@ -4159,10 +4159,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                   <section
                                     key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
                                     data-preview-page={idx + 1}
-                                    className={`relative ${immersiveMode && readerToolMode === "lectura" ? "flex h-full shrink-0 basis-full snap-center items-center justify-center overflow-hidden border-x border-black/25 bg-[#0a0a0a]" : "snap-start overflow-hidden rounded-lg border bg-white"} transition ${
+                                    className={`relative ${immersiveMode && readerToolMode === "lectura" ? "flex h-full shrink-0 basis-full snap-center items-center justify-center overflow-hidden bg-[#050505]" : "snap-start overflow-hidden rounded-lg border bg-white"} transition ${
                                       readerPage === idx + 1
-                                        ? "border-white/35 ring-1 ring-white/25"
-                                        : "border-black/20"
+                                        ? (immersiveMode && readerToolMode === "lectura" ? "" : "border-white/35 ring-1 ring-white/25")
+                                        : (immersiveMode && readerToolMode === "lectura" ? "" : "border-black/20")
                                     }`}
                                   >
                                     <div className="pointer-events-none absolute right-2 top-2 z-10 rounded-md bg-black/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
@@ -4242,11 +4242,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                 <section
                                   key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
                                   data-preview-page={idx + 1}
-                                  className={`relative ${immersiveMode && readerToolMode === "lectura" ? "flex h-full shrink-0 basis-full snap-center items-center justify-center overflow-hidden border-x border-black/25 bg-[#0a0a0a]" : "snap-start overflow-hidden rounded-lg border bg-white"} transition ${
+                                  className={`relative ${immersiveMode && readerToolMode === "lectura" ? "flex h-full shrink-0 basis-full snap-center items-center justify-center overflow-hidden bg-[#050505]" : "snap-start overflow-hidden rounded-lg border bg-white"} transition ${
                                     readerPage === idx + 1
-                                      ? "border-white/35 ring-1 ring-white/25"
+                                      ? (immersiveMode && readerToolMode === "lectura" ? "" : "border-white/35 ring-1 ring-white/25")
                                       : immersiveMode && readerToolMode === "lectura"
-                                        ? "border-black/20"
+                                        ? ""
                                         : "border-white/10"
                                   }`}
                                 >
