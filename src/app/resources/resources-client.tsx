@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import QuickPinchZoom from "react-quick-pinch-zoom";
+import { gsap } from "gsap";
 
 import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Filter, Info, Loader2, MoreHorizontal, PanelRight, Save, Search, Sparkles, Star, StickyNote, Trash2, Upload, ZoomIn, ZoomOut } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
@@ -761,6 +762,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerCommitIdleTimerRef = useRef<number | null>(null);
   const readerCenterTapStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
   const readerSuppressClickToggleUntilRef = useRef(0);
+  const immersiveTopBarRef = useRef<HTMLDivElement | null>(null);
+  const immersiveProgressBarRef = useRef<HTMLDivElement | null>(null);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
     return selected?.subjectSlug === "anatomia" ||
@@ -2196,6 +2199,32 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     scrollToPreviewPage(safe, behavior);
   }, [pageCount, previewPages.length, scrollToPreviewPage]);
 
+  const handleReaderSurfaceZoneTap = useCallback((clientX: number, target: EventTarget | null) => {
+    if (!immersiveReadingMode) return false;
+    if (readerGestureActive) return false;
+    const interactive = (target as HTMLElement | null)?.closest("button,a,input,select,textarea,[role='button']");
+    if (interactive) return false;
+    const root = previewScrollRef.current;
+    if (!root) return false;
+    const rect = root.getBoundingClientRect();
+    if (!rect.width || !rect.height) return false;
+
+    const sideZoneRatio = isTouchInputDevice() ? 0.22 : 0.2;
+    const rightZoneStart = 1 - sideZoneRatio;
+    const xRatio = (clientX - rect.left) / rect.width;
+    if (xRatio <= sideZoneRatio) {
+      jumpToPage(readerPage - 1);
+      return true;
+    }
+    if (xRatio >= rightZoneStart) {
+      jumpToPage(readerPage + 1);
+      return true;
+    }
+
+    toggleReaderChrome();
+    return true;
+  }, [immersiveReadingMode, readerGestureActive, isTouchInputDevice, jumpToPage, readerPage, toggleReaderChrome]);
+
   const pauseReaderScrollSync = useCallback((ms = 320) => {
     readerScrollSyncPauseUntilRef.current = Date.now() + Math.max(120, Math.floor(ms));
   }, []);
@@ -2627,6 +2656,39 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     if (!readerChromeVisible) {
       setReaderMoreMenuOpen(false);
       setReaderPageInfoOpen(false);
+    }
+  }, [immersiveReadingMode, readerChromeVisible]);
+
+  useEffect(() => {
+    const topEl = immersiveTopBarRef.current;
+    const progressEl = immersiveProgressBarRef.current;
+
+    if (!immersiveReadingMode) {
+      if (topEl) gsap.set(topEl, { clearProps: "opacity,visibility,transform" });
+      if (progressEl) gsap.set(progressEl, { clearProps: "opacity,visibility,transform" });
+      return;
+    }
+
+    const visible = readerChromeVisible;
+    const duration = 0.26;
+
+    if (topEl) {
+      gsap.killTweensOf(topEl);
+      gsap.to(topEl, {
+        autoAlpha: visible ? 1 : 0,
+        y: visible ? 0 : -20,
+        duration,
+        ease: visible ? "power2.out" : "power2.inOut",
+      });
+    }
+    if (progressEl) {
+      gsap.killTweensOf(progressEl);
+      gsap.to(progressEl, {
+        autoAlpha: visible ? 1 : 0,
+        y: visible ? 0 : 22,
+        duration,
+        ease: visible ? "power2.out" : "power2.inOut",
+      });
     }
   }, [immersiveReadingMode, readerChromeVisible]);
 
@@ -3757,8 +3819,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           ) : null}
 
           <div className={`overflow-hidden ${immersiveMode ? "relative h-dvh bg-[#050505]" : "rounded-[24px] bg-black/35 backdrop-blur-2xl"}`}>
-            <div className={immersiveMode
-              ? `absolute left-1/2 top-3 z-30 w-[min(96vw,1100px)] -translate-x-1/2 rounded-2xl border border-white/15 bg-black/45 px-3 py-2 shadow-[0_14px_44px_-26px_rgba(0,0,0,0.95)] backdrop-blur-2xl transition-[opacity,transform] duration-300 ease-in-out ${immersiveReadingMode && !readerChromeVisible ? "pointer-events-none -translate-y-6 opacity-0" : "translate-y-0 opacity-100"}`
+            <div
+              ref={immersiveTopBarRef}
+              className={immersiveMode
+              ? `absolute left-1/2 top-3 z-30 w-[min(96vw,1100px)] -translate-x-1/2 rounded-2xl border border-white/15 bg-black/45 px-3 py-2 shadow-[0_14px_44px_-26px_rgba(0,0,0,0.95)] backdrop-blur-2xl ${immersiveReadingMode && !readerChromeVisible ? "pointer-events-none" : ""}`
               : "border-b border-white/10 px-6 py-4"}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className={`${immersiveMode ? "text-sm font-medium text-white/90" : "text-base font-bold text-white"}`}>{selected ? selected.title : "Seleccioná un PDF"}</div>
@@ -4041,34 +4105,15 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                             const dy = touch.clientY - start.y;
                             const dt = Date.now() - start.at;
                             if (Math.hypot(dx, dy) > 16 || dt > 320) return;
-                            const interactive = (event.target as HTMLElement | null)?.closest("button,a,input,select,textarea,[role='button']");
-                            if (interactive) return;
-                            const root = previewScrollRef.current;
-                            if (!root) return;
-                            const rect = root.getBoundingClientRect();
-                            if (!rect.width || !rect.height) return;
-                            const xRatio = (touch.clientX - rect.left) / rect.width;
-                            const yRatio = (touch.clientY - rect.top) / rect.height;
-                            const inCenterZone = xRatio >= 0.32 && xRatio <= 0.68 && yRatio >= 0.28 && yRatio <= 0.72;
-                            if (!inCenterZone) return;
+                            const handled = handleReaderSurfaceZoneTap(touch.clientX, event.target);
+                            if (!handled) return;
                             readerSuppressClickToggleUntilRef.current = Date.now() + 420;
-                            toggleReaderChrome();
                           }}
                           onClick={(event) => {
                             if (!immersiveReadingMode) return;
                             if (readerGestureActive) return;
                             if (Date.now() < readerSuppressClickToggleUntilRef.current) return;
-                            const interactive = (event.target as HTMLElement | null)?.closest("button,a,input,select,textarea,[role='button']");
-                            if (interactive) return;
-                            const root = previewScrollRef.current;
-                            if (!root) return;
-                            const rect = root.getBoundingClientRect();
-                            if (!rect.width || !rect.height) return;
-                            const xRatio = (event.clientX - rect.left) / rect.width;
-                            const yRatio = (event.clientY - rect.top) / rect.height;
-                            const inCenterZone = xRatio >= 0.32 && xRatio <= 0.68 && yRatio >= 0.28 && yRatio <= 0.72;
-                            if (!inCenterZone) return;
-                            toggleReaderChrome();
+                            handleReaderSurfaceZoneTap(event.clientX, event.target);
                           }}
                           onWheel={(event) => {
                             if (!(immersiveMode && readerToolMode === "lectura")) return;
@@ -4268,7 +4313,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         </div>
                         {immersiveMode && readerToolMode === "lectura" ? (
                           <>
-                            <div className={`absolute inset-x-4 bottom-4 z-40 transition-[opacity,transform] duration-300 ease-in-out ${readerChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}>
+                            <div ref={immersiveProgressBarRef} className={`absolute inset-x-4 bottom-4 z-40 ${readerChromeVisible ? "" : "pointer-events-none"}`}>
                               <div className="rounded-xl border border-white/15 bg-black/65 px-3 py-2 backdrop-blur-2xl">
                                 <input
                                   type="range"
