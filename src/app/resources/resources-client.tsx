@@ -743,6 +743,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const previewRenderRetryCountRef = useRef<Map<number, number>>(new Map());
   const previewRenderRetryTimerRef = useRef<Map<number, number>>(new Map());
   const previewPagesRef = useRef<Array<string | null>>([]);
+  const renderingPreviewPagesRef = useRef<Set<number>>(new Set());
   const readerPageRef = useRef(1);
   const handledResumeQueryRef = useRef<string | null>(null);
   const pendingResumeFinalSnapRef = useRef<number | null>(null);
@@ -1052,6 +1053,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   useEffect(() => {
     previewPagesRef.current = previewPages;
   }, [previewPages]);
+
+  useEffect(() => {
+    renderingPreviewPagesRef.current = renderingPreviewPages;
+  }, [renderingPreviewPages]);
 
   useEffect(() => {
     readerPageRef.current = readerPage;
@@ -2342,6 +2347,16 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       if (pendingResumeFinalSnapRef.current !== null) return;
       if (Date.now() < readerScrollSyncPauseUntilRef.current) return;
 
+      const currentPage = clamp(Math.floor(readerPageRef.current || 1), 1, Math.max(1, previewPages.length));
+      const renderingNow = renderingPreviewPagesRef.current;
+      if (
+        renderingNow.has(currentPage)
+        || renderingNow.has(currentPage - 1)
+        || renderingNow.has(currentPage + 1)
+      ) {
+        return;
+      }
+
       const rootRect = root.getBoundingClientRect();
       let deltaAboveViewport = 0;
 
@@ -2357,7 +2372,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         heightByPage.set(page, nextHeight);
 
         const rect = target.getBoundingClientRect();
-        if (rect.top <= rootRect.top + 12) {
+        if (rect.bottom <= rootRect.top + 12) {
           deltaAboveViewport += delta;
         }
       }
