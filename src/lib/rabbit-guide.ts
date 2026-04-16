@@ -81,6 +81,7 @@ export type RabbitGuideState = {
   lastPdfResourceId: string | null;
   lastPdfTitle: string | null;
   lastPdfPage: number | null;
+  lastPdfPageByResourceId: Record<string, number>;
   lastPdfSubjectSlug: SubjectSlug | null;
   lastSrsDeckId: string | null;
   lastSrsDeckName: string | null;
@@ -99,6 +100,7 @@ export const DEFAULT_RABBIT_GUIDE_STATE: RabbitGuideState = {
   lastPdfResourceId: null,
   lastPdfTitle: null,
   lastPdfPage: null,
+  lastPdfPageByResourceId: {},
   lastPdfSubjectSlug: null,
   lastSrsDeckId: null,
   lastSrsDeckName: null,
@@ -176,6 +178,18 @@ function isRoutinePhase(value: unknown): value is RabbitRoutinePhase {
     value === "closure_ready" ||
     value === "routine_closed"
   );
+}
+
+function sanitizePdfPageByResourceId(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object") return {};
+  const source = value as Record<string, unknown>;
+  const out: Record<string, number> = {};
+  for (const [resourceId, page] of Object.entries(source)) {
+    if (!resourceId) continue;
+    if (typeof page !== "number" || !Number.isFinite(page)) continue;
+    out[resourceId] = Math.max(1, Math.floor(page));
+  }
+  return out;
 }
 
 function isGuideEventType(value: unknown): value is RabbitGuideEventType {
@@ -260,6 +274,7 @@ function sanitizeGuideState(value: unknown): RabbitGuideState {
     lastPdfResourceId: typeof source.lastPdfResourceId === "string" ? source.lastPdfResourceId : null,
     lastPdfTitle: typeof source.lastPdfTitle === "string" ? source.lastPdfTitle : null,
     lastPdfPage: typeof source.lastPdfPage === "number" ? Math.max(1, Math.floor(source.lastPdfPage)) : null,
+    lastPdfPageByResourceId: sanitizePdfPageByResourceId(source.lastPdfPageByResourceId),
     lastPdfSubjectSlug: isSubjectSlug(source.lastPdfSubjectSlug) ? source.lastPdfSubjectSlug : null,
     lastSrsDeckId: typeof source.lastSrsDeckId === "string" ? source.lastSrsDeckId : null,
     lastSrsDeckName: typeof source.lastSrsDeckName === "string" ? source.lastSrsDeckName : null,
@@ -281,14 +296,18 @@ export function loadRabbitGuideState(): RabbitGuideState {
 
 export function saveRabbitGuideState(next: RabbitGuideState) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(
-    RABBIT_GUIDE_STATE_KEY,
-    JSON.stringify({
-      ...sanitizeGuideState(next),
-      updatedAtMs: Date.now(),
-    }),
-  );
-  window.dispatchEvent(new Event(RABBIT_GUIDE_UPDATED_EVENT));
+  try {
+    window.localStorage.setItem(
+      RABBIT_GUIDE_STATE_KEY,
+      JSON.stringify({
+        ...sanitizeGuideState(next),
+        updatedAtMs: Date.now(),
+      }),
+    );
+    window.dispatchEvent(new Event(RABBIT_GUIDE_UPDATED_EVENT));
+  } catch {
+    return;
+  }
 }
 
 export function patchRabbitGuideState(patch: Partial<RabbitGuideState>) {
@@ -403,10 +422,16 @@ export function markPdfProgress(input: {
   page: number;
   subjectSlug?: SubjectSlug | null;
 }) {
+  const normalizedPage = Math.max(1, Math.floor(input.page));
+  const current = loadRabbitGuideState();
   patchRabbitGuideState({
     lastPdfResourceId: input.resourceId,
     lastPdfTitle: input.title,
-    lastPdfPage: Math.max(1, Math.floor(input.page)),
+    lastPdfPage: normalizedPage,
+    lastPdfPageByResourceId: {
+      ...current.lastPdfPageByResourceId,
+      [input.resourceId]: normalizedPage,
+    },
     lastPdfSubjectSlug: input.subjectSlug ?? null,
   });
   transitionRabbitGuideState({
@@ -416,6 +441,10 @@ export function markPdfProgress(input: {
 
 export function getPdfResumeForResource(resourceId: string): number | null {
   const state = loadRabbitGuideState();
+  const perResourcePage = state.lastPdfPageByResourceId[resourceId];
+  if (typeof perResourcePage === "number" && Number.isFinite(perResourcePage)) {
+    return Math.max(1, Math.floor(perResourcePage));
+  }
   if (state.lastPdfResourceId !== resourceId) return null;
   return state.lastPdfPage;
 }

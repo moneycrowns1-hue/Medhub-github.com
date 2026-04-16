@@ -727,6 +727,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [shortcutCaptureAction, setShortcutCaptureAction] = useState<ReaderShortcutAction | null>(null);
   const [readerShortcuts, setReaderShortcuts] = useState<ReaderShortcutConfig>(DEFAULT_READER_SHORTCUTS);
   const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
+  const [pendingLeavePage, setPendingLeavePage] = useState<number | null>(null);
   const [notices, setNotices] = useState<InAppNotice[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const libraryBackupImportRef = useRef<HTMLInputElement | null>(null);
@@ -740,6 +741,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const previewRenderRetryTimerRef = useRef<Map<number, number>>(new Map());
   const previewPagesRef = useRef<Array<string | null>>([]);
   const readerPageRef = useRef(1);
+  const handledResumeQueryRef = useRef<string | null>(null);
+  const pendingResumeFinalSnapRef = useRef<number | null>(null);
   const readerEffectiveZoomRef = useRef(1);
   const readerFitZoomAppliedRef = useRef(false);
   const readerScrollSyncPauseUntilRef = useRef(0);
@@ -1783,6 +1786,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const resume = getPdfResumeForResource(selected.id);
     const nextPage = resume ?? selected.pageStart ?? 1;
     initialPageAlignRef.current = nextPage;
+    pendingResumeFinalSnapRef.current = nextPage;
     setReaderPage(nextPage);
     setCommittedReaderPage(nextPage);
 
@@ -1846,7 +1850,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const target = items.find((x) => x.id === resumeQueryPdfId);
     if (!target) return;
     const page = Number.isFinite(resumeQueryPageRaw) ? Math.max(1, Math.floor(resumeQueryPageRaw)) : 1;
+    const resumeKey = `${target.id}:${page}`;
+    if (handledResumeQueryRef.current === resumeKey) return;
+    handledResumeQueryRef.current = resumeKey;
     initialPageAlignRef.current = page;
+    pendingResumeFinalSnapRef.current = page;
     setSelectedId(target.id);
     setReaderPage(page);
     setCommittedReaderPage(page);
@@ -1858,6 +1866,37 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const node = root.querySelector<HTMLElement>(`[data-preview-page="${page}"]`);
     if (!node) return;
     root.scrollTo({ top: node.offsetTop - 8, behavior });
+  }, []);
+
+  const resolveTopVisiblePreviewPage = useCallback(() => {
+    const root = previewScrollRef.current;
+    if (!root) return null;
+    const nodes = Array.from(root.querySelectorAll<HTMLElement>("[data-preview-page]"));
+    if (!nodes.length) return null;
+
+    const rootRect = root.getBoundingClientRect();
+    let bestPage: number | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    let bestVisible = -1;
+
+    for (const node of nodes) {
+      const page = Number(node.dataset.previewPage);
+      if (!Number.isFinite(page)) continue;
+      const rect = node.getBoundingClientRect();
+      const visible = Math.max(0, Math.min(rect.bottom, rootRect.bottom) - Math.max(rect.top, rootRect.top));
+      if (visible <= 0) continue;
+      const distanceToTop = Math.abs((rect.top - rootRect.top) - 8);
+      if (
+        distanceToTop < bestDistance - 0.5
+        || (Math.abs(distanceToTop - bestDistance) <= 0.5 && visible > bestVisible)
+      ) {
+        bestPage = page;
+        bestDistance = distanceToTop;
+        bestVisible = visible;
+      }
+    }
+
+    return bestPage;
   }, []);
 
   const jumpToPage = useCallback((next: number, behavior: ScrollBehavior = "smooth") => {
@@ -1967,7 +2006,13 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
   const commitReaderProgress = useCallback((page: number, notifyMessage: string) => {
     if (!selected) return;
-    const safe = Math.max(1, Math.floor(page || 1));
+    const requestedPage = Math.max(1, Math.floor(page || 1));
+    const inferredMaxPage = pageCount ?? previewPages.length;
+    const maxPage = Number.isFinite(inferredMaxPage) && Number(inferredMaxPage) > 0
+      ? Math.max(1, Math.floor(Number(inferredMaxPage)))
+      : requestedPage;
+    const topVisiblePage = resolveTopVisiblePreviewPage();
+    const safe = clamp(topVisiblePage ?? requestedPage, 1, maxPage);
     const resumeHref = `/biblioteca?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${safe}`;
     markPdfProgress({
       resourceId: selected.id,
@@ -1975,6 +2020,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       page: safe,
       subjectSlug: selectedSubjectSlug,
     });
+    setReaderPage(safe);
+    setReaderPageDialogInput(String(safe));
     setCommittedReaderPage(safe);
     speakRabbit({
       title: "Lectura guardada",
@@ -1983,7 +2030,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       actions: [{ href: resumeHref, label: "Ir a mi página", primary: true }],
       durationMs: 4200,
     });
-  }, [selected, selectedSubjectSlug]);
+  }, [selected, pageCount, previewPages.length, resolveTopVisiblePreviewPage, selectedSubjectSlug]);
 
   const hasPendingReaderChanges = Boolean(selected && readerPage !== committedReaderPage);
 
@@ -2193,12 +2240,90 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     if (!previewPages.length) return;
     if (initialPageAlignRef.current === null) return;
     const pageToAlign = initialPageAlignRef.current;
-    const id = window.requestAnimationFrame(() => {
+    let cancelled = false;
+    let attempts = 0;
+    let timer = 0;
+
+    const align = () => {
+      if (cancelled) return;
+      pauseReaderScrollSync(720);
       scrollToPreviewPage(pageToAlign, "auto");
-      initialPageAlignRef.current = null;
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [previewPages, selectedId, scrollToPreviewPage]);
+
+      const root = previewScrollRef.current;
+      const node = root?.querySelector<HTMLElement>(`[data-preview-page="${pageToAlign}"]`);
+      const rootRect = root?.getBoundingClientRect();
+      const nodeRect = node?.getBoundingClientRect();
+      const nearTop = Boolean(rootRect && nodeRect && Math.abs((nodeRect.top - rootRect.top) - 8) <= 18);
+      const hasImageReady = Boolean(previewPages[pageToAlign - 1]);
+
+      if ((nearTop && hasImageReady) || attempts >= 4) {
+        initialPageAlignRef.current = null;
+        return;
+      }
+
+      attempts += 1;
+      timer = window.setTimeout(() => {
+        window.requestAnimationFrame(align);
+      }, 160);
+    };
+
+    const id = window.requestAnimationFrame(align);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(id);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [pauseReaderScrollSync, previewPages, selectedId, scrollToPreviewPage]);
+
+  useEffect(() => {
+    if (!previewPages.length) return;
+    if (initialPageAlignRef.current !== null) return;
+    const pageToSnap = pendingResumeFinalSnapRef.current;
+    if (pageToSnap === null) return;
+
+    let cancelled = false;
+    let attempts = 0;
+    let timer = 0;
+
+    const snap = () => {
+      if (cancelled) return;
+      const hasImageReady = Boolean(previewPages[pageToSnap - 1]);
+
+      if (!hasImageReady && attempts < 6) {
+        attempts += 1;
+        timer = window.setTimeout(() => {
+          window.requestAnimationFrame(snap);
+        }, 140);
+        return;
+      }
+
+      pauseReaderScrollSync(520);
+      scrollToPreviewPage(pageToSnap, "auto");
+
+      const root = previewScrollRef.current;
+      const node = root?.querySelector<HTMLElement>(`[data-preview-page="${pageToSnap}"]`);
+      const rootRect = root?.getBoundingClientRect();
+      const nodeRect = node?.getBoundingClientRect();
+      const nearTop = Boolean(rootRect && nodeRect && Math.abs((nodeRect.top - rootRect.top) - 8) <= 16);
+
+      if (nearTop || attempts >= 6) {
+        pendingResumeFinalSnapRef.current = null;
+        return;
+      }
+
+      attempts += 1;
+      timer = window.setTimeout(() => {
+        window.requestAnimationFrame(snap);
+      }, 140);
+    };
+
+    const id = window.requestAnimationFrame(snap);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(id);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [pauseReaderScrollSync, previewPages, selectedId, scrollToPreviewPage]);
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -2223,10 +2348,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       if (targetRoute === currentRoute) return;
       event.preventDefault();
       event.stopPropagation();
+      const visiblePage = resolveTopVisiblePreviewPage() ?? readerPage;
       setPendingLeaveHref(targetRoute);
+      setPendingLeavePage(visiblePage);
       speakRabbit({
         title: "¿Guardamos tu avance?",
-        message: `Vas por la página ${readerPage}. ¿Quieres guardar esa página antes de salir?`,
+        message: `Vas por la página ${visiblePage}. ¿Quieres guardar esa página antes de salir?`,
         status: "Elige Sí para guardar o No para mantener la página anterior.",
         durationMs: 6000,
       });
@@ -2234,14 +2361,16 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
     document.addEventListener("click", onDocumentClick, true);
     return () => document.removeEventListener("click", onDocumentClick, true);
-  }, [hasPendingReaderChanges, normalizeToWindowRoute, pendingLeaveHref, readerPage]);
+  }, [hasPendingReaderChanges, normalizeToWindowRoute, pendingLeaveHref, readerPage, resolveTopVisiblePreviewPage]);
 
   const resolvePendingLeave = (saveCurrentPage: boolean) => {
     const targetHref = pendingLeaveHref;
     setPendingLeaveHref(null);
+    const pageToKeep = pendingLeavePage ?? readerPage;
+    setPendingLeavePage(null);
 
     if (saveCurrentPage) {
-      commitReaderProgress(readerPage, "Confirmado antes de salir.");
+      commitReaderProgress(pageToKeep, "Confirmado antes de salir.");
     } else {
       jumpToPage(committedReaderPage, "auto");
       speakRabbit({
@@ -3399,7 +3528,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           }}
                           className={
                             immersiveMode && readerToolMode === "lectura"
-                              ? "h-full touch-pan-y overflow-auto overscroll-y-contain bg-[#050505] px-3 pb-8 pt-3"
+                              ? "h-full touch-pan-y snap-y snap-proximity overflow-auto overscroll-y-contain bg-[#050505] px-3 pb-8 pt-3"
                               : "h-[58svh] min-h-[360px] overflow-y-auto bg-black/35 p-2 md:h-[600px]"
                           }
                         >
@@ -3432,7 +3561,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                   <section
                                     key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
                                     data-preview-page={idx + 1}
-                                    className={`relative overflow-hidden rounded-lg border bg-white transition ${
+                                    className={`relative snap-start overflow-hidden rounded-lg border bg-white transition ${
                                       readerPage === idx + 1
                                         ? "border-white/35 ring-1 ring-white/25"
                                         : "border-black/20"
@@ -3471,19 +3600,21 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                         ) : null}
                                       </>
                                     ) : (
-                                      <div className="flex min-h-[44svh] items-center justify-center text-sm text-slate-600">
-                                        <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
-                                          <span className="inline-block">🐰</span>
-                                          {renderingPreviewPages.has(idx + 1)
-                                            ? "Renderizando en alta definición..."
-                                            : failedPreviewPages.has(idx + 1)
-                                              ? "Reintentando render..."
-                                              : "Página en espera"}
-                                          {!renderingPreviewPages.has(idx + 1) && previewPageFailures[idx + 1] ? (
-                                            <span className="max-w-[260px] truncate text-[10px] text-black/55">
-                                              {previewPageFailures[idx + 1]}
-                                            </span>
-                                          ) : null}
+                                      <div className="relative w-full bg-slate-100/70" style={{ aspectRatio: "1 / 1.4142" }}>
+                                        <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-600">
+                                          <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
+                                            <span className="inline-block">🐰</span>
+                                            {renderingPreviewPages.has(idx + 1)
+                                              ? "Renderizando en alta definición..."
+                                              : failedPreviewPages.has(idx + 1)
+                                                ? "Reintentando render..."
+                                                : "Página en espera"}
+                                            {!renderingPreviewPages.has(idx + 1) && previewPageFailures[idx + 1] ? (
+                                              <span className="max-w-[260px] truncate text-[10px] text-black/55">
+                                                {previewPageFailures[idx + 1]}
+                                              </span>
+                                            ) : null}
+                                          </div>
                                         </div>
                                       </div>
                                     )}
@@ -3510,7 +3641,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                 <section
                                   key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
                                   data-preview-page={idx + 1}
-                                  className={`relative overflow-hidden rounded-lg border bg-white transition ${
+                                  className={`relative snap-start overflow-hidden rounded-lg border bg-white transition ${
                                     readerPage === idx + 1
                                       ? "border-white/35 ring-1 ring-white/25"
                                       : immersiveMode && readerToolMode === "lectura"
@@ -3551,19 +3682,21 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                       ) : null}
                                     </>
                                   ) : (
-                                    <div className="flex min-h-[44svh] items-center justify-center text-sm text-slate-600">
-                                      <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
-                                        <span className="inline-block">🐰</span>
-                                        {renderingPreviewPages.has(idx + 1)
-                                          ? "Renderizando en alta definición..."
-                                          : failedPreviewPages.has(idx + 1)
-                                            ? "Reintentando render..."
-                                            : "Página en espera"}
-                                        {!renderingPreviewPages.has(idx + 1) && previewPageFailures[idx + 1] ? (
-                                          <span className="max-w-[260px] truncate text-[10px] text-black/55">
-                                            {previewPageFailures[idx + 1]}
-                                          </span>
-                                        ) : null}
+                                    <div className="relative w-full bg-slate-100/70" style={{ aspectRatio: "1 / 1.4142" }}>
+                                      <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-600">
+                                        <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
+                                          <span className="inline-block">🐰</span>
+                                          {renderingPreviewPages.has(idx + 1)
+                                            ? "Renderizando en alta definición..."
+                                            : failedPreviewPages.has(idx + 1)
+                                              ? "Reintentando render..."
+                                              : "Página en espera"}
+                                          {!renderingPreviewPages.has(idx + 1) && previewPageFailures[idx + 1] ? (
+                                            <span className="max-w-[260px] truncate text-[10px] text-black/55">
+                                              {previewPageFailures[idx + 1]}
+                                            </span>
+                                          ) : null}
+                                        </div>
                                       </div>
                                     </div>
                                   )}
@@ -4507,7 +4640,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           <div className="w-full max-w-md rounded-2xl border border-white/20 bg-slate-950/95 p-4 text-white shadow-2xl">
             <div className="text-sm font-semibold">¿Guardar página antes de salir?</div>
             <p className="mt-1 text-xs text-white/75">
-              Te quedaste en la página {readerPage}. Si eliges &quot;Sí&quot;, se guarda esa página para retomar con el conejo.
+              Te quedaste en la página {pendingLeavePage ?? readerPage}. Si eliges &quot;Sí&quot;, se guarda esa página para retomar con el conejo.
               Si eliges &quot;No&quot;, mantenemos la página anterior ({committedReaderPage}).
             </p>
             <div className="mt-3 flex justify-end gap-2">
