@@ -785,7 +785,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     if (typeof window === "undefined") return false;
     if (window.matchMedia?.("(pointer: coarse)").matches) return true;
     return window.navigator.maxTouchPoints > 0 || "ontouchstart" in window;
-  }, []);
+  }, [immersiveMode, readerToolMode]);
   const readerEffectiveZoom = readerZoom * readerGestureZoom;
   const readerMinGestureScale = 1;
   const readerGestureActive = readerEffectiveZoom > READER_GESTURE_ACTIVE_ZOOM;
@@ -1978,8 +1978,19 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     if (!root) return;
     const node = root.querySelector<HTMLElement>(`[data-preview-page="${page}"]`);
     if (!node) return;
+    const horizontalReader = immersiveMode && readerToolMode === "lectura";
+    if (horizontalReader) {
+      const rootRect = root.getBoundingClientRect();
+      const nodeRect = node.getBoundingClientRect();
+      const targetLeft = root.scrollLeft
+        + (nodeRect.left - rootRect.left)
+        - ((root.clientWidth - nodeRect.width) / 2);
+      const maxScrollLeft = Math.max(0, root.scrollWidth - root.clientWidth);
+      root.scrollTo({ left: clamp(targetLeft, 0, maxScrollLeft), behavior });
+      return;
+    }
     root.scrollTo({ top: node.offsetTop - 8, behavior });
-  }, []);
+  }, [immersiveMode, readerToolMode]);
 
   const resolveTopVisiblePreviewPage = useCallback((mode: "save" | "sync" = "save", currentPageHint?: number) => {
     const root = previewScrollRef.current;
@@ -1988,11 +1999,89 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     if (!nodes.length) return null;
 
     const rootRect = root.getBoundingClientRect();
+    const horizontalReader = immersiveMode && readerToolMode === "lectura";
     const currentPage = clamp(
       Math.floor(currentPageHint || readerPageRef.current || 1),
       1,
       Math.max(1, nodes.length),
     );
+
+    if (horizontalReader) {
+      const rootCenterX = rootRect.left + rootRect.width / 2;
+      let centeredPage: number | null = null;
+      let centeredDistance = Number.POSITIVE_INFINITY;
+      let centeredRatio = 0;
+
+      let dominantPage: number | null = null;
+      let dominantRatio = 0;
+      let dominantVisiblePx = 0;
+
+      let currentRatio = 0;
+
+      for (const node of nodes) {
+        const page = Number(node.dataset.previewPage);
+        if (!Number.isFinite(page)) continue;
+        const rect = node.getBoundingClientRect();
+        const visible = Math.max(0, Math.min(rect.right, rootRect.right) - Math.max(rect.left, rootRect.left));
+        if (visible <= 0) continue;
+        const ratio = rect.width > 0 ? visible / rect.width : 0;
+        if (page === currentPage) currentRatio = ratio;
+
+        const centerDistance = Math.abs((rect.left + rect.width / 2) - rootCenterX);
+        if (
+          centerDistance < centeredDistance - 0.5
+          || (Math.abs(centerDistance - centeredDistance) <= 0.5 && ratio > centeredRatio)
+        ) {
+          centeredPage = page;
+          centeredDistance = centerDistance;
+          centeredRatio = ratio;
+        }
+
+        if (
+          ratio > dominantRatio + 0.01
+          || (Math.abs(ratio - dominantRatio) <= 0.01 && visible > dominantVisiblePx)
+        ) {
+          dominantPage = page;
+          dominantRatio = ratio;
+          dominantVisiblePx = visible;
+        }
+      }
+
+      if (!centeredPage && !dominantPage) return null;
+
+      if (mode === "save") {
+        if (dominantPage !== null && dominantRatio >= 0.52) return dominantPage;
+        if (centeredPage !== null && centeredRatio >= 0.35) return centeredPage;
+        if (
+          dominantPage !== null
+          && centeredPage !== null
+          && dominantPage !== centeredPage
+          && dominantRatio >= centeredRatio + 0.08
+        ) {
+          return dominantPage;
+        }
+        return centeredPage ?? dominantPage;
+      }
+
+      if (
+        dominantPage !== null
+        && dominantPage !== currentPage
+        && (dominantRatio >= 0.56 || dominantRatio >= currentRatio + 0.12)
+      ) {
+        return dominantPage;
+      }
+
+      if (
+        centeredPage !== null
+        && centeredPage !== currentPage
+        && centeredDistance <= 44
+        && centeredRatio >= 0.24
+      ) {
+        return centeredPage;
+      }
+
+      return currentPage;
+    }
 
     let topAlignedPage: number | null = null;
     let topAlignedDistance = Number.POSITIVE_INFINITY;
@@ -2181,10 +2270,16 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     if (!node) return 0;
     const rootRect = root.getBoundingClientRect();
     const rect = node.getBoundingClientRect();
+    const horizontalReader = immersiveMode && readerToolMode === "lectura";
+    if (horizontalReader) {
+      const visible = Math.max(0, Math.min(rect.right, rootRect.right) - Math.max(rect.left, rootRect.left));
+      if (rect.width <= 0) return 0;
+      return clamp(visible / rect.width, 0, 1);
+    }
     const visible = Math.max(0, Math.min(rect.bottom, rootRect.bottom) - Math.max(rect.top, rootRect.top));
     if (rect.height <= 0) return 0;
     return clamp(visible / rect.height, 0, 1);
-  }, []);
+  }, [immersiveMode, readerToolMode]);
 
   const handleGestureUpdate = useCallback(({ x, y, scale }: { x: number; y: number; scale: number }) => {
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(scale)) return;
@@ -2384,10 +2479,15 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       const currentRect = currentNode.getBoundingClientRect();
       if (currentRect.width < 20 || currentRect.height < 20) return;
       const rootRect = root.getBoundingClientRect();
-      const visible = Math.max(0, Math.min(currentRect.bottom, rootRect.bottom) - Math.max(currentRect.top, rootRect.top));
-      const visibleByHeight = visible / Math.max(1, currentRect.height);
+      const horizontalReader = immersiveMode && readerToolMode === "lectura";
+      const visible = horizontalReader
+        ? Math.max(0, Math.min(currentRect.right, rootRect.right) - Math.max(currentRect.left, rootRect.left))
+        : Math.max(0, Math.min(currentRect.bottom, rootRect.bottom) - Math.max(currentRect.top, rootRect.top));
+      const visibleRatio = horizontalReader
+        ? visible / Math.max(1, currentRect.width)
+        : visible / Math.max(1, currentRect.height);
 
-      if (visibleByHeight >= 0.06) {
+      if (visibleRatio >= 0.06) {
         readerViewportMissCountRef.current = 0;
         return;
       }
@@ -2417,6 +2517,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   useEffect(() => {
     if (!(immersiveMode && readerToolMode === "lectura")) return;
     if (!previewPages.length) return;
+    if (immersiveMode && readerToolMode === "lectura") return;
     const root = previewScrollRef.current;
     if (!root) return;
     if (typeof ResizeObserver === "undefined") return;
@@ -2586,10 +2687,17 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       const node = root?.querySelector<HTMLElement>(`[data-preview-page="${pageToAlign}"]`);
       const rootRect = root?.getBoundingClientRect();
       const nodeRect = node?.getBoundingClientRect();
-      const nearTop = Boolean(rootRect && nodeRect && Math.abs((nodeRect.top - rootRect.top) - 8) <= 18);
+      const horizontalReader = immersiveMode && readerToolMode === "lectura";
+      const nearTarget = Boolean(
+        rootRect
+        && nodeRect
+        && (horizontalReader
+          ? Math.abs((nodeRect.left - rootRect.left) - ((rootRect.width - nodeRect.width) / 2)) <= 20
+          : Math.abs((nodeRect.top - rootRect.top) - 8) <= 18),
+      );
       const hasImageReady = Boolean(previewPages[pageToAlign - 1]);
 
-      if ((nearTop && hasImageReady) || attempts >= 4) {
+      if ((nearTarget && hasImageReady) || attempts >= 4) {
         initialPageAlignRef.current = null;
         return;
       }
@@ -2606,7 +2714,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       window.cancelAnimationFrame(id);
       if (timer) window.clearTimeout(timer);
     };
-  }, [pauseReaderScrollSync, previewPages, selectedId, scrollToPreviewPage]);
+  }, [pauseReaderScrollSync, previewPages, selectedId, scrollToPreviewPage, immersiveMode, readerToolMode]);
 
   useEffect(() => {
     if (!previewPages.length) return;
@@ -2637,9 +2745,16 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       const node = root?.querySelector<HTMLElement>(`[data-preview-page="${pageToSnap}"]`);
       const rootRect = root?.getBoundingClientRect();
       const nodeRect = node?.getBoundingClientRect();
-      const nearTop = Boolean(rootRect && nodeRect && Math.abs((nodeRect.top - rootRect.top) - 8) <= 16);
+      const horizontalReader = immersiveMode && readerToolMode === "lectura";
+      const nearTarget = Boolean(
+        rootRect
+        && nodeRect
+        && (horizontalReader
+          ? Math.abs((nodeRect.left - rootRect.left) - ((rootRect.width - nodeRect.width) / 2)) <= 18
+          : Math.abs((nodeRect.top - rootRect.top) - 8) <= 16),
+      );
 
-      if (nearTop || attempts >= 6) {
+      if (nearTarget || attempts >= 6) {
         pendingResumeFinalSnapRef.current = null;
         return;
       }
@@ -3862,7 +3977,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           style={{ overflowAnchor: "auto" }}
                           className={
                             immersiveMode && readerToolMode === "lectura"
-                              ? "h-full touch-pan-y snap-y snap-proximity overflow-auto overscroll-y-contain bg-[#050505] px-3 pb-8 pt-3"
+                              ? "h-full touch-pan-x snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none bg-[#050505] p-0"
                               : "h-[58svh] min-h-[360px] overflow-y-auto bg-black/35 p-2 md:h-[600px]"
                           }
                         >
@@ -3880,12 +3995,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                               isTouch={isTouchInputDevice}
                               containerProps={{
                                 style: {
-                                  touchAction: readerGestureActive ? "none" : "pan-y",
+                                  touchAction: readerGestureActive ? "none" : "pan-x",
                                 },
                               }}
                             >
                               <div
-                                className="mx-auto flex w-[min(92vw,980px)] flex-col gap-4 py-6 will-change-transform"
+                                className="flex min-w-full flex-row gap-0 py-0 will-change-transform"
                                 style={{
                                   transformOrigin: "center center",
                                   transform: `translate3d(${Math.round(readerPan.x)}px, ${Math.round(readerPan.y)}px, 0) scale(${readerEffectiveZoom})`,
@@ -3895,7 +4010,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                   <section
                                     key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
                                     data-preview-page={idx + 1}
-                                    className={`relative snap-start overflow-hidden rounded-lg border bg-white transition ${
+                                    className={`relative ${immersiveMode && readerToolMode === "lectura" ? "flex h-full shrink-0 basis-full snap-center items-center justify-center overflow-hidden border-x border-black/25 bg-[#0a0a0a]" : "snap-start overflow-hidden rounded-lg border bg-white"} transition ${
                                       readerPage === idx + 1
                                         ? "border-white/35 ring-1 ring-white/25"
                                         : "border-black/20"
@@ -3921,7 +4036,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                         <img
                                           src={pageSrc}
                                           alt={`Página ${idx + 1}`}
-                                          className="block w-full"
+                                          className={immersiveMode && readerToolMode === "lectura" ? "block max-h-full w-auto max-w-full" : "block w-full"}
                                           loading="lazy"
                                           onLoad={(event) => {
                                             const img = event.currentTarget;
@@ -3939,7 +4054,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                         ) : null}
                                       </>
                                     ) : (
-                                      <div className="relative w-full bg-slate-100/70" style={{ aspectRatio: String(resolvePreviewPageAspectRatio(idx + 1)) }}>
+                                      <div className={immersiveMode && readerToolMode === "lectura" ? "relative flex h-full w-full items-center justify-center bg-slate-100/70" : "relative w-full bg-slate-100/70"} style={immersiveMode && readerToolMode === "lectura" ? undefined : { aspectRatio: String(resolvePreviewPageAspectRatio(idx + 1)) }}>
                                         <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-600">
                                           <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
                                             <span className="inline-block">🐰</span>
@@ -3965,14 +4080,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                             <div
                               className={
                                 immersiveMode && readerToolMode === "lectura"
-                                  ? "mx-auto flex w-[min(92vw,980px)] flex-col gap-4 py-6 will-change-transform"
+                                  ? "flex min-w-full flex-row gap-0 py-0 will-change-transform"
                                   : "space-y-3"
                               }
                               style={
                                 immersiveMode && readerToolMode === "lectura"
-                                  ? {
-                                      width: stableReaderWidth,
-                                    }
+                                  ? undefined
                                   : undefined
                               }
                             >
@@ -3980,7 +4093,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                 <section
                                   key={`${selected?.id ?? "pdf"}-page-${idx + 1}`}
                                   data-preview-page={idx + 1}
-                                  className={`relative snap-start overflow-hidden rounded-lg border bg-white transition ${
+                                  className={`relative ${immersiveMode && readerToolMode === "lectura" ? "flex h-full shrink-0 basis-full snap-center items-center justify-center overflow-hidden border-x border-black/25 bg-[#0a0a0a]" : "snap-start overflow-hidden rounded-lg border bg-white"} transition ${
                                     readerPage === idx + 1
                                       ? "border-white/35 ring-1 ring-white/25"
                                       : immersiveMode && readerToolMode === "lectura"
@@ -4008,7 +4121,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                       <img
                                         src={pageSrc}
                                         alt={`Página ${idx + 1}`}
-                                        className="block w-full"
+                                        className={immersiveMode && readerToolMode === "lectura" ? "block max-h-full w-auto max-w-full" : "block w-full"}
                                         loading="lazy"
                                         onLoad={(event) => {
                                           const img = event.currentTarget;
@@ -4026,7 +4139,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                       ) : null}
                                     </>
                                   ) : (
-                                    <div className="relative w-full bg-slate-100/70" style={{ aspectRatio: String(resolvePreviewPageAspectRatio(idx + 1)) }}>
+                                    <div className={immersiveMode && readerToolMode === "lectura" ? "relative flex h-full w-full items-center justify-center bg-slate-100/70" : "relative w-full bg-slate-100/70"} style={immersiveMode && readerToolMode === "lectura" ? undefined : { aspectRatio: String(resolvePreviewPageAspectRatio(idx + 1)) }}>
                                       <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-600">
                                         <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs text-black/75">
                                           <span className="inline-block">🐰</span>
