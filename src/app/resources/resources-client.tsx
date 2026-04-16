@@ -745,6 +745,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const previewPagesRef = useRef<Array<string | null>>([]);
   const renderingPreviewPagesRef = useRef<Set<number>>(new Set());
   const readerPageRef = useRef(1);
+  const readerStablePageRef = useRef(1);
+  const readerStableSettleTimerRef = useRef<number | null>(null);
   const handledResumeQueryRef = useRef<string | null>(null);
   const pendingResumeFinalSnapRef = useRef<number | null>(null);
   const readerEffectiveZoomRef = useRef(1);
@@ -754,6 +756,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerViewportMissCountRef = useRef(0);
   const readerLastRecoverAtRef = useRef(0);
   const readerRecoveryBurstRef = useRef<number[]>([]);
+  const readerLastScrollAtRef = useRef(0);
+  const readerCommitIdleTimerRef = useRef<number | null>(null);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
     return selected?.subjectSlug === "anatomia" ||
@@ -1060,7 +1064,25 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
   useEffect(() => {
     readerPageRef.current = readerPage;
-  }, [readerPage]);
+    const next = Math.max(1, Math.floor(readerPage || 1));
+
+    if (readerStableSettleTimerRef.current) {
+      window.clearTimeout(readerStableSettleTimerRef.current);
+      readerStableSettleTimerRef.current = null;
+    }
+
+    if (!isTouchInputDevice()) {
+      readerStablePageRef.current = next;
+      return;
+    }
+
+    readerStableSettleTimerRef.current = window.setTimeout(() => {
+      readerStableSettleTimerRef.current = null;
+      if (Math.floor(readerPageRef.current || 1) === next) {
+        readerStablePageRef.current = next;
+      }
+    }, 300);
+  }, [readerPage, isTouchInputDevice]);
 
   useEffect(() => {
     readerEffectiveZoomRef.current = readerEffectiveZoom;
@@ -2180,63 +2202,107 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     setReaderGestureZoom(safeScale);
   }, [readerMinGestureScale, pauseReaderScrollSync]);
 
-  const commitReaderProgress = useCallback((page: number, notifyMessage: string) => {
+  const commitReaderProgress = useCallback((page: number, notifyMessage: string, mode: "auto" | "immediate" = "auto") => {
     if (!selected) return;
-    const requestedPage = Math.max(1, Math.floor(page || 1));
-    const inferredMaxPage = pageCount ?? previewPages.length;
-    const maxPage = Number.isFinite(inferredMaxPage) && Number(inferredMaxPage) > 0
-      ? Math.max(1, Math.floor(Number(inferredMaxPage)))
-      : requestedPage;
-    const currentStablePage = clamp(Math.floor(readerPageRef.current || requestedPage), 1, maxPage);
-    const renderingNow = renderingPreviewPagesRef.current;
-    const hasNearbyRendering =
-      renderingNow.has(currentStablePage)
-      || renderingNow.has(currentStablePage - 1)
-      || renderingNow.has(currentStablePage + 1)
-      || renderingNow.has(currentStablePage - 2)
-      || renderingNow.has(currentStablePage + 2);
-    const isLayoutUnstable =
-      initialPageAlignRef.current !== null
-      || pendingResumeFinalSnapRef.current !== null
-      || Date.now() < readerScrollSyncPauseUntilRef.current
-      || hasNearbyRendering;
-    let topVisiblePage = isLayoutUnstable
-      ? currentStablePage
-      : (resolveTopVisiblePreviewPage("save", requestedPage) ?? requestedPage);
-    if (!isLayoutUnstable && isTouchInputDevice()) {
-      const currentStableRatio = resolveVisibleRatioForPage(currentStablePage);
-      if (topVisiblePage === currentStablePage - 1 && currentStableRatio >= 0.12) {
-        topVisiblePage = currentStablePage;
-      }
 
-      if (topVisiblePage === currentStablePage && currentStablePage < maxPage) {
-        const nextRatio = resolveVisibleRatioForPage(currentStablePage + 1);
-        if (nextRatio >= 0.3 && nextRatio >= currentStableRatio + 0.06) {
-          topVisiblePage = currentStablePage + 1;
+    const commitNow = () => {
+      if (!selected) return;
+      const requestedPage = Math.max(1, Math.floor(page || 1));
+      const inferredMaxPage = pageCount ?? previewPages.length;
+      const maxPage = Number.isFinite(inferredMaxPage) && Number(inferredMaxPage) > 0
+        ? Math.max(1, Math.floor(Number(inferredMaxPage)))
+        : requestedPage;
+      const livePage = clamp(Math.floor(readerPageRef.current || requestedPage), 1, maxPage);
+      const settledPage = clamp(Math.floor(readerStablePageRef.current || livePage), 1, maxPage);
+      const elapsedSinceScroll = Date.now() - readerLastScrollAtRef.current;
+      const currentStablePage = isTouchInputDevice() && elapsedSinceScroll >= 260
+        ? settledPage
+        : livePage;
+      const renderingNow = renderingPreviewPagesRef.current;
+      const hasNearbyRendering =
+        renderingNow.has(currentStablePage)
+        || renderingNow.has(currentStablePage - 1)
+        || renderingNow.has(currentStablePage + 1)
+        || renderingNow.has(currentStablePage - 2)
+        || renderingNow.has(currentStablePage + 2);
+      const isLayoutUnstable =
+        initialPageAlignRef.current !== null
+        || pendingResumeFinalSnapRef.current !== null
+        || Date.now() < readerScrollSyncPauseUntilRef.current
+        || hasNearbyRendering;
+      let topVisiblePage = isLayoutUnstable
+        ? currentStablePage
+        : (resolveTopVisiblePreviewPage("save", requestedPage) ?? requestedPage);
+      if (!isLayoutUnstable && isTouchInputDevice()) {
+        const currentStableRatio = resolveVisibleRatioForPage(currentStablePage);
+        if (topVisiblePage === currentStablePage - 1 && currentStableRatio >= 0.12) {
+          topVisiblePage = currentStablePage;
+        }
+
+        if (topVisiblePage === currentStablePage && currentStablePage < maxPage) {
+          const nextRatio = resolveVisibleRatioForPage(currentStablePage + 1);
+          if (nextRatio >= 0.3 && nextRatio >= currentStableRatio + 0.06) {
+            topVisiblePage = currentStablePage + 1;
+          }
         }
       }
+      const safe = clamp(topVisiblePage, 1, maxPage);
+      const resumeHref = `/biblioteca?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${safe}`;
+      markPdfProgress({
+        resourceId: selected.id,
+        title: selected.title,
+        page: safe,
+        subjectSlug: selectedSubjectSlug,
+      });
+      setReaderPage(safe);
+      setReaderPageDialogInput(String(safe));
+      setCommittedReaderPage(safe);
+      speakRabbit({
+        title: "Lectura guardada",
+        message: `${selected.title}: retomamos en la página ${safe}.`,
+        status: notifyMessage,
+        actions: [{ href: resumeHref, label: "Ir a mi página", primary: true }],
+        durationMs: 4200,
+      });
+    };
+
+    if (readerCommitIdleTimerRef.current) {
+      window.clearTimeout(readerCommitIdleTimerRef.current);
+      readerCommitIdleTimerRef.current = null;
     }
-    const safe = clamp(topVisiblePage, 1, maxPage);
-    const resumeHref = `/biblioteca?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${safe}`;
-    markPdfProgress({
-      resourceId: selected.id,
-      title: selected.title,
-      page: safe,
-      subjectSlug: selectedSubjectSlug,
-    });
-    setReaderPage(safe);
-    setReaderPageDialogInput(String(safe));
-    setCommittedReaderPage(safe);
-    speakRabbit({
-      title: "Lectura guardada",
-      message: `${selected.title}: retomamos en la página ${safe}.`,
-      status: notifyMessage,
-      actions: [{ href: resumeHref, label: "Ir a mi página", primary: true }],
-      durationMs: 4200,
-    });
+
+    if (mode === "immediate" || !isTouchInputDevice()) {
+      commitNow();
+      return;
+    }
+
+    const elapsedSinceScroll = Date.now() - readerLastScrollAtRef.current;
+    const idleDelayMs = clamp(140 - elapsedSinceScroll, 0, 180);
+    readerCommitIdleTimerRef.current = window.setTimeout(() => {
+      readerCommitIdleTimerRef.current = null;
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          commitNow();
+        });
+      });
+    }, idleDelayMs);
   }, [selected, pageCount, previewPages.length, resolveTopVisiblePreviewPage, selectedSubjectSlug, isTouchInputDevice, resolveVisibleRatioForPage]);
 
   const hasPendingReaderChanges = Boolean(selected && readerPage !== committedReaderPage);
+
+  useEffect(() => {
+    return () => {
+      if (readerCommitIdleTimerRef.current) {
+        window.clearTimeout(readerCommitIdleTimerRef.current);
+        readerCommitIdleTimerRef.current = null;
+      }
+      if (readerStableSettleTimerRef.current) {
+        window.clearTimeout(readerStableSettleTimerRef.current);
+        readerStableSettleTimerRef.current = null;
+      }
+      readerStablePageRef.current = Math.max(1, Math.floor(readerPageRef.current || 1));
+    };
+  }, [selectedId]);
 
   useEffect(() => {
     const root = previewScrollRef.current;
@@ -2261,6 +2327,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     };
 
     const schedule = () => {
+      readerLastScrollAtRef.current = Date.now();
       if (rafId) return;
       rafId = window.requestAnimationFrame(() => {
         rafId = 0;
@@ -2636,7 +2703,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     setPendingLeavePage(null);
 
     if (saveCurrentPage) {
-      commitReaderProgress(pageToKeep, "Confirmado antes de salir.");
+      commitReaderProgress(pageToKeep, "Confirmado antes de salir.", "immediate");
     } else {
       jumpToPage(committedReaderPage, "auto");
       speakRabbit({
