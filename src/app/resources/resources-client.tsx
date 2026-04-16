@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import QuickPinchZoom from "react-quick-pinch-zoom";
 
-import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Filter, Info, Loader2, PanelRight, Save, Search, Share2, Sparkles, Star, StickyNote, Trash2, Upload, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Filter, Info, Loader2, MoreHorizontal, PanelRight, Save, Search, Sparkles, Star, StickyNote, Trash2, Upload, ZoomIn, ZoomOut } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 
@@ -661,6 +661,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [workspaceMode, setWorkspaceMode] = useState<"gestion" | "inmersion">(props.initialWorkspaceMode ?? "gestion");
   const [readerToolMode, setReaderToolMode] = useState<"lectura" | "generador">("lectura");
   const [readerSidebarOpen, setReaderSidebarOpen] = useState(true);
+  const [readerChromeVisible, setReaderChromeVisible] = useState(true);
+  const [readerMoreMenuOpen, setReaderMoreMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [filterSubject, setFilterSubject] = useState<string>("all");
   const [filterFolder, setFilterFolder] = useState("");
@@ -711,7 +713,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [readerRecoverNonce, setReaderRecoverNonce] = useState(0);
   const [readerSafeMode, setReaderSafeMode] = useState(false);
   const [readerGesturesEnabled, setReaderGesturesEnabled] = useState(false);
-  const [readerShareMenuOpen, setReaderShareMenuOpen] = useState(false);
   const [readerGestureZoom, setReaderGestureZoom] = useState<number>(1);
   const [readerPan, setReaderPan] = useState({ x: 0, y: 0 });
   const [readerPageInfoOpen, setReaderPageInfoOpen] = useState(false);
@@ -758,6 +759,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerRecoveryBurstRef = useRef<number[]>([]);
   const readerLastScrollAtRef = useRef(0);
   const readerCommitIdleTimerRef = useRef<number | null>(null);
+  const readerCenterTapStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
     return selected?.subjectSlug === "anatomia" ||
@@ -772,6 +774,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const showLibraryPane = !props.hideLibraryPane;
   const workspaceModeLocked = Boolean(props.initialWorkspaceMode);
   const immersiveMode = workspaceMode === "inmersion";
+  const immersiveReadingMode = immersiveMode && readerToolMode === "lectura";
   const selectedSubjectSlug = currentSelectedSubjectSlug;
   const effectiveShortcutScope = readerShortcutScope === "subject" && selectedSubjectSlug ? "subject" : "global";
   const shortcutStorageKey = useMemo(() => {
@@ -785,15 +788,20 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     if (typeof window === "undefined") return false;
     if (window.matchMedia?.("(pointer: coarse)").matches) return true;
     return window.navigator.maxTouchPoints > 0 || "ontouchstart" in window;
-  }, [immersiveMode, readerToolMode]);
+  }, []);
   const readerEffectiveZoom = readerZoom * readerGestureZoom;
   const readerMinGestureScale = 1;
   const readerGestureActive = readerEffectiveZoom > READER_GESTURE_ACTIVE_ZOOM;
-  const stableReaderWidth = useMemo(() => {
-    const vw = Math.max(56, Number((92 * readerZoom).toFixed(2)));
-    const px = Math.max(560, Math.round(980 * readerZoom));
-    return `min(${vw}vw, ${px}px)`;
-  }, [readerZoom]);
+  const totalReaderPages = Math.max(1, (pageCount ?? previewPages.length) || 1);
+  const readerProgressPercent = totalReaderPages <= 1
+    ? 0
+    : ((clamp(readerPage, 1, totalReaderPages) - 1) / (totalReaderPages - 1)) * 100;
+
+  const toggleReaderChrome = useCallback(() => {
+    setReaderChromeVisible((prev) => !prev);
+    setReaderMoreMenuOpen(false);
+    setReaderPageInfoOpen(false);
+  }, []);
 
   const pushNotice = useCallback((title: string, body: string) => {
     const id = `res_notice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1395,14 +1403,17 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const observer = new IntersectionObserver(
       (entries) => {
         const rootRect = root.getBoundingClientRect();
+        const horizontalReader = immersiveMode && readerToolMode === "lectura";
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
           const target = entry.target as HTMLElement;
           const page = Number(target.dataset.previewPage);
           if (!Number.isFinite(page)) continue;
-          const nearTop = entry.boundingClientRect.top - rootRect.top <= rootRect.height * 0.38;
+          const nearLeading = horizontalReader
+            ? entry.boundingClientRect.left - rootRect.left <= rootRect.width * 0.38
+            : entry.boundingClientRect.top - rootRect.top <= rootRect.height * 0.38;
 
-          if (nearTop) {
+          if (nearLeading) {
             requestPageRender(page - 5);
             requestPageRender(page - 4, "high");
             requestPageRender(page - 3, "high");
@@ -1422,7 +1433,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       },
       {
         root,
-        rootMargin: "90% 0px 120% 0px",
+        rootMargin: immersiveMode && readerToolMode === "lectura"
+          ? "0px 90% 0px 120%"
+          : "90% 0px 120% 0px",
         threshold: 0.01,
       },
     );
@@ -2515,7 +2528,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [readerFitMode, immersiveMode, readerToolMode, previewPages.length, selectedId, applyFitZoom]);
 
   useEffect(() => {
-    if (!(immersiveMode && readerToolMode === "lectura")) return;
     if (!previewPages.length) return;
     if (immersiveMode && readerToolMode === "lectura") return;
     const root = previewScrollRef.current;
@@ -2602,8 +2614,20 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     readerRecoveryBurstRef.current = [];
     setReaderSafeMode(false);
     setReaderGesturesEnabled(false);
-    setReaderShareMenuOpen(false);
+    setReaderMoreMenuOpen(false);
+    setReaderChromeVisible(true);
   }, [selectedId]);
+
+  useEffect(() => {
+    if (!immersiveReadingMode) {
+      setReaderChromeVisible(true);
+      return;
+    }
+    if (!readerChromeVisible) {
+      setReaderMoreMenuOpen(false);
+      setReaderPageInfoOpen(false);
+    }
+  }, [immersiveReadingMode, readerChromeVisible]);
 
   useEffect(() => {
     if (!(immersiveMode && readerToolMode === "lectura")) return;
@@ -3727,7 +3751,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           ) : null}
 
           <div className={`overflow-hidden ${immersiveMode ? "relative h-dvh bg-[#050505]" : "rounded-[24px] bg-black/35 backdrop-blur-2xl"}`}>
-            <div className={immersiveMode ? "absolute left-1/2 top-3 z-30 w-[min(96vw,1100px)] -translate-x-1/2 rounded-2xl border border-white/15 bg-black/45 px-3 py-2 shadow-[0_14px_44px_-26px_rgba(0,0,0,0.95)] backdrop-blur-2xl" : "border-b border-white/10 px-6 py-4"}>
+            <div className={immersiveMode
+              ? `absolute left-1/2 top-3 z-30 w-[min(96vw,1100px)] -translate-x-1/2 rounded-2xl border border-white/15 bg-black/45 px-3 py-2 shadow-[0_14px_44px_-26px_rgba(0,0,0,0.95)] backdrop-blur-2xl transition-[opacity,transform] duration-300 ease-in-out ${immersiveReadingMode && !readerChromeVisible ? "pointer-events-none -translate-y-6 opacity-0" : "translate-y-0 opacity-100"}`
+              : "border-b border-white/10 px-6 py-4"}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className={`${immersiveMode ? "text-sm font-medium text-white/90" : "text-base font-bold text-white"}`}>{selected ? selected.title : "Seleccioná un PDF"}</div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -3752,60 +3778,80 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       <Button type="button" variant={readerToolMode === "generador" ? "secondary" : "outline"} size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderToolMode("generador")}>
                         <Sparkles className="h-4 w-4" />
                       </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderSidebarOpen((prev) => !prev)}>
+                        <PanelRight className="h-4 w-4" />
+                      </Button>
                       <div className="relative">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15"
-                          onClick={() => setReaderShareMenuOpen((prev) => !prev)}
-                          disabled={!shareablePdfUrl}
+                          onClick={() => {
+                            setReaderMoreMenuOpen((prev) => !prev);
+                          }}
                         >
-                          <Share2 className="h-4 w-4" />
+                          <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                        {readerShareMenuOpen && shareablePdfUrl ? (
+                        {readerMoreMenuOpen ? (
                           <div className="absolute right-0 top-10 z-50 w-56 rounded-xl border border-white/20 bg-black/88 p-1.5 shadow-[0_20px_45px_-24px_rgba(0,0,0,1)] backdrop-blur-2xl">
                             <button
                               type="button"
                               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-white/85 hover:bg-white/10"
+                              onClick={() => {
+                                setReaderPageDialogInput(String(readerPage));
+                                setReaderPageInfoOpen((prev) => !prev);
+                                setReaderMoreMenuOpen(false);
+                              }}
+                            >
+                              <Info className="h-4 w-4" />
+                              Información de página
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-white/85 hover:bg-white/10"
+                              onClick={() => {
+                                commitReaderProgress(readerPage, "Guardado manual.");
+                                setReaderMoreMenuOpen(false);
+                              }}
+                              disabled={!selected}
+                            >
+                              <Save className="h-4 w-4" />
+                              Guardar progreso
+                            </button>
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-white/85 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
                               onClick={async () => {
+                                if (!shareablePdfUrl) return;
                                 try {
                                   await navigator.clipboard.writeText(shareablePdfUrl);
                                   pushNotice("Enlace copiado", "Se copió la fuente del PDF al portapapeles.");
                                 } catch {
                                   pushNotice("No se pudo copiar", "Copia manualmente desde la opción abrir enlace.");
                                 }
-                                setReaderShareMenuOpen(false);
+                                setReaderMoreMenuOpen(false);
                               }}
+                              disabled={!shareablePdfUrl}
                             >
                               <Copy className="h-4 w-4" />
                               Copiar enlace PDF
                             </button>
-                            <a
-                              href={shareablePdfUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-white/85 hover:bg-white/10"
-                              onClick={() => setReaderShareMenuOpen(false)}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                              Abrir fuente PDF
-                            </a>
+                            {shareablePdfUrl ? (
+                              <a
+                                href={shareablePdfUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-white/85 hover:bg-white/10"
+                                onClick={() => setReaderMoreMenuOpen(false)}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                                Abrir fuente PDF
+                              </a>
+                            ) : null}
                           </div>
                         ) : null}
                       </div>
-                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => {
-                        setReaderPageDialogInput(String(readerPage));
-                        setReaderPageInfoOpen((prev) => !prev);
-                      }}>
-                        <Info className="h-4 w-4" />
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => commitReaderProgress(readerPage, "Guardado manual.")} disabled={!selected}>
-                        <Save className="h-4 w-4" />
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderSidebarOpen((prev) => !prev)}>
-                        <PanelRight className="h-4 w-4" />
-                      </Button>
                     </>
                   ) : null}
                   {selected && !immersiveMode ? (
@@ -3966,6 +4012,38 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         ) : null}
                         <div
                           ref={previewScrollRef}
+                          onPointerDown={(event) => {
+                            if (!immersiveReadingMode) return;
+                            if (!event.isPrimary) return;
+                            readerCenterTapStartRef.current = {
+                              x: event.clientX,
+                              y: event.clientY,
+                              at: Date.now(),
+                            };
+                          }}
+                          onPointerUp={(event) => {
+                            if (!immersiveReadingMode) return;
+                            if (!event.isPrimary) return;
+                            if (readerGestureActive) return;
+                            const start = readerCenterTapStartRef.current;
+                            readerCenterTapStartRef.current = null;
+                            if (!start) return;
+                            const dx = event.clientX - start.x;
+                            const dy = event.clientY - start.y;
+                            const dt = Date.now() - start.at;
+                            if (Math.hypot(dx, dy) > 14 || dt > 300) return;
+                            const interactive = (event.target as HTMLElement | null)?.closest("button,a,input,select,textarea,[role='button']");
+                            if (interactive) return;
+                            const root = previewScrollRef.current;
+                            if (!root) return;
+                            const rect = root.getBoundingClientRect();
+                            if (!rect.width || !rect.height) return;
+                            const xRatio = (event.clientX - rect.left) / rect.width;
+                            const yRatio = (event.clientY - rect.top) / rect.height;
+                            const inCenterZone = xRatio >= 0.32 && xRatio <= 0.68 && yRatio >= 0.28 && yRatio <= 0.72;
+                            if (!inCenterZone) return;
+                            toggleReaderChrome();
+                          }}
                           onWheel={(event) => {
                             if (!(immersiveMode && readerToolMode === "lectura")) return;
                             if (isTouchInputDevice()) return;
@@ -4164,10 +4242,32 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         </div>
                         {immersiveMode && readerToolMode === "lectura" ? (
                           <>
-                            <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg border border-white/15 bg-black/55 px-2.5 py-1 text-xs text-white/80 backdrop-blur-xl">
-                              {readerPage} / {Math.max(1, pageCount ?? previewPages.length ?? 1)}
+                            <div className={`absolute inset-x-4 bottom-4 z-40 transition-[opacity,transform] duration-300 ease-in-out ${readerChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}>
+                              <div className="rounded-xl border border-white/15 bg-black/65 px-3 py-2 backdrop-blur-2xl">
+                                <div className="mb-1.5 h-1 w-full overflow-hidden rounded-full bg-white/15">
+                                  <div className="h-full rounded-full bg-white/85 transition-[width] duration-200" style={{ width: `${readerProgressPercent}%` }} />
+                                </div>
+                                <input
+                                  type="range"
+                                  min={1}
+                                  max={totalReaderPages}
+                                  value={clamp(readerPage, 1, totalReaderPages)}
+                                  onChange={(event) => {
+                                    const next = clamp(Math.floor(Number(event.target.value) || 1), 1, totalReaderPages);
+                                    jumpToPage(next, "auto");
+                                  }}
+                                  className="h-3 w-full cursor-pointer accent-white"
+                                />
+                                <div className="mt-1 flex items-center justify-between text-[11px] text-white/70">
+                                  <span>{Math.round(readerProgressPercent)}% leído</span>
+                                  <span>página {readerPage} de {totalReaderPages}</span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="absolute bottom-4 right-4 z-40 flex items-center gap-2 rounded-2xl border border-white/15 bg-black/70 p-2 backdrop-blur-2xl">
+                            <div className={`absolute bottom-24 left-4 z-40 rounded-lg border border-white/15 bg-black/55 px-2.5 py-1 text-xs text-white/80 backdrop-blur-xl transition-[opacity,transform] duration-300 ease-in-out ${readerChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}>
+                              {readerPage} / {totalReaderPages}
+                            </div>
+                            <div className={`absolute bottom-24 right-4 z-40 flex items-center gap-2 rounded-2xl border border-white/15 bg-black/70 p-2 backdrop-blur-2xl transition-[opacity,transform] duration-300 ease-in-out ${readerChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}>
                               <Button
                                 type="button"
                                 variant="outline"
@@ -4504,7 +4604,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                   ) : null}
 
                   {immersiveMode && readerSidebarOpen && readerToolMode === "lectura" ? (
-                    <div className="absolute right-4 top-16 z-40 w-[min(360px,92vw)] rounded-xl border border-white/15 bg-black/72 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl">
+                    <div className={`absolute right-4 top-16 z-40 w-[min(360px,92vw)] rounded-xl border border-white/15 bg-black/72 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl transition-[opacity,transform] duration-300 ease-in-out ${readerChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-4 opacity-0"}`}>
                       <div className="mb-2 flex items-center justify-between">
                         <div className="text-xs uppercase tracking-wider text-white/70">Panel lector</div>
                         <div className="text-[10px] text-white/60">Pág. {readerPage}</div>
