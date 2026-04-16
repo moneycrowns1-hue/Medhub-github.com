@@ -759,6 +759,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerRecoveryBurstRef = useRef<number[]>([]);
   const readerLastScrollAtRef = useRef(0);
   const readerCommitIdleTimerRef = useRef<number | null>(null);
+  const readerCenterTapStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
+  const readerSuppressClickToggleUntilRef = useRef(0);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
     return selected?.subjectSlug === "anatomia" ||
@@ -4016,9 +4018,46 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         ) : null}
                         <div
                           ref={previewScrollRef}
+                          onTouchStart={(event) => {
+                            if (!immersiveReadingMode) return;
+                            if (readerGestureActive) return;
+                            const touch = event.touches?.[0];
+                            if (!touch) return;
+                            readerCenterTapStartRef.current = {
+                              x: touch.clientX,
+                              y: touch.clientY,
+                              at: Date.now(),
+                            };
+                          }}
+                          onTouchEnd={(event) => {
+                            if (!immersiveReadingMode) return;
+                            if (readerGestureActive) return;
+                            const start = readerCenterTapStartRef.current;
+                            readerCenterTapStartRef.current = null;
+                            if (!start) return;
+                            const touch = event.changedTouches?.[0];
+                            if (!touch) return;
+                            const dx = touch.clientX - start.x;
+                            const dy = touch.clientY - start.y;
+                            const dt = Date.now() - start.at;
+                            if (Math.hypot(dx, dy) > 16 || dt > 320) return;
+                            const interactive = (event.target as HTMLElement | null)?.closest("button,a,input,select,textarea,[role='button']");
+                            if (interactive) return;
+                            const root = previewScrollRef.current;
+                            if (!root) return;
+                            const rect = root.getBoundingClientRect();
+                            if (!rect.width || !rect.height) return;
+                            const xRatio = (touch.clientX - rect.left) / rect.width;
+                            const yRatio = (touch.clientY - rect.top) / rect.height;
+                            const inCenterZone = xRatio >= 0.32 && xRatio <= 0.68 && yRatio >= 0.28 && yRatio <= 0.72;
+                            if (!inCenterZone) return;
+                            readerSuppressClickToggleUntilRef.current = Date.now() + 420;
+                            toggleReaderChrome();
+                          }}
                           onClick={(event) => {
                             if (!immersiveReadingMode) return;
                             if (readerGestureActive) return;
+                            if (Date.now() < readerSuppressClickToggleUntilRef.current) return;
                             const interactive = (event.target as HTMLElement | null)?.closest("button,a,input,select,textarea,[role='button']");
                             if (interactive) return;
                             const root = previewScrollRef.current;
