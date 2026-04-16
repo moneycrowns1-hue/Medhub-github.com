@@ -709,7 +709,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [committedReaderPage, setCommittedReaderPage] = useState<number>(1);
   const [readerZoom, setReaderZoom] = useState<number>(1);
   const [readerMinZoom, setReaderMinZoom] = useState<number>(0.55);
-  const [readerFitMode, setReaderFitMode] = useState<"reading" | "full">("full");
+  const [readerFitMode, setReaderFitMode] = useState<"reading" | "full">("reading");
   const [readerRecoverNonce, setReaderRecoverNonce] = useState(0);
   const [readerSafeMode, setReaderSafeMode] = useState(false);
   const [readerGesturesEnabled, setReaderGesturesEnabled] = useState(false);
@@ -793,6 +793,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerMinGestureScale = 1;
   const readerGestureActive = readerEffectiveZoom > READER_GESTURE_ACTIVE_ZOOM;
   const totalReaderPages = Math.max(1, (pageCount ?? previewPages.length) || 1);
+  const readerProgressPercent = totalReaderPages <= 1
+    ? 0
+    : ((clamp(readerPage, 1, totalReaderPages) - 1) / (totalReaderPages - 1)) * 100;
 
   const toggleReaderChrome = useCallback(() => {
     setReaderChromeVisible((prev) => !prev);
@@ -2217,11 +2220,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const fitByHeight = (root.clientHeight - 28) / unscaledPageHeight;
     const viewportLandscape = root.clientWidth > root.clientHeight;
     const fitCoverage = readerFitMode === "full"
-      ? (viewportLandscape ? 1 : 1)
-      : (viewportLandscape ? 0.94 : 0.98);
+      ? (viewportLandscape ? 0.985 : 0.995)
+      : (viewportLandscape ? 0.88 : 0.96);
     const fitted = Math.min(fitByWidth, fitByHeight, 1) * fitCoverage;
-    return clamp(Number.isFinite(fitted) ? fitted : 1, immersiveReadingMode ? 0.96 : 0.55, 1);
-  }, [readerFitMode, immersiveReadingMode]);
+    return clamp(Number.isFinite(fitted) ? fitted : 1, 0.55, 1);
+  }, [readerFitMode]);
 
   const applyFitZoom = useCallback((force = false) => {
     const nextMin = computeReaderFitZoom();
@@ -2668,14 +2671,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [immersiveMode, readerToolMode, selectedId]);
 
   useEffect(() => {
-    setReaderZoom(1);
-    setReaderMinZoom(0.96);
+    setReaderZoom(0.55);
+    setReaderMinZoom(0.55);
     setReaderGestureZoom(1);
     setReaderPan({ x: 0, y: 0 });
-    setReaderFitMode("full");
     setReaderPageInfoOpen(false);
     setReaderPageDialogInput("1");
   }, [selectedId]);
+
+  useEffect(() => {
+    if (!immersiveReadingMode) return;
+    setReaderFitMode("full");
+  }, [immersiveReadingMode]);
 
   useEffect(() => {
     if (!(immersiveMode && readerToolMode === "lectura")) {
@@ -4253,7 +4260,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                   }}
                                   className="h-3 w-full cursor-pointer accent-white"
                                 />
-                                <div className="mt-1 flex items-center justify-end text-[11px] text-white/70">
+                                <div className="mt-1 flex items-center justify-between text-[11px] text-white/70">
+                                  <span>{Math.round(readerProgressPercent)}% leído</span>
                                   <span>página {readerPage} de {totalReaderPages}</span>
                                 </div>
                               </div>
