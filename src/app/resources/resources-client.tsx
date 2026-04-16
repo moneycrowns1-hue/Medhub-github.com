@@ -1868,16 +1868,28 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     root.scrollTo({ top: node.offsetTop - 8, behavior });
   }, []);
 
-  const resolveTopVisiblePreviewPage = useCallback(() => {
+  const resolveTopVisiblePreviewPage = useCallback((mode: "save" | "sync" = "save", currentPageHint?: number) => {
     const root = previewScrollRef.current;
     if (!root) return null;
     const nodes = Array.from(root.querySelectorAll<HTMLElement>("[data-preview-page]"));
     if (!nodes.length) return null;
 
     const rootRect = root.getBoundingClientRect();
-    let bestPage: number | null = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    let bestVisible = -1;
+    const currentPage = clamp(
+      Math.floor(currentPageHint || readerPageRef.current || 1),
+      1,
+      Math.max(1, nodes.length),
+    );
+
+    let topAlignedPage: number | null = null;
+    let topAlignedDistance = Number.POSITIVE_INFINITY;
+    let topAlignedRatio = 0;
+
+    let dominantPage: number | null = null;
+    let dominantRatio = 0;
+    let dominantVisiblePx = 0;
+
+    let currentRatio = 0;
 
     for (const node of nodes) {
       const page = Number(node.dataset.previewPage);
@@ -1885,18 +1897,79 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       const rect = node.getBoundingClientRect();
       const visible = Math.max(0, Math.min(rect.bottom, rootRect.bottom) - Math.max(rect.top, rootRect.top));
       if (visible <= 0) continue;
+      const ratio = rect.height > 0 ? visible / rect.height : 0;
+      if (page === currentPage) currentRatio = ratio;
+
       const distanceToTop = Math.abs((rect.top - rootRect.top) - 8);
+
       if (
-        distanceToTop < bestDistance - 0.5
-        || (Math.abs(distanceToTop - bestDistance) <= 0.5 && visible > bestVisible)
+        distanceToTop < topAlignedDistance - 0.5
+        || (Math.abs(distanceToTop - topAlignedDistance) <= 0.5 && ratio > topAlignedRatio)
       ) {
-        bestPage = page;
-        bestDistance = distanceToTop;
-        bestVisible = visible;
+        topAlignedPage = page;
+        topAlignedDistance = distanceToTop;
+        topAlignedRatio = ratio;
+      }
+
+      if (
+        ratio > dominantRatio + 0.01
+        || (Math.abs(ratio - dominantRatio) <= 0.01 && visible > dominantVisiblePx)
+      ) {
+        dominantPage = page;
+        dominantRatio = ratio;
+        dominantVisiblePx = visible;
       }
     }
 
-    return bestPage;
+    if (!topAlignedPage && !dominantPage) return null;
+
+    if (mode === "save") {
+      if (
+        topAlignedPage !== null
+        && dominantPage !== null
+        && topAlignedPage < dominantPage
+        && topAlignedRatio <= 0.18
+        && dominantRatio >= 0.36
+      ) {
+        return dominantPage;
+      }
+      if (dominantPage !== null && topAlignedPage !== null && dominantRatio - topAlignedRatio >= 0.22) {
+        return dominantPage;
+      }
+      if (dominantPage !== null && dominantRatio >= 0.62) {
+        return dominantPage;
+      }
+      return topAlignedPage ?? dominantPage;
+    }
+
+    if (
+      dominantPage !== null
+      && dominantPage !== currentPage
+      && (dominantRatio >= 0.58 || dominantRatio >= currentRatio + 0.18)
+    ) {
+      return dominantPage;
+    }
+
+    if (
+      topAlignedPage !== null
+      && topAlignedPage !== currentPage
+      && topAlignedDistance <= 14
+      && topAlignedRatio >= 0.2
+    ) {
+      return topAlignedPage;
+    }
+
+    if (
+      dominantPage !== null
+      && topAlignedPage !== null
+      && topAlignedPage < dominantPage
+      && topAlignedRatio <= 0.14
+      && dominantRatio >= 0.4
+    ) {
+      return dominantPage;
+    }
+
+    return currentPage;
   }, []);
 
   const jumpToPage = useCallback((next: number, behavior: ScrollBehavior = "smooth") => {
@@ -2011,7 +2084,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     const maxPage = Number.isFinite(inferredMaxPage) && Number(inferredMaxPage) > 0
       ? Math.max(1, Math.floor(Number(inferredMaxPage)))
       : requestedPage;
-    const topVisiblePage = resolveTopVisiblePreviewPage();
+    const topVisiblePage = resolveTopVisiblePreviewPage("save", requestedPage);
     const safe = clamp(topVisiblePage ?? requestedPage, 1, maxPage);
     const resumeHref = `/biblioteca?resumePdf=${encodeURIComponent(selected.id)}&resumePage=${safe}`;
     markPdfProgress({
@@ -2046,33 +2119,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       if (initialPageAlignRef.current !== null) return;
       if (Date.now() < readerScrollSyncPauseUntilRef.current) return;
       if (readerGestureActive) return;
-      const rootRect = root.getBoundingClientRect();
       const currentPage = clamp(Math.floor(readerPageRef.current || 1), 1, Math.max(1, previewPages.length));
-      const visibilityByPage = new Map<number, number>();
-
-      for (const node of nodes) {
-        const page = Number(node.dataset.previewPage);
-        if (!Number.isFinite(page)) continue;
-        const rect = node.getBoundingClientRect();
-        const visible = Math.max(0, Math.min(rect.bottom, rootRect.bottom) - Math.max(rect.top, rootRect.top));
-        const ratio = rect.height > 0 ? visible / rect.height : 0;
-        visibilityByPage.set(page, ratio);
-      }
-
-      if (!visibilityByPage.size) return;
-      const currentRatio = visibilityByPage.get(currentPage) ?? 0;
-      const candidate = Array.from(visibilityByPage.entries()).reduce(
-        (best, [page, ratio]) => (ratio > best.ratio ? { page, ratio } : best),
-        { page: currentPage, ratio: currentRatio },
-      );
-
-      let nextPage = currentPage;
-      if (
-        candidate.page !== currentPage &&
-        (candidate.ratio >= 0.58 || candidate.ratio >= currentRatio + 0.18)
-      ) {
-        nextPage = candidate.page;
-      }
+      const nextPage = resolveTopVisiblePreviewPage("sync", currentPage) ?? currentPage;
 
       setReaderPage((prev) => {
         if (prev === nextPage) return prev;
@@ -2098,7 +2146,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       window.removeEventListener("resize", schedule);
       if (rafId) window.cancelAnimationFrame(rafId);
     };
-  }, [previewPages.length, selectedId, readerZoom, readerToolMode, immersiveMode, readerGestureActive, readerMinZoom]);
+  }, [previewPages.length, selectedId, readerZoom, readerToolMode, immersiveMode, readerGestureActive, readerMinZoom, resolveTopVisiblePreviewPage]);
 
   useEffect(() => {
     if (!(immersiveMode && readerToolMode === "lectura")) return;
@@ -2348,7 +2396,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       if (targetRoute === currentRoute) return;
       event.preventDefault();
       event.stopPropagation();
-      const visiblePage = resolveTopVisiblePreviewPage() ?? readerPage;
+      const visiblePage = resolveTopVisiblePreviewPage("save", readerPage) ?? readerPage;
       setPendingLeaveHref(targetRoute);
       setPendingLeavePage(visiblePage);
       speakRabbit({
