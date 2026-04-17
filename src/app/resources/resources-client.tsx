@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import QuickPinchZoom from "react-quick-pinch-zoom";
 import { gsap } from "gsap";
 
-import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Filter, Info, Loader2, MoreHorizontal, PanelRight, Save, Search, Sparkles, Star, StickyNote, Trash2, Upload, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Filter, Info, Loader2, MoreHorizontal, PanelRight, Save, Search, Sparkles, Star, StickyNote, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 
@@ -734,6 +734,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
   const [pendingLeavePage, setPendingLeavePage] = useState<number | null>(null);
   const [notices, setNotices] = useState<InAppNotice[]>([]);
+  const [aiMaintenanceOpen, setAiMaintenanceOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const libraryBackupImportRef = useRef<HTMLInputElement | null>(null);
   const readerImportRef = useRef<HTMLInputElement | null>(null);
@@ -803,27 +804,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerProgressPercent = totalReaderPages <= 1
     ? 0
     : ((clamp(readerPage, 1, totalReaderPages) - 1) / (totalReaderPages - 1)) * 100;
-  const canUseAiTool = Boolean(selectedId && previewUrl);
 
   const toggleReaderChrome = useCallback(() => {
     setReaderChromeVisible((prev) => !prev);
     setReaderMoreMenuOpen(false);
     setReaderPageInfoOpen(false);
   }, []);
-
-  const setReaderToolModeSafe = useCallback((nextMode: "lectura" | "generador") => {
-    if (nextMode === "generador" && !canUseAiTool) {
-      setAiError("Abre un PDF con vista previa cargada para usar la IA.");
-      return;
-    }
-    setReaderToolMode(nextMode);
-    setReaderMoreMenuOpen(false);
-    if (nextMode === "generador") {
-      setReaderSidebarOpen(false);
-      setReaderPageInfoOpen(false);
-      setReaderChromeVisible(true);
-    }
-  }, [canUseAiTool]);
 
   const pushNotice = useCallback((title: string, body: string) => {
     const id = `res_notice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -841,6 +827,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       setNotices((prev) => prev.filter((n) => n.id !== id));
     }, 3800);
   }, []);
+
+  const openAiMaintenance = useCallback(() => {
+    setReaderMoreMenuOpen(false);
+    setAiMaintenanceOpen(true);
+    pushNotice("IA en mantenimiento", "Estamos rehaciendo esta función. Estará disponible próximamente.");
+  }, [pushNotice]);
 
   useEffect(() => {
     if (!props.initialSelectedId) return;
@@ -3484,41 +3476,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                 Vista inmersión
               </button>
             </div>
-            <div className="rounded-full border border-white/20 bg-white/6 p-1">
-              <button
-                type="button"
-                className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "lectura" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"}`}
-                onClick={() => setReaderToolModeSafe("lectura")}
-              >
-                Modo lectura
-              </button>
-              <button
-                type="button"
-                className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "generador" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"} ${!canUseAiTool ? "cursor-not-allowed opacity-45" : ""}`}
-                onClick={() => setReaderToolModeSafe("generador")}
-                disabled={!canUseAiTool}
-              >
-                Modo generador IA
-              </button>
-            </div>
-          </div>
-        ) : immersiveMode ? (
-          <div className="rounded-full border border-white/20 bg-white/8 p-1">
-            <button
-              type="button"
-              className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "lectura" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"}`}
-              onClick={() => setReaderToolModeSafe("lectura")}
-            >
-              Modo lectura
-            </button>
-            <button
-              type="button"
-              className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "generador" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"} ${!canUseAiTool ? "cursor-not-allowed opacity-45" : ""}`}
-              onClick={() => setReaderToolModeSafe("generador")}
-              disabled={!canUseAiTool}
-            >
-              Modo generador IA
-            </button>
           </div>
         ) : null}
 
@@ -3922,10 +3879,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => jumpToPage(readerPage + 1)} disabled={readerPage >= ((pageCount ?? previewPages.length) || 1)}>
                         <ChevronRight className="h-4 w-4" />
                       </Button>
-                      <Button type="button" variant={readerToolMode === "lectura" ? "secondary" : "outline"} size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderToolModeSafe("lectura")}>
+                      <Button type="button" variant="secondary" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" aria-label="Modo lectura">
                         <FileText className="h-4 w-4" />
                       </Button>
-                      <Button type="button" variant={readerToolMode === "generador" ? "secondary" : "outline"} size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-45" onClick={() => setReaderToolModeSafe("generador")} disabled={!canUseAiTool} title={!canUseAiTool ? "Abre un PDF para habilitar IA" : "Abrir generador IA"}>
+                      <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={openAiMaintenance} title="Generador IA (próximamente)">
                         <Sparkles className="h-4 w-4" />
                       </Button>
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderSidebarOpen((prev) => !prev)}>
@@ -4416,29 +4373,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                                   <span>página {readerPage} de {totalReaderPages}</span>
                                 </div>
                               </div>
-                            </div>
-                            <div className={`absolute bottom-24 right-4 z-40 flex items-center gap-2 rounded-2xl border border-white/15 bg-black/70 p-2 backdrop-blur-2xl transition-[opacity,transform] duration-300 ease-in-out ${readerChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-12 min-w-[52px] border-white/25 bg-white/12 px-3 text-white hover:bg-white/20"
-                                onClick={() => updateReaderZoom(readerZoom - 0.12)}
-                              >
-                                <ZoomOut className="h-5 w-5" />
-                              </Button>
-                              <div className="min-w-[64px] text-center text-xs font-medium text-white/80">
-                                {Math.round(readerEffectiveZoom * 100)}%
-                              </div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-12 min-w-[52px] border-white/25 bg-white/12 px-3 text-white hover:bg-white/20"
-                                onClick={() => updateReaderZoom(readerZoom + 0.12)}
-                              >
-                                <ZoomIn className="h-5 w-5" />
-                              </Button>
                             </div>
                           </>
                         ) : null}
@@ -5079,254 +5013,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                   </div>
                   ) : null}
 
-                  {readerToolMode === "generador" ? (
-                    <div
-                      className={immersiveMode
-                        ? "absolute right-4 top-16 z-40 w-[min(420px,94vw)] rounded-xl border border-white/15 bg-black/72 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl"
-                        : ""}
-                    >
-                      {immersiveMode ? (
-                        <div className="mb-2 flex items-center justify-between">
-                          <div className="text-xs uppercase tracking-wider text-white/70">Panel IA</div>
-                          <div className="text-[10px] text-white/60">Pág. {readerPage}</div>
-                        </div>
-                      ) : null}
-                      <div className={immersiveMode ? "max-h-[calc(100dvh-150px)] space-y-3 overflow-y-auto pr-1" : "space-y-3"}>
-                  <div className={`${immersiveMode ? "" : "mt-3"} flex flex-wrap items-center gap-2`}>
-                    <Button variant="secondary" className="border border-white/25 bg-white text-black hover:bg-white/90" onClick={() => void runExtract()} disabled={busy || !previewUrl}>
-                      Extraer texto (rango)
-                    </Button>
-                    {extractedText ? (
-                      <Button
-                        variant="outline"
-                        className="border-white/25 bg-white/10 text-white hover:bg-white/15"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(extractedText);
-                            pushNotice("Copiado", "Texto extraído copiado al portapapeles.");
-                          } catch {
-                            // ignore
-                          }
-                        }}
-                        disabled={busy}
-                      >
-                        Copiar
-                      </Button>
-                    ) : null}
-                    {pageCount ? (
-                      <div className="text-xs text-foreground/60">PDF: {pageCount} páginas</div>
-                    ) : null}
-                  </div>
-
-                  {extractError ? (
-                    <div className="mt-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                      {extractError}
-                    </div>
-                  ) : null}
-
-                  {extractedText ? (
-                    <div className="mt-3 space-y-2">
-                      <div className="text-xs uppercase tracking-wider text-foreground/70">Texto extraído</div>
-                      <textarea
-                        value={extractedText}
-                        onChange={(e) => setExtractedText(e.target.value)}
-                        className="min-h-[280px] w-full rounded-xl border border-white/20 bg-white/8 px-3 py-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
-                      />
-
-                      {chunks.length ? (
-                        <div className="rounded-xl bg-white/7 p-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="text-xs uppercase tracking-wider text-foreground/70">Seleccionar chunks</div>
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="border-white/25 bg-white/10 text-white hover:bg-white/15"
-                                onClick={() => setSelectedChunkIdxs(new Set(chunks.map((_, idx) => idx)))}
-                              >
-                                Todo
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="border-white/25 bg-white/10 text-white hover:bg-white/15"
-                                onClick={() => setSelectedChunkIdxs(new Set())}
-                              >
-                                Nada
-                              </Button>
-                            </div>
-                          </div>
-
-                          <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                            {chunks.map((c, idx) => {
-                              const checked = selectedChunkIdxs.has(idx);
-                              const label = c.match(/^\[Page\s+\d+\]/)?.[0] ?? `Chunk ${idx + 1}`;
-                              const preview = c.replace(/^\[Page\s+\d+\]\n?/, "").slice(0, 140);
-                              return (
-                                <button
-                                  key={idx}
-                                  type="button"
-                                  onClick={() =>
-                                    setSelectedChunkIdxs((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(idx)) next.delete(idx);
-                                      else next.add(idx);
-                                      return next;
-                                    })
-                                  }
-                                  className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors hover:bg-white/10 ${
-                                    checked ? "border-white/40 bg-white/12" : "border-white/20 bg-white/5"
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="text-xs font-medium text-foreground/70">{label}</div>
-                                    <div className="text-xs text-foreground/60">{checked ? "✓" : ""}</div>
-                                  </div>
-                                  <div className="mt-1 text-xs text-foreground/60">{preview}{preview.length >= 140 ? "…" : ""}</div>
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          <div className="mt-2 text-xs text-foreground/60">
-                            Seleccionado: {selectedChunkIdxs.size}/{chunks.length}. Si no seleccionás nada, se usa el texto completo.
-                          </div>
-                          <div className="mt-1 text-xs text-foreground/60">
-                            Texto para IA: {selectedTextForAi.length.toLocaleString("es-PE")} caracteres.
-                          </div>
-                        </div>
-                      ) : null}
-
-                      <div className="grid gap-3 rounded-xl bg-white/7 p-3 lg:grid-cols-3">
-                        <div className="space-y-1 lg:col-span-2">
-                          <div className="text-xs uppercase tracking-wider text-foreground/70">Destino (SRS)</div>
-                          <div className="flex flex-wrap gap-2">
-                            <SubjectSelect value={subject} onChange={setSubject} allowAll />
-                            <DeckSelect
-                              value={deckId}
-                              onChange={setDeckId}
-                              decks={(srsLib?.decks ?? []).filter((d) => (subject === "all" ? true : d.subjectSlug === subject))}
-                            />
-                          </div>
-                          <div className="mt-2 text-xs text-foreground/60">
-                            Importa las tarjetas directamente a tu biblioteca de flashcards.
-                          </div>
-
-                          <div className="mt-3 grid gap-2 lg:grid-cols-2">
-                            <div className="space-y-1">
-                              <div className="text-xs uppercase tracking-wider text-white/70">Modo IA</div>
-                              <div className="h-10 rounded-xl border border-white/25 bg-white/8 px-3 text-sm leading-10 text-white/90">Flashcards</div>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="text-xs uppercase tracking-wider text-white/70">Tema (opcional)</div>
-                              <input
-                                value={topic}
-                                onChange={(e) => setTopic(e.target.value)}
-                                placeholder="Ej: Glomerulonefritis"
-                                className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="text-xs uppercase tracking-wider text-white/70">Cantidad</div>
-                          <input
-                            type="number"
-                            min={5}
-                            max={80}
-                            value={maxCards}
-                            onChange={(e) => {
-                              const parsed = Number(e.target.value);
-                              if (!Number.isFinite(parsed)) return;
-                              setMaxCards(clamp(Math.floor(parsed), 5, 80));
-                            }}
-                            className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-white/30"
-                          />
-                          <Button
-                            className="mt-2 w-full border border-white/25 bg-white text-black hover:bg-white/90"
-                            onClick={() => void runAi()}
-                            disabled={aiBusy || busy || !selectedTextForAi.trim()}
-                          >
-                            {aiBusy ? "Generando..." : "Generar flashcards con IA"}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {aiError ? (
-                        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                          {aiError}
-                        </div>
-                      ) : null}
-
-                      {aiNotes && aiNotes.length ? (
-                        <div className="space-y-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="text-xs uppercase tracking-wider text-foreground/70">Revisión</div>
-                            <Button variant="secondary" className="border border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={importToSrs} disabled={!srsLib}>
-                              Importar al deck
-                            </Button>
-                          </div>
-
-                          <div className="space-y-3">
-                            {aiNotes.map((n, noteIdx) => (
-                              <div key={noteIdx} className="rounded-xl bg-white/7 p-3">
-                                <div className="text-sm font-medium">{n.title ?? `Nota ${noteIdx + 1}`}</div>
-                                {n.tags?.length ? (
-                                  <div className="mt-1 text-xs text-foreground/60">{n.tags.join(" · ")}</div>
-                                ) : null}
-
-                                <div className="mt-3 space-y-2">
-                                  {n.cards.map((c, cardIdx) => (
-                                    <div
-                                      key={cardIdx}
-                                      className="grid gap-2 rounded-lg border border-white/20 bg-white/8 p-3 lg:grid-cols-[120px,1fr,1fr,auto]"
-                                    >
-                                      <select
-                                        value={c.type}
-                                        onChange={(e) =>
-                                          updateAiCard(noteIdx, cardIdx, { type: e.target.value === "cloze" ? "cloze" : "basic" })
-                                        }
-                                        className="h-10 rounded-md border border-white/25 bg-white/8 px-2 text-sm"
-                                      >
-                                        <option value="basic">basic</option>
-                                        <option value="cloze">cloze</option>
-                                      </select>
-
-                                      <textarea
-                                        value={c.front}
-                                        onChange={(e) => updateAiCard(noteIdx, cardIdx, { front: e.target.value })}
-                                        className="min-h-[56px] w-full rounded-md border border-white/25 bg-white/8 px-2 py-2 text-sm"
-                                      />
-
-                                      <textarea
-                                        value={c.back}
-                                        onChange={(e) => updateAiCard(noteIdx, cardIdx, { back: e.target.value })}
-                                        className="min-h-[56px] w-full rounded-md border border-white/25 bg-white/8 px-2 py-2 text-sm"
-                                      />
-
-                                      <Button variant="outline" size="sm" className="border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={() => deleteAiCard(noteIdx, cardIdx)}>
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : aiNotes && !aiNotes.length ? (
-                        <div className="text-sm text-muted-foreground">La IA no devolvió tarjetas útiles. Probá otro rango o más contexto.</div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Extraé texto del rango para luego generar flashcards con IA.
-                    </div>
-                  )}
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               ) : selected ? (
                 <div className="rounded-xl border border-white/20 bg-white/6 p-6 text-sm text-foreground/70">
@@ -5365,6 +5051,27 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                 onClick={() => resolvePendingLeave(true)}
               >
                 Sí, guardar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {aiMaintenanceOpen ? (
+        <div className="fixed inset-0 z-[136] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-black/78 p-4 text-white shadow-2xl backdrop-blur-2xl">
+            <div className="text-sm font-semibold">Generador IA en mantenimiento</div>
+            <p className="mt-1 text-xs text-white/80">
+              Estamos rehaciendo esta función para que sea más estable. Volverá próximamente.
+            </p>
+            <div className="mt-3 flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+                onClick={() => setAiMaintenanceOpen(false)}
+              >
+                Entendido
               </Button>
             </div>
           </div>
