@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
+  ArrowRight,
+  Award,
   BookOpen,
   Brain,
   Calendar,
@@ -9,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Flame,
+  GraduationCap,
   Megaphone,
   Mic,
   Target,
@@ -25,6 +29,12 @@ import {
   getWeeklyAverage,
   STATS_UPDATED_EVENT,
 } from "@/lib/stats-store";
+import {
+  ACADEMIC_UPDATED_EVENT,
+  computeGlobalGpa,
+  loadAcademicSnapshot,
+} from "@/lib/academic-store";
+import { SUBJECTS } from "@/lib/subjects";
 import { loadSrsLibrary, SRS_UPDATED_EVENT } from "@/lib/srs-storage";
 import { algoStats } from "@/lib/srs-algo";
 import { listPdfResources, RESOURCES_UPDATED_EVENT } from "@/lib/resources-service";
@@ -176,6 +186,7 @@ export function StatsClient() {
     window.addEventListener(SRS_UPDATED_EVENT, refresh);
     window.addEventListener(RESOURCES_UPDATED_EVENT, refresh);
     window.addEventListener(RESOURCES_AI_ARTIFACTS_UPDATED_EVENT, refresh);
+    window.addEventListener(ACADEMIC_UPDATED_EVENT, refresh);
     window.addEventListener("focus", refresh);
 
     return () => {
@@ -184,6 +195,7 @@ export function StatsClient() {
       window.removeEventListener(SRS_UPDATED_EVENT, refresh);
       window.removeEventListener(RESOURCES_UPDATED_EVENT, refresh);
       window.removeEventListener(RESOURCES_AI_ARTIFACTS_UPDATED_EVENT, refresh);
+      window.removeEventListener(ACADEMIC_UPDATED_EVENT, refresh);
       window.removeEventListener("focus", refresh);
     };
   }, []);
@@ -199,6 +211,11 @@ export function StatsClient() {
   const streak = useMemo(() => {
     void tick;
     return getCurrentStreak();
+  }, [tick]);
+  const academicGpa = useMemo(() => {
+    void tick;
+    const snap = loadAcademicSnapshot();
+    return computeGlobalGpa(snap.semesters, snap.records, snap.config.passingGrade);
   }, [tick]);
   const weeklyAvg = useMemo(() => {
     void tick;
@@ -377,6 +394,49 @@ export function StatsClient() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Academic summary */}
+      <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400/20 text-amber-200">
+              <GraduationCap className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xs font-medium uppercase tracking-widest text-foreground/65">Académico</div>
+              <div className="text-2xl font-bold tabular-nums">
+                {academicGpa.overallAverage !== null ? academicGpa.overallAverage.toFixed(2) : "—"}
+              </div>
+              <div className="text-xs text-foreground/60">
+                {academicGpa.passedSemesters} aprobados · {academicGpa.failedSemesters} reprobados · {academicGpa.totalSemesters} cerrados
+              </div>
+            </div>
+          </div>
+          <Link
+            href="/academico"
+            className="inline-flex items-center gap-1 rounded-md border border-white/25 bg-white/10 px-2.5 py-1.5 text-xs text-white hover:bg-white/15"
+          >
+            Ir a Académico
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {academicGpa.subjects.map((item) => (
+            <div key={item.subjectSlug} className="rounded-xl border border-white/15 bg-white/8 px-3 py-2">
+              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-foreground/60">
+                <Award className="h-3 w-3" />
+                {SUBJECTS[item.subjectSlug].name}
+              </div>
+              <div className="mt-1 text-base font-semibold tabular-nums">
+                {item.average !== null ? item.average.toFixed(2) : "—"}
+              </div>
+              <div className="text-[11px] text-foreground/60">
+                {item.semestersCompleted} cerrados · {item.semestersPassed} aprobados
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Charts Row */}
