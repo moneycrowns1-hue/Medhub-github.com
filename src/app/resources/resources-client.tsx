@@ -803,12 +803,27 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerProgressPercent = totalReaderPages <= 1
     ? 0
     : ((clamp(readerPage, 1, totalReaderPages) - 1) / (totalReaderPages - 1)) * 100;
+  const canUseAiTool = Boolean(selectedId && previewUrl);
 
   const toggleReaderChrome = useCallback(() => {
     setReaderChromeVisible((prev) => !prev);
     setReaderMoreMenuOpen(false);
     setReaderPageInfoOpen(false);
   }, []);
+
+  const setReaderToolModeSafe = useCallback((nextMode: "lectura" | "generador") => {
+    if (nextMode === "generador" && !canUseAiTool) {
+      setAiError("Abre un PDF con vista previa cargada para usar la IA.");
+      return;
+    }
+    setReaderToolMode(nextMode);
+    setReaderMoreMenuOpen(false);
+    if (nextMode === "generador") {
+      setReaderSidebarOpen(false);
+      setReaderPageInfoOpen(false);
+      setReaderChromeVisible(true);
+    }
+  }, [canUseAiTool]);
 
   const pushNotice = useCallback((title: string, body: string) => {
     const id = `res_notice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -3199,9 +3214,16 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   };
 
   const runAi = async () => {
+    if (aiBusy) return;
+    if (!selected || !previewUrl) {
+      setAiError("Abre un PDF con vista previa antes de usar la IA.");
+      pushNotice("IA no disponible", "Abre un PDF y espera que cargue la vista previa para generar flashcards.");
+      return;
+    }
     if (!selectedTextForAi.trim()) return;
     if (selectedTextForAi.trim().length < 120) {
       setAiError("Necesitas un poco más de contenido para la IA (mínimo sugerido: 120 caracteres). Extrae más páginas o selecciona más chunks.");
+      pushNotice("Texto insuficiente", "Selecciona más contenido del PDF antes de generar con IA.");
       return;
     }
     window.dispatchEvent(
@@ -3466,14 +3488,15 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
               <button
                 type="button"
                 className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "lectura" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"}`}
-                onClick={() => setReaderToolMode("lectura")}
+                onClick={() => setReaderToolModeSafe("lectura")}
               >
                 Modo lectura
               </button>
               <button
                 type="button"
-                className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "generador" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"}`}
-                onClick={() => setReaderToolMode("generador")}
+                className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "generador" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"} ${!canUseAiTool ? "cursor-not-allowed opacity-45" : ""}`}
+                onClick={() => setReaderToolModeSafe("generador")}
+                disabled={!canUseAiTool}
               >
                 Modo generador IA
               </button>
@@ -3484,14 +3507,15 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
             <button
               type="button"
               className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "lectura" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"}`}
-              onClick={() => setReaderToolMode("lectura")}
+              onClick={() => setReaderToolModeSafe("lectura")}
             >
               Modo lectura
             </button>
             <button
               type="button"
-              className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "generador" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"}`}
-              onClick={() => setReaderToolMode("generador")}
+              className={`rounded-full px-3 py-1.5 text-xs transition ${readerToolMode === "generador" ? "bg-white/90 text-black" : "text-white/75 hover:text-white"} ${!canUseAiTool ? "cursor-not-allowed opacity-45" : ""}`}
+              onClick={() => setReaderToolModeSafe("generador")}
+              disabled={!canUseAiTool}
             >
               Modo generador IA
             </button>
@@ -3898,10 +3922,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => jumpToPage(readerPage + 1)} disabled={readerPage >= ((pageCount ?? previewPages.length) || 1)}>
                         <ChevronRight className="h-4 w-4" />
                       </Button>
-                      <Button type="button" variant={readerToolMode === "lectura" ? "secondary" : "outline"} size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderToolMode("lectura")}>
+                      <Button type="button" variant={readerToolMode === "lectura" ? "secondary" : "outline"} size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderToolModeSafe("lectura")}>
                         <FileText className="h-4 w-4" />
                       </Button>
-                      <Button type="button" variant={readerToolMode === "generador" ? "secondary" : "outline"} size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderToolMode("generador")}>
+                      <Button type="button" variant={readerToolMode === "generador" ? "secondary" : "outline"} size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-45" onClick={() => setReaderToolModeSafe("generador")} disabled={!canUseAiTool} title={!canUseAiTool ? "Abre un PDF para habilitar IA" : "Abrir generador IA"}>
                         <Sparkles className="h-4 w-4" />
                       </Button>
                       <Button type="button" variant="outline" size="sm" className="h-8 border-white/20 bg-white/10 px-2 text-white hover:bg-white/15" onClick={() => setReaderSidebarOpen((prev) => !prev)}>
