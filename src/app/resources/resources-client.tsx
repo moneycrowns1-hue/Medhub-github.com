@@ -8,7 +8,9 @@ import { gsap } from "gsap";
 
 import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Filter, Info, Loader2, MoreHorizontal, PanelRight, Save, Search, Sparkles, Star, StickyNote, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+
+import { ensurePdfJsWorker, getPdfAssetUrls } from "@/lib/pdfjs-runtime";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -194,6 +196,7 @@ async function renderPdfPageAssetFromRemoteUrl(remoteUrl: string, pageNumber: nu
     disableAutoFetch: false,
     disableRange: false,
     rangeChunkSize: 262144,
+    ...getPdfAssetUrls(),
   });
   let pdf: Awaited<typeof task.promise> | null = null;
   try {
@@ -382,38 +385,10 @@ function keyboardEventToShortcut(event: KeyboardEvent) {
 }
 
 const PDF_PREVIEW_CACHE = new Map<string, PdfPreviewCacheEntry>();
-let pdfWorkerConfigured = false;
 let previewCacheCleanupBound = false;
 
 function ensurePdfWorker() {
-  if (pdfWorkerConfigured) return;
-  if (typeof window !== "undefined") {
-    const nextData = (window as Window & { __NEXT_DATA__?: { assetPrefix?: string } }).__NEXT_DATA__;
-    let assetPrefix = typeof nextData?.assetPrefix === "string" ? nextData.assetPrefix : "";
-    if (!assetPrefix) {
-      const nextScript = document.querySelector<HTMLScriptElement>('script[src*="/_next/"]');
-      const src = nextScript?.src;
-      if (src) {
-        try {
-          const parsed = new URL(src, window.location.href);
-          const marker = "/_next/";
-          const idx = parsed.pathname.indexOf(marker);
-          if (idx > 0) assetPrefix = parsed.pathname.slice(0, idx);
-        } catch {
-          // ignore
-        }
-      }
-    }
-    if (!assetPrefix && window.location.hostname.endsWith("github.io")) {
-      const [first] = window.location.pathname.split("/").filter(Boolean);
-      if (first) assetPrefix = `/${first}`;
-    }
-    const normalizedPrefix = assetPrefix.endsWith("/") ? assetPrefix.slice(0, -1) : assetPrefix;
-    GlobalWorkerOptions.workerSrc = `${normalizedPrefix}/pdf.worker.min.js`;
-  } else {
-    GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
-  }
-  pdfWorkerConfigured = true;
+  ensurePdfJsWorker();
 }
 
 function bindPreviewCacheCleanup() {
@@ -444,6 +419,7 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: Array<string | null>
   const openData = sourceData.slice();
   const task = getDocument({
     data: openData,
+    ...getPdfAssetUrls(),
     disableStream: false,
     disableAutoFetch: false,
     disableRange: false,
@@ -463,6 +439,7 @@ async function renderPdfPagesFromRemoteUrl(remoteUrl: string): Promise<{ pages: 
   ensurePdfWorker();
   const task = getDocument({
     url: remoteUrl,
+    ...getPdfAssetUrls(),
     disableStream: false,
     disableAutoFetch: false,
     disableRange: false,
@@ -547,6 +524,7 @@ async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number): P
   const openData = sourceData.slice();
   const task = getDocument({
     data: openData,
+    ...getPdfAssetUrls(),
     disableStream: false,
     disableAutoFetch: false,
     disableRange: false,

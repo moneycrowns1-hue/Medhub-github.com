@@ -1,47 +1,14 @@
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
-let workerConfigured = false;
-
-function ensureWorker() {
-  if (workerConfigured) return;
-  if (typeof window !== "undefined") {
-    const nextData = (window as Window & { __NEXT_DATA__?: { assetPrefix?: string } }).__NEXT_DATA__;
-    let assetPrefix = typeof nextData?.assetPrefix === "string" ? nextData.assetPrefix : "";
-    if (!assetPrefix) {
-      const nextScript = document.querySelector<HTMLScriptElement>('script[src*="/_next/"]');
-      const src = nextScript?.src;
-      if (src) {
-        try {
-          const parsed = new URL(src, window.location.href);
-          const marker = "/_next/";
-          const idx = parsed.pathname.indexOf(marker);
-          if (idx > 0) assetPrefix = parsed.pathname.slice(0, idx);
-        } catch {
-          // ignore
-        }
-      }
-    }
-    if (!assetPrefix && window.location.hostname.endsWith("github.io")) {
-      const [first] = window.location.pathname.split("/").filter(Boolean);
-      if (first) assetPrefix = `/${first}`;
-    }
-    const normalizedPrefix = assetPrefix.endsWith("/") ? assetPrefix.slice(0, -1) : assetPrefix;
-    GlobalWorkerOptions.workerSrc = `${normalizedPrefix}/pdf.worker.min.js`;
-  } else {
-    GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
-  }
-  workerConfigured = true;
-}
+import { getPdfDocumentOptions } from "@/lib/pdfjs-runtime";
 
 export async function extractPdfTextFromBlob(input: {
   blob: Blob;
   pageStart: number;
   pageEnd: number;
-}): Promise<{ text: string; pageCount: number }> {
-  ensureWorker();
-
+}): Promise<{ text: string; pageCount: number; emptyPages: number }> {
   const ab = await input.blob.arrayBuffer();
-  const loadingTask = getDocument({ data: ab });
+  const loadingTask = getDocument({ data: ab, ...getPdfDocumentOptions() });
   const pdf = await loadingTask.promise;
 
   const pageCount = pdf.numPages;
@@ -49,6 +16,7 @@ export async function extractPdfTextFromBlob(input: {
   const end = Math.max(start, Math.min(pageCount, Math.floor(input.pageEnd)));
 
   const chunks: string[] = [];
+  let emptyPages = 0;
   for (let p = start; p <= end; p += 1) {
     try {
       const page = await pdf.getPage(p);
@@ -69,9 +37,11 @@ export async function extractPdfTextFromBlob(input: {
       if (pageText) {
         chunks.push(`\n\n[Page ${p}]\n${pageText}`);
       } else {
+        emptyPages += 1;
         chunks.push(`\n\n[Page ${p}]\n`);
       }
     } catch {
+      emptyPages += 1;
       chunks.push(`\n\n[Page ${p}]\n`);
     }
   }
@@ -82,5 +52,5 @@ export async function extractPdfTextFromBlob(input: {
     // ignore
   }
 
-  return { text: chunks.join("").trim(), pageCount };
+  return { text: chunks.join("").trim(), pageCount, emptyPages };
 }

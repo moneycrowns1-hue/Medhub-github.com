@@ -1,37 +1,6 @@
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
-let workerConfigured = false;
-
-function ensureWorker() {
-  if (workerConfigured) return;
-  if (typeof window !== "undefined") {
-    const nextData = (window as Window & { __NEXT_DATA__?: { assetPrefix?: string } }).__NEXT_DATA__;
-    let assetPrefix = typeof nextData?.assetPrefix === "string" ? nextData.assetPrefix : "";
-    if (!assetPrefix) {
-      const nextScript = document.querySelector<HTMLScriptElement>('script[src*="/_next/"]');
-      const src = nextScript?.src;
-      if (src) {
-        try {
-          const parsed = new URL(src, window.location.href);
-          const marker = "/_next/";
-          const idx = parsed.pathname.indexOf(marker);
-          if (idx > 0) assetPrefix = parsed.pathname.slice(0, idx);
-        } catch {
-          // ignore
-        }
-      }
-    }
-    if (!assetPrefix && window.location.hostname.endsWith("github.io")) {
-      const [first] = window.location.pathname.split("/").filter(Boolean);
-      if (first) assetPrefix = `/${first}`;
-    }
-    const normalizedPrefix = assetPrefix.endsWith("/") ? assetPrefix.slice(0, -1) : assetPrefix;
-    GlobalWorkerOptions.workerSrc = `${normalizedPrefix}/pdf.worker.min.js`;
-  } else {
-    GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
-  }
-  workerConfigured = true;
-}
+import { getPdfDocumentOptions } from "@/lib/pdfjs-runtime";
 
 export type PdfTocNode = {
   id: string;
@@ -47,11 +16,18 @@ export type PdfSearchMatch = {
   matchEnd: number;
 };
 
+export type PdfIndexDiagnostics = {
+  emptyPageCount: number;
+  totalCharacters: number;
+  likelyScanned: boolean; // true when essentially no extractable text was found
+};
+
 export type PdfIndex = {
   documentId: string;
   pageCount: number;
   pages: string[]; // pages[i] = text of page (i+1)
   outline: PdfTocNode[];
+  diagnostics: PdfIndexDiagnostics;
 };
 
 const SNIPPET_RADIUS = 60;
@@ -136,9 +112,8 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
   if (running) return running;
 
   const promise = (async () => {
-    ensureWorker();
     const ab = await blob.arrayBuffer();
-    const pdf = await getDocument({ data: ab }).promise;
+    const pdf = await getDocument({ data: ab, ...getPdfDocumentOptions() }).promise;
 
     const pageCount = pdf.numPages;
     const pages: string[] = new Array(pageCount).fill("");
@@ -167,7 +142,28 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
       // ignore
     }
 
-    const result: PdfIndex = { documentId, pageCount, pages, outline };
+    let emptyPageCount = 0;
+    let totalCharacters = 0;
+    for (const text of pages) {
+      if (!text) emptyPageCount += 1;
+      else totalCharacters += text.length;
+    }
+    const avgPerNonEmpty = pageCount - emptyPageCount > 0
+      ? totalCharacters / (pageCount - emptyPageCount)
+      : 0;
+    // Heuristic: if we extracted fewer than ~40 chars per non-empty page
+    // on average, or everything came back empty, the PDF is almost certainly
+    // a scanned document without an OCR text layer.
+    const likelyScanned =
+      totalCharacters === 0 || (pageCount > 2 && avgPerNonEmpty < 40);
+
+    const diagnostics: PdfIndexDiagnostics = {
+      emptyPageCount,
+      totalCharacters,
+      likelyScanned,
+    };
+
+    const result: PdfIndex = { documentId, pageCount, pages, outline, diagnostics };
     indexCache.set(documentId, result);
     return result;
   })();

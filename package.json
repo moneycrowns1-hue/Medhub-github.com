@@ -8,6 +8,8 @@
     "export": "next build",
     "start": "next start",
     "lint": "eslint",
+    "sync:pdfjs-assets": "node scripts/sync-pdfjs-assets.mjs",
+    "postinstall": "node scripts/sync-pdfjs-assets.mjs",
     "deploy:build": "next build",
     "deploy:preview": "npm run build && npx serve out"
   },

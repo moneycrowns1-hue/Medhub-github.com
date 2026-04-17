@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
-import { ChevronDown, ChevronRight, ListTree, Loader2, RefreshCw, Search, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, ListTree, Loader2, RefreshCw, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -265,7 +265,30 @@ export function TocSearchPanel({ documentId, currentPage, getBlob, onJumpToPage 
         <div className="rounded-md bg-white/5 p-2 text-[11px] text-white/70">
           Abrí un PDF para ver el índice y buscar en el texto.
         </div>
-      ) : tab === "toc" ? (
+      ) : index.diagnostics.likelyScanned ? (
+        <div className="space-y-1 rounded-md border border-amber-300/35 bg-amber-300/10 p-2 text-[11px] text-amber-100">
+          <div className="flex items-center gap-1.5 font-semibold">
+            <AlertTriangle className="h-3 w-3" />
+            PDF sin capa de texto
+          </div>
+          <div className="text-amber-100/90">
+            Este archivo parece escaneado (imagen). No se detectó texto seleccionable,
+            por eso el índice y la búsqueda no encuentran nada.
+          </div>
+          <div className="text-[10px] text-amber-100/80">
+            Solución: re-subí el PDF pasado por OCR (Adobe Acrobat → &ldquo;Reconocer texto&rdquo;,
+            o herramientas como ocrmypdf / tesseract) para habilitar copia y búsqueda.
+          </div>
+        </div>
+      ) : index.diagnostics.emptyPageCount > 0 ? (
+        <div className="rounded-md border border-white/15 bg-white/5 p-2 text-[10px] text-white/70">
+          Advertencia: {index.diagnostics.emptyPageCount} de {index.pageCount} páginas
+          no devolvieron texto extraíble (pueden ser portadas, imágenes o escaneos).
+        </div>
+      ) : null}
+
+      {index && !index.diagnostics.likelyScanned ? (
+        tab === "toc" ? (
         <div data-toc-tab-content className="space-y-1">
           {tocCount === 0 ? (
             <div className="rounded-md bg-white/5 p-2 text-[11px] text-white/70">
@@ -346,7 +369,8 @@ export function TocSearchPanel({ documentId, currentPage, getBlob, onJumpToPage 
             </ul>
           ) : null}
         </div>
-      )}
+        )
+      ) : null}
     </div>
   );
 }
