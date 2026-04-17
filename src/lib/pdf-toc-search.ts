@@ -19,13 +19,16 @@ export type PdfSearchMatch = {
 export type PdfIndexDiagnostics = {
   pagesWithText: number; // pages that returned at least 1 char
   pagesWithItemsButNoStrings: number; // pages with text operators but empty str (cmap/font issue)
-  pagesWithoutAnyItems: number; // pages with 0 text items (likely scanned image)
+  pagesWithoutAnyItems: number; // pages with 0 text items and no error (likely scanned image)
+  pagesWithError: number; // pages where getTextContent threw (worker crash, memory, etc.)
   totalCharacters: number;
   averageCharsPerPage: number;
   // true only when nothing resembles a text layer across the whole doc
   likelyScanned: boolean;
   // true when text ops exist but decoding produced empty strings
   likelyFontOrCmapIssue: boolean;
+  // true when most pages failed with errors (memory / worker crash)
+  likelyExtractionFailure: boolean;
   // last non-fatal error surfaced during indexing (if any)
   lastError: string | null;
 };
@@ -140,11 +143,16 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
     const pageCount = pdf.numPages;
     const pages: string[] = new Array(pageCount).fill("");
     const itemCounts: number[] = new Array(pageCount).fill(0);
+    const pageErrors: (string | null)[] = new Array(pageCount).fill(null);
     let lastError: string | null = null;
 
     // Low concurrency: pdfjs workers can die on large textbooks when the
     // extraction pipeline holds too many pages alive at once.
-    const concurrency = 2;
+    // iOS/iPadOS Safari is especially fragile → run strictly sequentially.
+    const isIOS = typeof navigator !== "undefined" &&
+      (/iP(hone|od|ad)/.test(navigator.platform) ||
+        (navigator.userAgent.includes("Mac") && "ontouchend" in document));
+    const concurrency = isIOS ? 1 : 2;
     let next = 0;
     async function worker() {
       while (true) {
@@ -156,10 +164,27 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
         );
         pages[current] = r.text;
         itemCounts[current] = r.itemCount;
+        pageErrors[current] = r.error;
         if (r.error) lastError = r.error;
       }
     }
     await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+    // Retry pages that errored, once, strictly sequentially. On iOS Safari
+    // the pdfjs worker sometimes throws transient memory errors that recover
+    // after other pages finish.
+    for (let i = 0; i < pageCount; i += 1) {
+      if (pageErrors[i] && !pages[i]) {
+        const r = await extractPageText(
+          pdf as unknown as { getPage: (n: number) => Promise<unknown> },
+          i + 1,
+        );
+        pages[i] = r.text;
+        itemCounts[i] = r.itemCount;
+        pageErrors[i] = r.error;
+        if (r.error) lastError = r.error;
+      }
+    }
 
     let rawOutline: PdfJsOutlineItem[] = [];
     try {
@@ -181,13 +206,17 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
     let pagesWithText = 0;
     let pagesWithItemsButNoStrings = 0;
     let pagesWithoutAnyItems = 0;
+    let pagesWithError = 0;
     let totalCharacters = 0;
     for (let i = 0; i < pageCount; i += 1) {
       const text = pages[i];
       const items = itemCounts[i];
+      const err = pageErrors[i];
       if (text) {
         pagesWithText += 1;
         totalCharacters += text.length;
+      } else if (err) {
+        pagesWithError += 1;
       } else if (items > 0) {
         pagesWithItemsButNoStrings += 1;
       } else {
@@ -196,15 +225,23 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
     }
     const averageCharsPerPage = pageCount > 0 ? totalCharacters / pageCount : 0;
 
-    // Scanned = practically no text items anywhere. Require it across the
-    // whole document AND that nothing came out with content.
+    // Most pages errored → memory / worker failure, NOT a scanned PDF.
+    const likelyExtractionFailure =
+      pagesWithError >= Math.max(1, Math.ceil(pageCount * 0.5)) &&
+      pagesWithText === 0;
+
+    // Scanned = practically no text items anywhere, AND no errors disturbed
+    // the extraction. Require it across the whole document.
     const likelyScanned =
+      !likelyExtractionFailure &&
       totalCharacters === 0 &&
       pagesWithItemsButNoStrings === 0 &&
+      pagesWithError === 0 &&
       pagesWithoutAnyItems >= Math.max(1, Math.ceil(pageCount * 0.9));
 
     // Text operators exist but pdfjs couldn't decode them → cmap/font issue.
     const likelyFontOrCmapIssue =
+      !likelyExtractionFailure &&
       pagesWithItemsButNoStrings > 0 &&
       pagesWithText === 0;
 
@@ -212,10 +249,12 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
       pagesWithText,
       pagesWithItemsButNoStrings,
       pagesWithoutAnyItems,
+      pagesWithError,
       totalCharacters,
       averageCharsPerPage,
       likelyScanned,
       likelyFontOrCmapIssue,
+      likelyExtractionFailure,
       lastError,
     };
 

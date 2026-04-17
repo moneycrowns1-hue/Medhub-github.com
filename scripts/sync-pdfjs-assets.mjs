@@ -15,6 +15,7 @@ const publicRoot = resolve(projectRoot, "public", "pdfjs");
 const pairs = [
   ["cmaps", "cmaps"],
   ["standard_fonts", "standard_fonts"],
+  ["wasm", "wasm"],
 ];
 
 if (!existsSync(pdfjsRoot)) {

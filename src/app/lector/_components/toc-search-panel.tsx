@@ -265,6 +265,29 @@ export function TocSearchPanel({ documentId, currentPage, getBlob, onJumpToPage 
         <div className="rounded-md bg-white/5 p-2 text-[11px] text-white/70">
           Abrí un PDF para ver el índice y buscar en el texto.
         </div>
+      ) : index.diagnostics.likelyExtractionFailure ? (
+        <div className="space-y-1 rounded-md border border-rose-300/35 bg-rose-400/10 p-2 text-[11px] text-rose-100">
+          <div className="flex items-center gap-1.5 font-semibold">
+            <AlertTriangle className="h-3 w-3" />
+            Falló la extracción de texto
+          </div>
+          <div className="text-rose-100/90">
+            El worker de pdfjs se cayó al procesar este PDF. Suele pasar en
+            iPad/iPhone con libros grandes (falta de memoria). El PDF puede
+            tener texto — no es escaneado.
+          </div>
+          <div className="text-[10px] tabular-nums text-rose-100/80">
+            {index.diagnostics.pagesWithError}/{index.pageCount} páginas con error
+          </div>
+          {index.diagnostics.lastError ? (
+            <div className="truncate text-[10px] text-rose-100/70" title={index.diagnostics.lastError}>
+              {index.diagnostics.lastError}
+            </div>
+          ) : null}
+          <div className="text-[10px] text-rose-100/80">
+            Probá en una computadora o cerrá pestañas para liberar memoria y recargá.
+          </div>
+        </div>
       ) : index.diagnostics.likelyFontOrCmapIssue ? (
         <div className="space-y-1 rounded-md border border-amber-300/35 bg-amber-300/10 p-2 text-[11px] text-amber-100">
           <div className="flex items-center gap-1.5 font-semibold">
@@ -299,6 +322,11 @@ export function TocSearchPanel({ documentId, currentPage, getBlob, onJumpToPage 
             Solución: pasalo por OCR (ocrmypdf, Adobe Acrobat &ldquo;Reconocer texto&rdquo;)
             y re-subilo.
           </div>
+          {index.diagnostics.lastError ? (
+            <div className="truncate text-[10px] text-amber-100/70" title={index.diagnostics.lastError}>
+              Último error pdfjs: {index.diagnostics.lastError}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="rounded-md border border-white/15 bg-white/5 p-1.5 text-[10px] tabular-nums text-white/70">
@@ -311,7 +339,10 @@ export function TocSearchPanel({ documentId, currentPage, getBlob, onJumpToPage 
         </div>
       )}
 
-      {index && !index.diagnostics.likelyScanned && !index.diagnostics.likelyFontOrCmapIssue ? (
+      {index &&
+      !index.diagnostics.likelyScanned &&
+      !index.diagnostics.likelyFontOrCmapIssue &&
+      !index.diagnostics.likelyExtractionFailure ? (
         tab === "toc" ? (
         <div data-toc-tab-content className="space-y-1">
           {tocCount === 0 ? (

@@ -98,6 +98,7 @@ export type PdfDocumentAssetOptions = {
   cMapPacked: true;
   standardFontDataUrl: string;
   useSystemFonts: true;
+  wasmUrl: string;
 };
 
 export function getPdfAssetUrls(): PdfDocumentAssetOptions {
@@ -107,6 +108,7 @@ export function getPdfAssetUrls(): PdfDocumentAssetOptions {
     cMapPacked: true,
     standardFontDataUrl: `${prefix}/pdfjs/standard_fonts/`,
     useSystemFonts: true,
+    wasmUrl: `${prefix}/pdfjs/wasm/`,
   };
 }
 
