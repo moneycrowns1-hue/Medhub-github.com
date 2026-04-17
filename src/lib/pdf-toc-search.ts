@@ -17,9 +17,17 @@ export type PdfSearchMatch = {
 };
 
 export type PdfIndexDiagnostics = {
-  emptyPageCount: number;
+  pagesWithText: number; // pages that returned at least 1 char
+  pagesWithItemsButNoStrings: number; // pages with text operators but empty str (cmap/font issue)
+  pagesWithoutAnyItems: number; // pages with 0 text items (likely scanned image)
   totalCharacters: number;
-  likelyScanned: boolean; // true when essentially no extractable text was found
+  averageCharsPerPage: number;
+  // true only when nothing resembles a text layer across the whole doc
+  likelyScanned: boolean;
+  // true when text ops exist but decoding produced empty strings
+  likelyFontOrCmapIssue: boolean;
+  // last non-fatal error surfaced during indexing (if any)
+  lastError: string | null;
 };
 
 export type PdfIndex = {
@@ -85,14 +93,23 @@ async function buildOutlineTree(
   return nodes;
 }
 
-async function extractPageText(pdf: { getPage: (n: number) => Promise<unknown> }, pageNum: number): Promise<string> {
+type PageExtractionResult = {
+  text: string;
+  itemCount: number;
+  error: string | null;
+};
+
+async function extractPageText(
+  pdf: { getPage: (n: number) => Promise<unknown> },
+  pageNum: number,
+): Promise<PageExtractionResult> {
   try {
     const page = await pdf.getPage(pageNum);
     const content = await (page as { getTextContent: () => Promise<unknown> }).getTextContent();
     const items = Array.isArray((content as { items?: unknown }).items)
       ? ((content as { items: unknown[] }).items as unknown[])
       : [];
-    return items
+    const text = items
       .map((it) => {
         const s = (it as { str?: string }).str;
         return typeof s === "string" ? s : "";
@@ -100,8 +117,13 @@ async function extractPageText(pdf: { getPage: (n: number) => Promise<unknown> }
       .join(" ")
       .replace(/\s+/g, " ")
       .trim();
-  } catch {
-    return "";
+    return { text, itemCount: items.length, error: null };
+  } catch (err) {
+    return {
+      text: "",
+      itemCount: 0,
+      error: err instanceof Error ? err.message : "unknown error",
+    };
   }
 }
 
@@ -117,20 +139,34 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
 
     const pageCount = pdf.numPages;
     const pages: string[] = new Array(pageCount).fill("");
+    const itemCounts: number[] = new Array(pageCount).fill(0);
+    let lastError: string | null = null;
 
-    // Parallel extraction with modest concurrency to avoid blocking
-    const concurrency = 4;
+    // Low concurrency: pdfjs workers can die on large textbooks when the
+    // extraction pipeline holds too many pages alive at once.
+    const concurrency = 2;
     let next = 0;
     async function worker() {
       while (true) {
         const current = next++;
         if (current >= pageCount) return;
-        pages[current] = await extractPageText(pdf as unknown as { getPage: (n: number) => Promise<unknown> }, current + 1);
+        const r = await extractPageText(
+          pdf as unknown as { getPage: (n: number) => Promise<unknown> },
+          current + 1,
+        );
+        pages[current] = r.text;
+        itemCounts[current] = r.itemCount;
+        if (r.error) lastError = r.error;
       }
     }
     await Promise.all(Array.from({ length: concurrency }, () => worker()));
 
-    const rawOutline = (await (pdf as unknown as { getOutline: () => Promise<PdfJsOutlineItem[] | null> }).getOutline()) ?? [];
+    let rawOutline: PdfJsOutlineItem[] = [];
+    try {
+      rawOutline = (await (pdf as unknown as { getOutline: () => Promise<PdfJsOutlineItem[] | null> }).getOutline()) ?? [];
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : lastError;
+    }
     const outline = await buildOutlineTree(
       pdf as unknown as { getDestination: (name: string) => Promise<unknown>; getPageIndex: (ref: unknown) => Promise<number> },
       rawOutline,
@@ -142,25 +178,45 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
       // ignore
     }
 
-    let emptyPageCount = 0;
+    let pagesWithText = 0;
+    let pagesWithItemsButNoStrings = 0;
+    let pagesWithoutAnyItems = 0;
     let totalCharacters = 0;
-    for (const text of pages) {
-      if (!text) emptyPageCount += 1;
-      else totalCharacters += text.length;
+    for (let i = 0; i < pageCount; i += 1) {
+      const text = pages[i];
+      const items = itemCounts[i];
+      if (text) {
+        pagesWithText += 1;
+        totalCharacters += text.length;
+      } else if (items > 0) {
+        pagesWithItemsButNoStrings += 1;
+      } else {
+        pagesWithoutAnyItems += 1;
+      }
     }
-    const avgPerNonEmpty = pageCount - emptyPageCount > 0
-      ? totalCharacters / (pageCount - emptyPageCount)
-      : 0;
-    // Heuristic: if we extracted fewer than ~40 chars per non-empty page
-    // on average, or everything came back empty, the PDF is almost certainly
-    // a scanned document without an OCR text layer.
+    const averageCharsPerPage = pageCount > 0 ? totalCharacters / pageCount : 0;
+
+    // Scanned = practically no text items anywhere. Require it across the
+    // whole document AND that nothing came out with content.
     const likelyScanned =
-      totalCharacters === 0 || (pageCount > 2 && avgPerNonEmpty < 40);
+      totalCharacters === 0 &&
+      pagesWithItemsButNoStrings === 0 &&
+      pagesWithoutAnyItems >= Math.max(1, Math.ceil(pageCount * 0.9));
+
+    // Text operators exist but pdfjs couldn't decode them → cmap/font issue.
+    const likelyFontOrCmapIssue =
+      pagesWithItemsButNoStrings > 0 &&
+      pagesWithText === 0;
 
     const diagnostics: PdfIndexDiagnostics = {
-      emptyPageCount,
+      pagesWithText,
+      pagesWithItemsButNoStrings,
+      pagesWithoutAnyItems,
       totalCharacters,
+      averageCharsPerPage,
       likelyScanned,
+      likelyFontOrCmapIssue,
+      lastError,
     };
 
     const result: PdfIndex = { documentId, pageCount, pages, outline, diagnostics };

@@ -48,11 +48,49 @@ function resolveAssetPrefix(): string {
   return assetPrefix.endsWith("/") ? assetPrefix.slice(0, -1) : assetPrefix;
 }
 
+let assetSelfTestStarted = false;
+
+function startAssetSelfTestOnce(assets: PdfDocumentAssetOptions): void {
+  if (assetSelfTestStarted) return;
+  assetSelfTestStarted = true;
+  if (typeof window === "undefined" || typeof fetch !== "function") return;
+  // Try to HEAD a representative CMap file and a standard font.
+  // Results are logged to the console so it's trivial to spot 404s in dev.
+  const cmapProbe = `${assets.cMapUrl}Adobe-Japan1-UCS2.bcmap`;
+  const fontProbe = `${assets.standardFontDataUrl}FoxitSerif.pfb`;
+  void (async () => {
+    try {
+      const [cmapRes, fontRes] = await Promise.all([
+        fetch(cmapProbe, { method: "HEAD" }).catch(() => null),
+        fetch(fontProbe, { method: "HEAD" }).catch(() => null),
+      ]);
+      const cmapOk = !!cmapRes && cmapRes.ok;
+      const fontOk = !!fontRes && fontRes.ok;
+      console.info(
+        `[pdfjs-runtime] assets self-test: cmap=${cmapOk ? "ok" : "FAIL"} (${cmapProbe})  fonts=${
+          fontOk ? "ok" : "FAIL"
+        } (${fontProbe})`,
+      );
+      if (!cmapOk || !fontOk) {
+        console.warn(
+          "[pdfjs-runtime] CMaps/standard fonts not reachable — PDFs with non-embedded fonts will return empty text. Run `npm run sync:pdfjs-assets` and reload.",
+        );
+      }
+    } catch {
+      // ignore
+    }
+  })();
+}
+
 export function ensurePdfJsWorker(): void {
   if (workerConfigured) return;
   const prefix = resolveAssetPrefix();
   GlobalWorkerOptions.workerSrc = `${prefix}/pdf.worker.min.js`;
   workerConfigured = true;
+  if (typeof window !== "undefined") {
+    console.info(`[pdfjs-runtime] workerSrc=${GlobalWorkerOptions.workerSrc}`);
+    startAssetSelfTestOnce(getPdfAssetUrls());
+  }
 }
 
 export type PdfDocumentAssetOptions = {

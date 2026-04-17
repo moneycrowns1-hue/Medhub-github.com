@@ -265,29 +265,53 @@ export function TocSearchPanel({ documentId, currentPage, getBlob, onJumpToPage 
         <div className="rounded-md bg-white/5 p-2 text-[11px] text-white/70">
           Abrí un PDF para ver el índice y buscar en el texto.
         </div>
+      ) : index.diagnostics.likelyFontOrCmapIssue ? (
+        <div className="space-y-1 rounded-md border border-amber-300/35 bg-amber-300/10 p-2 text-[11px] text-amber-100">
+          <div className="flex items-center gap-1.5 font-semibold">
+            <AlertTriangle className="h-3 w-3" />
+            No se pudo decodificar el texto
+          </div>
+          <div className="text-amber-100/90">
+            El PDF contiene texto pero pdfjs no pudo convertir los códigos de carácter
+            (faltan CMaps/fuentes estándar o el PDF usa un encoding no soportado).
+          </div>
+          <div className="text-[10px] tabular-nums text-amber-100/80">
+            {index.diagnostics.pagesWithItemsButNoStrings} páginas con operadores de texto
+            vacíos · {index.diagnostics.pagesWithoutAnyItems} sin operadores
+          </div>
+          {index.diagnostics.lastError ? (
+            <div className="truncate text-[10px] text-amber-100/70" title={index.diagnostics.lastError}>
+              Último error: {index.diagnostics.lastError}
+            </div>
+          ) : null}
+        </div>
       ) : index.diagnostics.likelyScanned ? (
         <div className="space-y-1 rounded-md border border-amber-300/35 bg-amber-300/10 p-2 text-[11px] text-amber-100">
           <div className="flex items-center gap-1.5 font-semibold">
             <AlertTriangle className="h-3 w-3" />
-            PDF sin capa de texto
+            PDF sin capa de texto (escaneado)
           </div>
           <div className="text-amber-100/90">
-            Este archivo parece escaneado (imagen). No se detectó texto seleccionable,
-            por eso el índice y la búsqueda no encuentran nada.
+            Las {index.pageCount} páginas no tienen operadores de texto. Es una imagen
+            escaneada sin OCR, así que no hay nada que buscar.
           </div>
           <div className="text-[10px] text-amber-100/80">
-            Solución: re-subí el PDF pasado por OCR (Adobe Acrobat → &ldquo;Reconocer texto&rdquo;,
-            o herramientas como ocrmypdf / tesseract) para habilitar copia y búsqueda.
+            Solución: pasalo por OCR (ocrmypdf, Adobe Acrobat &ldquo;Reconocer texto&rdquo;)
+            y re-subilo.
           </div>
         </div>
-      ) : index.diagnostics.emptyPageCount > 0 ? (
-        <div className="rounded-md border border-white/15 bg-white/5 p-2 text-[10px] text-white/70">
-          Advertencia: {index.diagnostics.emptyPageCount} de {index.pageCount} páginas
-          no devolvieron texto extraíble (pueden ser portadas, imágenes o escaneos).
+      ) : (
+        <div className="rounded-md border border-white/15 bg-white/5 p-1.5 text-[10px] tabular-nums text-white/70">
+          {index.diagnostics.pagesWithText}/{index.pageCount} páginas con texto ·{" "}
+          {index.diagnostics.totalCharacters.toLocaleString()} caracteres ·{" "}
+          {Math.round(index.diagnostics.averageCharsPerPage)}/pág
+          {index.diagnostics.pagesWithItemsButNoStrings > 0
+            ? ` · ${index.diagnostics.pagesWithItemsButNoStrings} con decoding fallido`
+            : ""}
         </div>
-      ) : null}
+      )}
 
-      {index && !index.diagnostics.likelyScanned ? (
+      {index && !index.diagnostics.likelyScanned && !index.diagnostics.likelyFontOrCmapIssue ? (
         tab === "toc" ? (
         <div data-toc-tab-content className="space-y-1">
           {tocCount === 0 ? (
