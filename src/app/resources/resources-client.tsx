@@ -2748,6 +2748,14 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [immersiveReadingMode]);
 
   useEffect(() => {
+    if (!(immersiveMode && readerToolMode === "lectura") || readerSafeMode) {
+      setReaderGesturesEnabled(false);
+      return;
+    }
+    setReaderGesturesEnabled(isTouchInputDevice());
+  }, [immersiveMode, readerToolMode, readerSafeMode, isTouchInputDevice]);
+
+  useEffect(() => {
     if (!(immersiveMode && readerToolMode === "lectura")) {
       setReaderGestureZoom(1);
       setReaderPan({ x: 0, y: 0 });
@@ -4085,6 +4093,10 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           onTouchStart={(event) => {
                             if (!immersiveReadingMode) return;
                             if (readerGestureActive) return;
+                            if ((event.touches?.length ?? 0) !== 1) {
+                              readerCenterTapStartRef.current = null;
+                              return;
+                            }
                             const touch = event.touches?.[0];
                             if (!touch) return;
                             readerCenterTapStartRef.current = {
@@ -4096,6 +4108,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           onTouchEnd={(event) => {
                             if (!immersiveReadingMode) return;
                             if (readerGestureActive) return;
+                            if ((event.touches?.length ?? 0) > 0) return;
                             const start = readerCenterTapStartRef.current;
                             readerCenterTapStartRef.current = null;
                             if (!start) return;
@@ -4126,7 +4139,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           style={{ overflowAnchor: "auto" }}
                           className={
                             immersiveMode && readerToolMode === "lectura"
-                              ? "h-full touch-pan-x snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none bg-[#050505] p-0"
+                              ? "h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none bg-[#050505] p-0"
                               : "h-[58svh] min-h-[360px] overflow-y-auto bg-black/35 p-2 md:h-[600px]"
                           }
                         >
