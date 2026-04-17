@@ -707,7 +707,7 @@ export function GlobalRabbitMascot({ compact = false, suppressSpeech = false }: 
       {speech && !suppressSpeech ? (
         <div
           ref={speechRef}
-          className="pointer-events-auto fixed z-[75] w-[min(360px,88vw)] rounded-[26px] border border-white/25 bg-slate-950/95 px-4 py-3 text-white shadow-2xl backdrop-blur-xl"
+          className="pointer-events-auto fixed z-[75] w-[min(360px,88vw)] rounded-[26px] border border-white/15 bg-black/78 px-4 py-3 text-white shadow-2xl backdrop-blur-2xl"
           style={{ left: bubbleLayout.left, top: bubbleLayout.top }}
         >
           <div className="text-sm leading-tight [font-family:var(--font-heading)]">{speech.title}</div>
@@ -747,7 +747,7 @@ export function GlobalRabbitMascot({ compact = false, suppressSpeech = false }: 
           ) : null}
 
           <div
-            className="absolute h-3 w-3 rotate-45 border border-white/25 bg-slate-950/95"
+            className="absolute h-3 w-3 rotate-45 border border-white/15 bg-black/78"
             style={
               bubbleLayout.side === "top"
                 ? { left: bubbleLayout.arrowOffset - 6, bottom: -6, borderLeftWidth: 0, borderTopWidth: 0 }
@@ -759,7 +759,7 @@ export function GlobalRabbitMascot({ compact = false, suppressSpeech = false }: 
             }
           />
           <div
-            className="absolute h-2.5 w-2.5 rounded-full bg-slate-900/95"
+            className="absolute h-2.5 w-2.5 rounded-full bg-black/80"
             style={
               bubbleLayout.side === "top"
                 ? { left: bubbleLayout.arrowOffset - 4, bottom: -15 }

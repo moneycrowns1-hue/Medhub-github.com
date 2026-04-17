@@ -764,6 +764,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const readerSuppressClickToggleUntilRef = useRef(0);
   const immersiveTopBarRef = useRef<HTMLDivElement | null>(null);
   const immersiveProgressBarRef = useRef<HTMLDivElement | null>(null);
+  const immersiveSidebarRef = useRef<HTMLDivElement | null>(null);
+  const immersivePageInfoRef = useRef<HTMLDivElement | null>(null);
+  const readerLeaveDialogRef = useRef<HTMLDivElement | null>(null);
   const currentSelectedSubjectSlug = useMemo(() => {
     const selected = items.find((i) => i.id === selectedId);
     return selected?.subjectSlug === "anatomia" ||
@@ -810,10 +813,19 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   const pushNotice = useCallback((title: string, body: string) => {
     const id = `res_notice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     setNotices((prev) => [...prev, { id, title, body }]);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(RABBIT_GUIDE_SPEAK_EVENT, {
+        detail: {
+          title,
+          message: body,
+          durationMs: 4200,
+        } satisfies RabbitGuideSpeechPayload,
+      }));
+    }
     window.setTimeout(() => {
       setNotices((prev) => prev.filter((n) => n.id !== id));
     }, 3800);
-  }, [props.initialSelectedId, openQueryPdfId]);
+  }, []);
 
   useEffect(() => {
     if (!props.initialSelectedId) return;
@@ -2189,7 +2201,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     }
 
     return currentPage;
-  }, []);
+  }, [immersiveMode, readerToolMode]);
 
   const jumpToPage = useCallback((next: number, behavior: ScrollBehavior = "smooth") => {
     const maxPage = (pageCount ?? previewPages.length) || 1;
@@ -2660,6 +2672,42 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   }, [immersiveReadingMode, readerChromeVisible]);
 
   useEffect(() => {
+    if (!(immersiveReadingMode && readerSidebarOpen && readerChromeVisible)) return;
+    const sidebarEl = immersiveSidebarRef.current;
+    if (!sidebarEl) return;
+    gsap.killTweensOf(sidebarEl);
+    gsap.fromTo(
+      sidebarEl,
+      { autoAlpha: 0, x: 18, scale: 0.985 },
+      { autoAlpha: 1, x: 0, scale: 1, duration: 0.24, ease: "power2.out" },
+    );
+  }, [immersiveReadingMode, readerSidebarOpen, readerChromeVisible]);
+
+  useEffect(() => {
+    if (!(immersiveReadingMode && readerPageInfoOpen && readerChromeVisible)) return;
+    const infoEl = immersivePageInfoRef.current;
+    if (!infoEl) return;
+    gsap.killTweensOf(infoEl);
+    gsap.fromTo(
+      infoEl,
+      { autoAlpha: 0, y: -12, scale: 0.99 },
+      { autoAlpha: 1, y: 0, scale: 1, duration: 0.22, ease: "power2.out" },
+    );
+  }, [immersiveReadingMode, readerPageInfoOpen, readerChromeVisible]);
+
+  useEffect(() => {
+    if (!pendingLeaveHref) return;
+    const dialogEl = readerLeaveDialogRef.current;
+    if (!dialogEl) return;
+    gsap.killTweensOf(dialogEl);
+    gsap.fromTo(
+      dialogEl,
+      { autoAlpha: 0, y: 18, scale: 0.98 },
+      { autoAlpha: 1, y: 0, scale: 1, duration: 0.26, ease: "power2.out" },
+    );
+  }, [pendingLeaveHref]);
+
+  useEffect(() => {
     const topEl = immersiveTopBarRef.current;
     const progressEl = immersiveProgressBarRef.current;
 
@@ -2871,7 +2919,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       window.cancelAnimationFrame(id);
       if (timer) window.clearTimeout(timer);
     };
-  }, [pauseReaderScrollSync, previewPages, selectedId, scrollToPreviewPage]);
+  }, [immersiveMode, pauseReaderScrollSync, previewPages, readerToolMode, selectedId, scrollToPreviewPage]);
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -4682,7 +4730,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                   ) : null}
 
                   {immersiveMode && readerSidebarOpen && readerToolMode === "lectura" ? (
-                    <div className={`absolute right-4 top-16 z-40 w-[min(360px,92vw)] rounded-xl border border-white/15 bg-black/72 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl transition-[opacity,transform] duration-300 ease-in-out ${readerChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-4 opacity-0"}`}>
+                    <div ref={immersiveSidebarRef} className={`absolute right-4 top-16 z-40 w-[min(360px,92vw)] rounded-xl border border-white/15 bg-black/72 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl transition-[opacity,transform] duration-300 ease-in-out ${readerChromeVisible ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-4 opacity-0"}`}>
                       <div className="mb-2 flex items-center justify-between">
                         <div className="text-xs uppercase tracking-wider text-white/70">Panel lector</div>
                         <div className="text-[10px] text-white/60">Pág. {readerPage}</div>
@@ -4813,7 +4861,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                   ) : null}
 
                   {immersiveMode && readerPageInfoOpen ? (
-                    <div className="absolute right-4 top-16 z-40 w-[min(320px,90vw)] rounded-xl border border-white/15 bg-black/72 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl">
+                    <div ref={immersivePageInfoRef} className="absolute right-4 top-16 z-40 w-[min(320px,90vw)] rounded-xl border border-white/15 bg-black/72 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl">
                       <div className="mb-2 flex items-center justify-between">
                         <div className="text-xs uppercase tracking-wider text-white/72">Estado de lectura</div>
                         <button
@@ -5272,7 +5320,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
       {pendingLeaveHref ? (
         <div className="fixed inset-0 z-[135] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-black/78 p-4 text-white shadow-2xl backdrop-blur-2xl">
+          <div ref={readerLeaveDialogRef} className="w-full max-w-md rounded-2xl border border-white/15 bg-black/78 p-4 text-white shadow-2xl backdrop-blur-2xl">
             <div className="text-sm font-semibold">¿Guardar página antes de salir?</div>
             <p className="mt-1 text-xs text-white/80">
               Te quedaste en la página {pendingLeavePage ?? readerPage}. Si eliges &quot;Sí&quot;, se guarda esa página para retomar con el conejo.
