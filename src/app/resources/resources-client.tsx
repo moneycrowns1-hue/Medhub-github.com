@@ -4442,7 +4442,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+                          className="border-white/15 bg-white/10 text-white hover:bg-white/15"
                           onClick={() => jumpToPage(readerPage - 1)}
                           disabled={readerPage <= 1}
                         >
@@ -4800,18 +4800,18 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                   ) : null}
 
                   {immersiveMode && readerPageInfoOpen ? (
-                    <div className="absolute right-4 top-16 z-40 w-[min(320px,90vw)] rounded-xl border border-white/20 bg-slate-900/90 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl">
+                    <div className="absolute right-4 top-16 z-40 w-[min(320px,90vw)] rounded-xl border border-white/15 bg-black/72 p-3 shadow-[0_30px_70px_-40px_rgba(0,0,0,1)] backdrop-blur-2xl">
                       <div className="mb-2 flex items-center justify-between">
-                        <div className="text-xs uppercase tracking-wider text-white/70">Estado de lectura</div>
+                        <div className="text-xs uppercase tracking-wider text-white/72">Estado de lectura</div>
                         <button
                           type="button"
-                          className="rounded-md border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] text-white/75 hover:bg-white/15"
+                          className="rounded-md border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] text-white/80 hover:bg-white/15"
                           onClick={() => setReaderPageInfoOpen(false)}
                         >
                           Cerrar
                         </button>
                       </div>
-                      <div className="space-y-1.5 text-xs text-white/80">
+                      <div className="space-y-1.5 text-xs text-white/82">
                         <div>Página actual: <span className="font-semibold text-white">{readerPage}</span></div>
                         <div>Última guardada: <span className="font-semibold text-white">{committedReaderPage}</span></div>
                         <div>Total detectado: <span className="font-semibold text-white">{Math.max(1, pageCount ?? previewPages.length ?? 1)}</span></div>
@@ -4824,13 +4824,13 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           max={Math.max(1, pageCount ?? previewPages.length ?? 1)}
                           value={readerPageDialogInput}
                           onChange={(e) => setReaderPageDialogInput(e.target.value)}
-                          className="h-8 w-full rounded-lg border border-white/25 bg-white/8 px-2.5 text-xs text-white outline-none"
+                          className="h-8 w-full rounded-lg border border-white/15 bg-white/10 px-2.5 text-xs text-white outline-none"
                         />
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 border-white/25 bg-white/10 px-2 text-xs text-white hover:bg-white/15"
+                          className="h-8 border-white/15 bg-white/10 px-2 text-xs text-white hover:bg-white/15"
                           onClick={() => jumpToPage(Number(readerPageDialogInput), "auto")}
                         >
                           Ir
@@ -5259,9 +5259,9 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
 
       {pendingLeaveHref ? (
         <div className="fixed inset-0 z-[135] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-white/20 bg-slate-950/95 p-4 text-white shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-black/78 p-4 text-white shadow-2xl backdrop-blur-2xl">
             <div className="text-sm font-semibold">¿Guardar página antes de salir?</div>
-            <p className="mt-1 text-xs text-white/75">
+            <p className="mt-1 text-xs text-white/80">
               Te quedaste en la página {pendingLeavePage ?? readerPage}. Si eliges &quot;Sí&quot;, se guarda esa página para retomar con el conejo.
               Si eliges &quot;No&quot;, mantenemos la página anterior ({committedReaderPage}).
             </p>
@@ -5276,7 +5276,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
               </Button>
               <Button
                 type="button"
-                className="border border-white/20 bg-white text-black hover:bg-white/90"
+                className="border border-white/15 bg-white/95 text-black hover:bg-white"
                 onClick={() => resolvePendingLeave(true)}
               >
                 Sí, guardar
