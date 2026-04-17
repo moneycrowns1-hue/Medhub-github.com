@@ -145,6 +145,17 @@ export function deleteCard(lib: SrsLibrary, cardId: string): SrsLibrary {
   return { ...lib, cards: lib.cards.filter((c) => c.id !== cardId) };
 }
 
+export function resetCardLapses(lib: SrsLibrary, cardId: string): SrsLibrary {
+  return updateCard(lib, cardId, {
+    lapses: 0,
+    reps: 0,
+    intervalDays: 0,
+    ease: 2.5,
+    state: "learning",
+    dueAtMs: Date.now(),
+  });
+}
+
 export function applyReview(
   lib: SrsLibrary,
   cardId: string,

@@ -4,6 +4,8 @@ import "./globals.css";
 
 import { AppShell } from "@/components/app-shell";
 import { PwaBootstrap } from "@/components/pwa-bootstrap";
+import { Toaster } from "@/components/ui/toast";
+import { NotificationsScheduler } from "@/components/notifications-scheduler";
 
 const outfit = Outfit({
   variable: "--font-sans",
@@ -36,6 +38,8 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <PwaBootstrap />
         <AppShell>{children}</AppShell>
+        <Toaster />
+        <NotificationsScheduler />
       </body>
     </html>
   );

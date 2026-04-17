@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, ClipboardCheck, Plus, Target, Trash2, X } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Plus, Target, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, ModalTitle } from "@/components/ui/modal";
 import { addAcademicRecord, type AcademicSemesterComputed, type AcademicSubjectSlug, type AcademicBlockType } from "@/lib/academic-store";
 import { isoDate } from "@/lib/dates";
 
@@ -18,13 +19,14 @@ type Props = {
   semester: AcademicSemesterComputed | null;
   availableBlocks: Array<{ blockType: AcademicBlockType; blockIndex: number | null; label: string }>;
   onClose: () => void;
+  open?: boolean;
 };
 
 function uid() {
   return `q_${Math.random().toString(36).slice(2)}`;
 }
 
-export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose }: Props) {
+export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose, open = true }: Props) {
   const [title, setTitle] = useState("Quiz rápido");
   const [blockKey, setBlockKey] = useState<string>(() => {
     const first = availableBlocks[0];
@@ -43,19 +45,18 @@ export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose }: P
   if (!semester) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-lg rounded-2xl border border-white/20 bg-[#0f1116] p-5 text-white shadow-2xl">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <ClipboardCheck className="h-4 w-4 text-cyan-200" />
-            <div className="text-sm font-semibold">Quiz rápido · {semester.semester.name}</div>
-          </div>
-          <button type="button" className="rounded-md border border-white/20 bg-black/25 p-1.5 text-white/80 hover:bg-white/15" onClick={onClose}>
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
+    <Modal open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <ModalContent size="lg" aria-label="Quiz rápido">
+        <ModalHeader>
+          <ModalTitle>
+            <span className="inline-flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4 text-cyan-200" />
+              Quiz rápido · {semester.semester.name}
+            </span>
+          </ModalTitle>
+        </ModalHeader>
+        <ModalBody>
+        <div className="grid gap-2 md:grid-cols-2">
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -74,7 +75,7 @@ export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose }: P
           </select>
         </div>
 
-        <ul className="mt-3 space-y-2 max-h-[260px] overflow-y-auto pr-1">
+        <ul className="mt-3 space-y-2 max-h-[260px] overflow-y-auto pr-1" data-quickquiz-list>
           {questions.map((question, idx) => (
             <li key={question.id} className="rounded-lg border border-white/15 bg-white/8 p-2.5">
               <div className="flex items-center gap-2">
@@ -138,8 +139,8 @@ export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose }: P
             {savedMessage}
           </div>
         ) : null}
-
-        <div className="mt-4 flex justify-end gap-2">
+        </ModalBody>
+        <ModalFooter>
           <Button type="button" variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={onClose}>
             Cerrar
           </Button>
@@ -167,8 +168,8 @@ export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose }: P
             <ClipboardCheck className="h-4 w-4" />
             Registrar como evaluación
           </Button>
-        </div>
-      </div>
-    </div>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 }

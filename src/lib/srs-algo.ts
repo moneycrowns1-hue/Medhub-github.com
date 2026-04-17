@@ -144,6 +144,20 @@ export function buildStudyQueueAnkiLike(
   return burySiblingsByNoteId([...b.learning, ...b.review, ...b.newCards]);
 }
 
+export const SRS_LEECH_THRESHOLD = 8;
+
+export function isLeech(raw: SrsCard, threshold: number = SRS_LEECH_THRESHOLD): boolean {
+  const c = normalizeCardForAlgo(raw);
+  return (c.lapses ?? 0) >= threshold;
+}
+
+export function listLeeches(cards: SrsCard[], threshold: number = SRS_LEECH_THRESHOLD): SrsCard[] {
+  return cards
+    .map((c) => normalizeCardForAlgo(c))
+    .filter((c) => (c.lapses ?? 0) >= threshold)
+    .sort((a, b) => (b.lapses ?? 0) - (a.lapses ?? 0));
+}
+
 export function applySm2Review(
   raw: SrsCard,
   rating: SrsRating,

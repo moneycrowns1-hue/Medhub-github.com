@@ -13,11 +13,13 @@ import { SubjectSelect } from "@/components/subject-select";
 import { Button } from "@/components/ui/button";
 // Card imports removed — page uses standalone layout now
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { algoStats, buildStudyQueueAnkiLike, dueQueue, type SrsDailyLimits } from "@/lib/srs-algo";
+import { algoStats, buildStudyQueueAnkiLike, dueQueue, isLeech, type SrsDailyLimits } from "@/lib/srs-algo";
 import { clozeIndices } from "@/lib/srs-cloze-utils";
 import { renderCloze } from "@/lib/srs-cloze";
 import { markSrsDeckVisited } from "@/lib/rabbit-guide";
-import { applyReview, loadSrsLibrary, saveSrsLibrary } from "@/lib/srs-storage";
+import { applyReview, loadSrsLibrary, resetCardLapses, saveSrsLibrary } from "@/lib/srs-storage";
+import { SrsFiltersPanel } from "./_components/srs-filters-panel";
+import { toast } from "@/components/ui/toast";
 import { incrementStat } from "@/lib/stats-store";
 import {
   clearSession,
@@ -96,11 +98,49 @@ export function SrsClient() {
     return lib.cards.filter((c) => c.deckId === resolvedDeckId);
   }, [lib.cards, resolvedDeckId]);
 
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [leechOnly, setLeechOnly] = useState(false);
+
+  // Derive effective filters against the current deck so switching deck
+  // naturally drops stale tags without triggering setState-in-effect loops.
+  const availableTagSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const card of cardsInDeck) {
+      for (const tag of card.tags ?? []) {
+        const trimmed = typeof tag === "string" ? tag.trim() : "";
+        if (trimmed) set.add(trimmed);
+      }
+    }
+    return set;
+  }, [cardsInDeck]);
+
+  const effectiveTags = useMemo(
+    () => selectedTags.filter((t) => availableTagSet.has(t)),
+    [selectedTags, availableTagSet],
+  );
+
+  const filteredCards = useMemo(() => {
+    let list = cardsInDeck;
+    if (effectiveTags.length) {
+      const tagSet = new Set(effectiveTags);
+      list = list.filter((c) => (c.tags ?? []).some((t) => tagSet.has(t)));
+    }
+    if (leechOnly) {
+      list = list.filter((c) => isLeech(c));
+    }
+    return list;
+  }, [cardsInDeck, effectiveTags, leechOnly]);
+
   const cardsForSession = useMemo(() => {
-    if (queueMode === "anki") return buildStudyQueueAnkiLike(cardsInDeck, dailyLimits);
-    if (queueMode === "due") return dueQueue(cardsInDeck);
-    return [...cardsInDeck];
-  }, [cardsInDeck, queueMode, dailyLimits]);
+    if (queueMode === "anki") return buildStudyQueueAnkiLike(filteredCards, dailyLimits);
+    if (queueMode === "due") return dueQueue(filteredCards);
+    return [...filteredCards];
+  }, [filteredCards, queueMode, dailyLimits]);
+
+  const handleResetLeech = useCallback((cardId: string) => {
+    setLib((prev) => resetCardLapses(prev, cardId));
+    toast.success("Tarjeta reseteada. Vuelve a aprendizaje.");
+  }, []);
 
   const ioDeck = useMemo(() => lib.decks.find((d) => d.id === "deck-io") ?? null, [lib.decks]);
 
@@ -240,17 +280,17 @@ export function SrsClient() {
   }, [selectedDeck]);
 
   const deckStats = useMemo(() => {
-    const total = cardsInDeck.length;
-    const byType = cardsInDeck.reduce(
+    const total = filteredCards.length;
+    const byType = filteredCards.reduce(
       (acc, c) => {
         acc[c.type] = (acc[c.type] ?? 0) + 1;
         return acc;
       },
       {} as Record<string, number>,
     );
-    const algo = algoStats(cardsInDeck);
+    const algo = algoStats(filteredCards);
     return { total, byType, algo };
-  }, [cardsInDeck]);
+  }, [filteredCards]);
 
   const sessionCounts = state?.counts ?? { again: 0, hard: 0, good: 0, easy: 0 };
   const remaining = state ? Math.max(0, state.queue.length - state.currentIndex) : 0;
@@ -412,6 +452,16 @@ export function SrsClient() {
                   </div>
                 </div>
               ) : null}
+
+              <SrsFiltersPanel
+                cardsInDeck={cardsInDeck}
+                selectedTags={effectiveTags}
+                onSelectedTagsChange={setSelectedTags}
+                leechOnly={leechOnly}
+                onLeechOnlyChange={setLeechOnly}
+                onResetLeech={handleResetLeech}
+                filteredCount={filteredCards.length}
+              />
 
               <div className="grid gap-3 lg:grid-cols-[1fr,260px]">
                 <div className="rounded-xl border border-white/20 bg-white/5 p-4">

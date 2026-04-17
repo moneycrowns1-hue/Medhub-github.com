@@ -21,6 +21,7 @@ import {
   type PomodoroSettings,
 } from "@/lib/pomodoro-settings";
 import { Button } from "@/components/ui/button";
+import { NotificationsSection } from "./_components/notifications-section";
 
 function Field({
   label,
@@ -173,6 +174,8 @@ export function SettingsClient() {
           </div>
         </div>
       </section>
+
+      <NotificationsSection />
 
       <section className="space-y-4">
         <div className="space-y-1">

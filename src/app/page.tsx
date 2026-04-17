@@ -14,6 +14,8 @@ import { ClinicalBoard } from "@/components/clinical-board";
 import { PomodoroControls } from "@/components/pomodoro-controls";
 import { StartStudyLink } from "@/components/start-study-link";
 import { HomeStatsChips } from "@/app/home-stats-chips";
+import { HomeNextEvalCard } from "@/app/home-next-eval-card";
+import { HomeMotion } from "@/app/home-motion";
 import { isoDate } from "@/lib/dates";
 import { getPlanForDate, formatPlanSummary } from "@/lib/schedule";
 
@@ -24,6 +26,7 @@ export default function Home() {
 
   return (
     <div className="space-y-16">
+      <HomeMotion />
       {/* ── HERO full-screen video (no inner container) ── */}
       <section className="font-general-sans relative -mx-6 -mt-8 min-h-screen overflow-hidden bg-black text-white">
         <video
@@ -89,6 +92,18 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── PRÓXIMA EVALUACIÓN + QUIZ RÁPIDO ── */}
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <div className="text-xs font-medium uppercase tracking-widest text-white/70">Agenda</div>
+          <h2 className="text-2xl font-bold tracking-tight text-white">Próxima evaluación</h2>
+          <p className="text-sm text-muted-foreground">
+            Lo que se viene y una vía rápida para auto-evaluarte.
+          </p>
+        </div>
+        <HomeNextEvalCard />
+      </section>
+
       {/* ── MÓDULOS DEL DÍA ── */}
       <section className="space-y-6">
         <div className="space-y-1">
@@ -128,6 +143,7 @@ export default function Home() {
             <Link
               key={mod.title}
               href={mod.href}
+              data-home-module
               className="group relative overflow-hidden rounded-2xl border border-white/20 bg-white/8 p-6 text-white backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:bg-white/12 hover:shadow-[0_14px_36px_-18px_rgba(255,255,255,0.85)]"
             >
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.16),transparent_45%)]" />
@@ -199,6 +215,7 @@ export default function Home() {
             <Link
               key={q.href}
               href={q.href}
+              data-home-quick
               className="flex items-center gap-3 rounded-xl border border-white/20 bg-white/8 px-4 py-3 text-sm font-medium text-white/90 backdrop-blur-xl transition-all hover:border-white/35 hover:bg-white/12 hover:shadow-[0_14px_30px_-20px_rgba(255,255,255,0.85)]"
             >
               <div className="text-white/85">{q.icon}</div>

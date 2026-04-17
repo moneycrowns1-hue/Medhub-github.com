@@ -61,6 +61,8 @@ import {
   reportWeeklyGoalProgress,
 } from "@/lib/academic-gamification-store";
 import { downloadAcademicExport, importAcademicData } from "@/lib/academic-io";
+import { toast } from "@/components/ui/toast";
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, ModalTitle } from "@/components/ui/modal";
 
 const ITEM_TYPE_OPTIONS: Array<{ value: AcademicItemType; label: string }> = [
   { value: "tarea", label: "Tarea" },
@@ -813,12 +815,12 @@ export function AcademicoClient() {
                     const parsed = JSON.parse(text);
                     const result = importAcademicData(parsed);
                     if (!result.ok) {
-                      window.alert(`Error al importar: ${result.error}`);
+                      toast.error(result.error, "Error al importar");
                     } else {
-                      window.alert("Datos importados correctamente.");
+                      toast.success("Datos importados correctamente.", "Importación");
                     }
                   } catch (err) {
-                    window.alert(err instanceof Error ? err.message : "JSON inválido");
+                    toast.error(err instanceof Error ? err.message : "JSON inválido", "Error al importar");
                   }
                 }}
               />
@@ -1416,51 +1418,69 @@ export function AcademicoClient() {
         </div>
       )}
 
-      {pendingDeleteRecord ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-[#0f1116] p-5 text-white shadow-2xl">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Target className="h-4 w-4 text-rose-300" />
-              Eliminar registro
-            </div>
-            <p className="mt-2 text-xs text-white/70">
-              Vas a eliminar <span className="font-semibold text-white">{pendingDeleteRecord.title}</span>. Esta acción no se puede deshacer.
+      <Modal
+        open={!!pendingDeleteRecord}
+        onOpenChange={(next) => {
+          if (!next) setPendingDeleteRecord(null);
+        }}
+      >
+        <ModalContent size="sm" aria-label="Eliminar registro">
+          <ModalHeader>
+            <ModalTitle>
+              <span className="inline-flex items-center gap-2">
+                <Target className="h-4 w-4 text-rose-300" />
+                Eliminar registro
+              </span>
+            </ModalTitle>
+          </ModalHeader>
+          <ModalBody>
+            <p className="text-xs text-white/70">
+              Vas a eliminar <span className="font-semibold text-white">{pendingDeleteRecord?.title ?? ""}</span>. Esta acción no se puede deshacer.
             </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button type="button" variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={() => setPendingDeleteRecord(null)}>
-                Cancelar
-              </Button>
-              <Button type="button" className="border border-rose-400/50 bg-rose-500/80 text-white hover:bg-rose-500" onClick={confirmDeleteRecord}>
-                <Trash2 className="h-4 w-4" />
-                Eliminar
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+          </ModalBody>
+          <ModalFooter>
+            <Button type="button" variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={() => setPendingDeleteRecord(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" className="border border-rose-400/50 bg-rose-500/80 text-white hover:bg-rose-500" onClick={confirmDeleteRecord}>
+              <Trash2 className="h-4 w-4" />
+              Eliminar
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
-      {pendingDeleteSemesterId ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-[#0f1116] p-5 text-white shadow-2xl">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Target className="h-4 w-4 text-rose-300" />
-              Eliminar semestre
-            </div>
-            <p className="mt-2 text-xs text-white/70">
+      <Modal
+        open={!!pendingDeleteSemesterId}
+        onOpenChange={(next) => {
+          if (!next) setPendingDeleteSemesterId(null);
+        }}
+      >
+        <ModalContent size="sm" aria-label="Eliminar semestre">
+          <ModalHeader>
+            <ModalTitle>
+              <span className="inline-flex items-center gap-2">
+                <Target className="h-4 w-4 text-rose-300" />
+                Eliminar semestre
+              </span>
+            </ModalTitle>
+          </ModalHeader>
+          <ModalBody>
+            <p className="text-xs text-white/70">
               Se eliminarán <span className="font-semibold text-white">{pendingDeleteSemesterRecordCount}</span> registros asociados. Esta acción no se puede deshacer.
             </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button type="button" variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={() => setPendingDeleteSemesterId(null)}>
-                Cancelar
-              </Button>
-              <Button type="button" className="border border-rose-400/50 bg-rose-500/80 text-white hover:bg-rose-500" onClick={confirmDeleteSemester}>
-                <Trash2 className="h-4 w-4" />
-                Eliminar semestre
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+          </ModalBody>
+          <ModalFooter>
+            <Button type="button" variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={() => setPendingDeleteSemesterId(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" className="border border-rose-400/50 bg-rose-500/80 text-white hover:bg-rose-500" onClick={confirmDeleteSemester}>
+              <Trash2 className="h-4 w-4" />
+              Eliminar semestre
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {quickQuizOpen && activeComputed ? (
         <QuickQuiz

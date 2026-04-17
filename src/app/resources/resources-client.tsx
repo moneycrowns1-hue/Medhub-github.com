@@ -64,6 +64,7 @@ import {
   syncResourcesLocalFirst,
 } from "@/lib/resources-sync-adapter";
 import { getCachedRenderedPdfPage, putCachedRenderedPdfPage } from "@/lib/pdf-render-cache";
+import { TocSearchPanel } from "@/app/lector/_components/toc-search-panel";
 import type { SrsLibrary } from "@/lib/srs";
 
 type InAppNotice = {
@@ -4737,6 +4738,13 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                             className="h-8 w-full rounded-lg border border-white/25 bg-white/8 px-2.5 text-[11px] outline-none"
                           />
                         </div>
+
+                        <TocSearchPanel
+                          documentId={selected?.id ?? null}
+                          currentPage={readerPage}
+                          getBlob={(id) => getPdfResourceBlob(id)}
+                          onJumpToPage={(page) => jumpToPage(page)}
+                        />
 
                         <div className="space-y-1.5">
                           <div className="text-[11px] font-medium text-white/85">Marcadores</div>
