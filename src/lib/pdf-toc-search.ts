@@ -102,13 +102,34 @@ type PageExtractionResult = {
   error: string | null;
 };
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
 async function extractPageText(
   pdf: { getPage: (n: number) => Promise<unknown> },
   pageNum: number,
+  timeoutMs: number,
 ): Promise<PageExtractionResult> {
   try {
-    const page = await pdf.getPage(pageNum);
-    const content = await (page as { getTextContent: () => Promise<unknown> }).getTextContent();
+    const page = await withTimeout(pdf.getPage(pageNum), timeoutMs, `getPage(${pageNum})`);
+    const content = await withTimeout(
+      (page as { getTextContent: () => Promise<unknown> }).getTextContent(),
+      timeoutMs,
+      `getTextContent(${pageNum})`,
+    );
     const items = Array.isArray((content as { items?: unknown }).items)
       ? ((content as { items: unknown[] }).items as unknown[])
       : [];
@@ -130,7 +151,16 @@ async function extractPageText(
   }
 }
 
-export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Promise<PdfIndex> {
+export type PdfIndexProgress = {
+  processed: number;
+  total: number;
+};
+
+export async function buildPdfIndexFromBlob(
+  documentId: string,
+  blob: Blob,
+  onProgress?: (p: PdfIndexProgress) => void,
+): Promise<PdfIndex> {
   const cached = indexCache.get(documentId);
   if (cached) return cached;
   const running = inflight.get(documentId);
@@ -153,6 +183,13 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
       (/iP(hone|od|ad)/.test(navigator.platform) ||
         (navigator.userAgent.includes("Mac") && "ontouchend" in document));
     const concurrency = isIOS ? 1 : 2;
+    const PAGE_TIMEOUT_MS = 12_000;
+    let processed = 0;
+    const reportProgress = () => {
+      if (onProgress) onProgress({ processed, total: pageCount });
+    };
+    reportProgress();
+
     let next = 0;
     async function worker() {
       while (true) {
@@ -161,11 +198,14 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
         const r = await extractPageText(
           pdf as unknown as { getPage: (n: number) => Promise<unknown> },
           current + 1,
+          PAGE_TIMEOUT_MS,
         );
         pages[current] = r.text;
         itemCounts[current] = r.itemCount;
         pageErrors[current] = r.error;
         if (r.error) lastError = r.error;
+        processed += 1;
+        reportProgress();
       }
     }
     await Promise.all(Array.from({ length: concurrency }, () => worker()));
@@ -178,6 +218,7 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
         const r = await extractPageText(
           pdf as unknown as { getPage: (n: number) => Promise<unknown> },
           i + 1,
+          PAGE_TIMEOUT_MS,
         );
         pages[i] = r.text;
         itemCounts[i] = r.itemCount;
@@ -188,7 +229,12 @@ export async function buildPdfIndexFromBlob(documentId: string, blob: Blob): Pro
 
     let rawOutline: PdfJsOutlineItem[] = [];
     try {
-      rawOutline = (await (pdf as unknown as { getOutline: () => Promise<PdfJsOutlineItem[] | null> }).getOutline()) ?? [];
+      rawOutline =
+        (await withTimeout(
+          (pdf as unknown as { getOutline: () => Promise<PdfJsOutlineItem[] | null> }).getOutline(),
+          10_000,
+          "getOutline",
+        )) ?? [];
     } catch (err) {
       lastError = err instanceof Error ? err.message : lastError;
     }

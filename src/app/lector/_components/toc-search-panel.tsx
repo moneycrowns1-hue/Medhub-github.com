@@ -93,6 +93,7 @@ export function TocSearchPanel({ documentId, currentPage, getBlob, onJumpToPage 
   const [tab, setTab] = useState<Tab>("toc");
   const [index, setIndex] = useState<PdfIndex | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<{ processed: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -120,6 +121,7 @@ export function TocSearchPanel({ documentId, currentPage, getBlob, onJumpToPage 
       }
       setLoading(true);
       setError(null);
+      setProgress(null);
       try {
         const blob = await getBlob(documentId);
         if (!blob) {
@@ -127,13 +129,16 @@ export function TocSearchPanel({ documentId, currentPage, getBlob, onJumpToPage 
           setIndex(null);
           return;
         }
-        const built = await buildPdfIndexFromBlob(documentId, blob);
+        const built = await buildPdfIndexFromBlob(documentId, blob, (p) => {
+          setProgress(p);
+        });
         setIndex(built);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error al indexar el PDF.");
         setIndex(null);
       } finally {
         setLoading(false);
+        setProgress(null);
       }
     },
     [documentId, getBlob],
@@ -255,7 +260,12 @@ export function TocSearchPanel({ documentId, currentPage, getBlob, onJumpToPage 
       {loading ? (
         <div className="flex items-center gap-2 rounded-md bg-white/5 p-2 text-[11px] text-white/70">
           <Loader2 className="h-3 w-3 animate-spin" />
-          Indexando PDF…
+          <span>
+            Indexando PDF
+            {progress && progress.total > 0
+              ? ` — ${progress.processed}/${progress.total} páginas`
+              : "…"}
+          </span>
         </div>
       ) : error ? (
         <div className="rounded-md border border-rose-300/30 bg-rose-400/10 p-2 text-[11px] text-rose-100">
