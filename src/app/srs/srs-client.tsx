@@ -18,7 +18,7 @@ import { applyReview, loadSrsLibrary, resetCardLapses, saveSrsLibrary, setCardCo
 import { SrsFiltersPanel } from "./_components/srs-filters-panel";
 import { ConfidenceRater } from "./_components/confidence-rater";
 import { AiModesHub } from "./_components/ai-modes-hub";
-import { CardBrowser } from "./_components/card-browser";
+import { SearchOverlay } from "./_components/search-overlay";
 import { ExplainButton } from "./_components/explain-button";
 import { SessionHud } from "./_components/session-hud";
 import { SrsTopbar, type SrsTab } from "./_components/srs-topbar";
@@ -54,6 +54,7 @@ export function SrsClient() {
   const [queueMode, setQueueMode] = useState<"anki" | "due" | "all" | "today">("anki");
   const [activeTab, setActiveTab] = useState<SrsTab>("study");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [studyMode, setStudyMode] = useState<"anki" | "confidence">(() => {
     if (typeof window === "undefined") return "anki";
     try {
@@ -298,6 +299,30 @@ export function SrsClient() {
     goNext({ rating, requeueCurrent: value <= 2 });
   }, [goNext]);
 
+  // Global search shortcut: Ctrl/⌘+K always; "/" only when not typing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTyping =
+        !!target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+        return;
+      }
+      if (e.key === "/" && !isTyping && !searchOpen) {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [searchOpen]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!state || state.done || !card) return;
@@ -451,6 +476,7 @@ export function SrsClient() {
           onToggleFilters={() => setFiltersOpen((v) => !v)}
           filtersOpen={filtersOpen}
           filteredCount={filteredCards.length}
+          onOpenSearch={() => setSearchOpen(true)}
         />
 
             <TabsContent value="study" className="space-y-4">
@@ -637,10 +663,6 @@ export function SrsClient() {
               />
             </TabsContent>
 
-            <TabsContent value="browser" className="space-y-4">
-              <CardBrowser lib={lib} onLibraryChange={(next) => setLib(next)} />
-            </TabsContent>
-
             <TabsContent value="builder" className="space-y-4">
               <DeckBuilder
                 lib={lib}
@@ -672,6 +694,13 @@ export function SrsClient() {
         disabled={cardsInDeck.length === 0}
         onStart={startDeck}
         onExit={() => setState(null)}
+      />
+
+      <SearchOverlay
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        lib={lib}
+        onLibraryChange={(next) => setLib(next)}
       />
     </div>
   );

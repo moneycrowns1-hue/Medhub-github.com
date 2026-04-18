@@ -232,16 +232,16 @@ function PrimaryCard({
       type="button"
       data-ai-primary
       onClick={onSelect}
-      className={`group relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl border p-6 text-center transition-all hover:-translate-y-0.5 hover:border-white/35 ${
+      className={`group relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl border p-6 text-center transition-all hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/[0.09] ${
         highlighted
-          ? "border-white/35 bg-white/10"
-          : "border-white/15 bg-white/5"
+          ? "border-white/30 bg-white/[0.08]"
+          : "border-white/15 bg-white/[0.05]"
       }`}
     >
-      {/* Soft tonal glow */}
+      {/* Soft tonal glow (subtle, behind content) */}
       <span
         aria-hidden
-        className={`pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b opacity-60 blur-2xl ${meta.tone}`}
+        className={`pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b opacity-35 blur-xl ${meta.tone}`}
       />
       {/* Icon ring */}
       <div

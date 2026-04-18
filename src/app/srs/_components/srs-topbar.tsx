@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
-import { ChevronDown, RotateCw, Settings2, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, RotateCw, Search, Settings2, SlidersHorizontal } from "lucide-react";
 
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DeckSelect } from "@/components/deck-select";
@@ -12,12 +12,11 @@ import type { SrsDeck } from "@/lib/srs";
 
 import type { QueueMode, StudyMode } from "./session-controls";
 
-export type SrsTab = "study" | "ai" | "browser" | "builder" | "io";
+export type SrsTab = "study" | "ai" | "builder" | "io";
 
 const TAB_LABELS: Record<SrsTab, string> = {
   study: "Estudiar",
   ai: "IA",
-  browser: "Navegador",
   builder: "Builder",
   io: "Image occlusion",
 };
@@ -54,6 +53,8 @@ type Props = {
   onToggleFilters: () => void;
   filtersOpen: boolean;
   filteredCount: number;
+
+  onOpenSearch: () => void;
 };
 
 /**
@@ -78,6 +79,7 @@ export function SrsTopbar({
   onToggleFilters,
   filtersOpen,
   filteredCount,
+  onOpenSearch,
 }: Props) {
   const titleRef = useRef<HTMLDivElement | null>(null);
 
@@ -118,15 +120,28 @@ export function SrsTopbar({
           </div>
         </div>
 
-        {/* Tabs (right) */}
-        <div className="flex justify-start lg:justify-end">
+        {/* Tabs + global search (right) */}
+        <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
           <TabsList className="bg-white/5 backdrop-blur-sm">
             <TabsTrigger value="study">Estudiar</TabsTrigger>
             <TabsTrigger value="ai">IA</TabsTrigger>
-            <TabsTrigger value="browser">Navegador</TabsTrigger>
             <TabsTrigger value="builder">Builder</TabsTrigger>
             <TabsTrigger value="io">IO</TabsTrigger>
           </TabsList>
+
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            className="group inline-flex h-9 items-center gap-2 rounded-xl border border-white/15 bg-black/20 px-3 text-xs font-medium text-white/70 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+            title="Buscar tarjetas en toda la biblioteca (⌘K · /)"
+            aria-label="Buscar tarjetas"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Buscar tarjetas…</span>
+            <kbd className="hidden items-center rounded-md border border-white/15 bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/60 group-hover:border-white/25 sm:inline-flex">
+              ⌘K
+            </kbd>
+          </button>
         </div>
       </div>
 
