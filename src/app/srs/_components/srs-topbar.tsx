@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
-import { ChevronDown, RotateCw, Search, Settings2, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, RotateCw, Search, Settings2, SlidersHorizontal, X } from "lucide-react";
 
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DeckSelect } from "@/components/deck-select";
@@ -55,6 +55,7 @@ type Props = {
   filteredCount: number;
 
   onOpenSearch: () => void;
+  searchOpen: boolean;
 };
 
 /**
@@ -80,10 +81,11 @@ export function SrsTopbar({
   filtersOpen,
   filteredCount,
   onOpenSearch,
+  searchOpen,
 }: Props) {
   const titleRef = useRef<HTMLDivElement | null>(null);
 
-  // Animate the big tab label whenever activeTab changes.
+  // Animate the big title whenever the active tab or the search view toggles.
   useEffect(() => {
     const el = titleRef.current;
     if (!el) return;
@@ -92,11 +94,24 @@ export function SrsTopbar({
       { y: 8, opacity: 0, letterSpacing: "0.1em" },
       { y: 0, opacity: 1, letterSpacing: "0em", duration: 0.45, ease: "power3.out" },
     );
-  }, [activeTab]);
+  }, [activeTab, searchOpen]);
+
+  const bigTitle = searchOpen ? "Navegación" : TAB_LABELS[activeTab];
 
   return (
     <div className="space-y-3">
-      {/* Row 1 */}
+      {/* Top mini-row: only the tabs, pushed to the right edge. */}
+      <div className="flex justify-start lg:justify-end">
+        <TabsList className="bg-white/5 backdrop-blur-sm">
+          <TabsTrigger value="study">Estudiar</TabsTrigger>
+          <TabsTrigger value="ai">IA</TabsTrigger>
+          <TabsTrigger value="builder">Builder</TabsTrigger>
+          <TabsTrigger value="io">IO</TabsTrigger>
+        </TabsList>
+      </div>
+
+      {/* Main row: [Materia + Deck]  ·  Big animated title  ·  Search button.
+          All items share the same bottom baseline. */}
       <div className="grid items-end gap-4 lg:grid-cols-[auto,1fr,auto]">
         {/* Subject + Deck */}
         <div className="flex flex-wrap items-end gap-3">
@@ -110,37 +125,44 @@ export function SrsTopbar({
           </div>
         </div>
 
-        {/* Giant animated tab label */}
+        {/* Giant animated title (tab name or “Navegación” when searching). */}
         <div className="hidden min-w-0 items-center justify-center lg:flex">
           <div
             ref={titleRef}
             className="truncate text-center text-3xl font-bold tracking-tight text-white/90 xl:text-4xl"
           >
-            {TAB_LABELS[activeTab]}
+            {bigTitle}
           </div>
         </div>
 
-        {/* Tabs + global search (right) */}
-        <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
-          <TabsList className="bg-white/5 backdrop-blur-sm">
-            <TabsTrigger value="study">Estudiar</TabsTrigger>
-            <TabsTrigger value="ai">IA</TabsTrigger>
-            <TabsTrigger value="builder">Builder</TabsTrigger>
-            <TabsTrigger value="io">IO</TabsTrigger>
-          </TabsList>
-
+        {/* Search launcher — mirror of Materia/Deck on the right. */}
+        <div className="flex justify-start lg:justify-end">
           <button
             type="button"
             onClick={onOpenSearch}
-            className="group inline-flex h-9 items-center gap-2 rounded-xl border border-white/15 bg-black/20 px-3 text-xs font-medium text-white/70 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
-            title="Buscar tarjetas en toda la biblioteca (⌘K · /)"
-            aria-label="Buscar tarjetas"
+            className={`group inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors ${
+              searchOpen
+                ? "border-white/40 bg-white text-black hover:bg-white/90"
+                : "border-white/15 bg-black/20 text-white/70 hover:border-white/30 hover:bg-white/10 hover:text-white"
+            }`}
+            title={searchOpen ? "Cerrar navegador (Esc)" : "Buscar tarjetas en toda la biblioteca (⌘K · /)"}
+            aria-label={searchOpen ? "Cerrar navegador" : "Buscar tarjetas"}
+            aria-pressed={searchOpen}
           >
-            <Search className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Buscar tarjetas…</span>
-            <kbd className="hidden items-center rounded-md border border-white/15 bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/60 group-hover:border-white/25 sm:inline-flex">
-              ⌘K
-            </kbd>
+            {searchOpen ? (
+              <>
+                <X className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Cerrar</span>
+              </>
+            ) : (
+              <>
+                <Search className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Buscar tarjetas…</span>
+                <kbd className="hidden items-center rounded-md border border-white/15 bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/60 group-hover:border-white/25 sm:inline-flex">
+                  ⌘K
+                </kbd>
+              </>
+            )}
           </button>
         </div>
       </div>

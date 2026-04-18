@@ -18,7 +18,7 @@ import { applyReview, loadSrsLibrary, resetCardLapses, saveSrsLibrary, setCardCo
 import { SrsFiltersPanel } from "./_components/srs-filters-panel";
 import { ConfidenceRater } from "./_components/confidence-rater";
 import { AiModesHub } from "./_components/ai-modes-hub";
-import { SearchOverlay } from "./_components/search-overlay";
+import { NavegadorSection } from "./_components/navegador-section";
 import { ExplainButton } from "./_components/explain-button";
 import { SessionHud } from "./_components/session-hud";
 import { SrsTopbar, type SrsTab } from "./_components/srs-topbar";
@@ -476,8 +476,18 @@ export function SrsClient() {
           onToggleFilters={() => setFiltersOpen((v) => !v)}
           filtersOpen={filtersOpen}
           filteredCount={filteredCards.length}
-          onOpenSearch={() => setSearchOpen(true)}
+          onOpenSearch={() => setSearchOpen((v) => !v)}
+          searchOpen={searchOpen}
         />
+
+        {searchOpen ? (
+          <NavegadorSection
+            lib={lib}
+            onLibraryChange={(next) => setLib(next)}
+            onClose={() => setSearchOpen(false)}
+          />
+        ) : (
+          <>
 
             <TabsContent value="study" className="space-y-4">
               {filtersOpen ? (
@@ -687,6 +697,8 @@ export function SrsClient() {
                 />
               ) : null}
             </TabsContent>
+          </>
+        )}
       </Tabs>
 
       <StartFab
@@ -696,12 +708,6 @@ export function SrsClient() {
         onExit={() => setState(null)}
       />
 
-      <SearchOverlay
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        lib={lib}
-        onLibraryChange={(next) => setLib(next)}
-      />
     </div>
   );
 }
