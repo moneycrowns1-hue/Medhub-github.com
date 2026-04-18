@@ -281,6 +281,19 @@ export function SrsClient() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!state || state.done || !card) return;
+      // Don't hijack typing in forms/editors across tabs (AI composer, Navegador, Builder).
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+      }
       if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         flip();
