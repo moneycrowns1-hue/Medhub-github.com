@@ -98,22 +98,41 @@ export function SrsTopbar({
 
   const bigTitle = searchOpen ? "Navegación" : TAB_LABELS[activeTab];
 
+  const searchButton = (
+    <button
+      type="button"
+      onClick={onOpenSearch}
+      className={`group inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-medium transition-colors ${
+        searchOpen
+          ? "bg-white text-black hover:bg-white/90"
+          : "bg-white/5 text-white/75 hover:bg-white/10 hover:text-white"
+      }`}
+      title={searchOpen ? "Cerrar navegador (Esc)" : "Buscar tarjetas en toda la biblioteca (⌘K · /)"}
+      aria-label={searchOpen ? "Cerrar navegador" : "Buscar tarjetas"}
+      aria-pressed={searchOpen}
+    >
+      {searchOpen ? (
+        <>
+          <X className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Cerrar&nbsp;navegador</span>
+        </>
+      ) : (
+        <>
+          <Search className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Buscar tarjetas…</span>
+          <kbd className="hidden items-center rounded-md bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/60 sm:inline-flex">
+            ⌘K
+          </kbd>
+        </>
+      )}
+    </button>
+  );
+
   return (
     <div className="space-y-3">
-      {/* Top mini-row: tabs (right-aligned). */}
-      <div className="flex justify-start lg:justify-end">
-        <TabsList className="bg-white/5 backdrop-blur-sm">
-          <TabsTrigger value="study">Estudiar</TabsTrigger>
-          <TabsTrigger value="ai">IA</TabsTrigger>
-          <TabsTrigger value="builder">Builder</TabsTrigger>
-          <TabsTrigger value="io">IO</TabsTrigger>
-        </TabsList>
-      </div>
-
-      {/* Main row: [Materia + Deck]  ·  Big animated title  ·  Search launcher.
-          All three columns share the same bottom baseline (items-end). */}
-      <div className="grid items-end gap-4 lg:grid-cols-[auto,1fr,auto]">
-        {/* Subject + Deck */}
+      {/* Row A: Materia + Deck at the left, search launcher at the opposite
+          end of the SAME flex container (justify-between). */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">Materia</div>
@@ -124,46 +143,25 @@ export function SrsTopbar({
             <DeckSelect value={deckId} onChange={onDeckChange} decks={decks} />
           </div>
         </div>
+        {searchButton}
+      </div>
 
-        {/* Giant animated title (tab name or “Navegación” when searching). */}
-        <div className="hidden min-w-0 items-center justify-center lg:flex">
-          <div
-            ref={titleRef}
-            className="truncate text-center text-3xl font-bold tracking-tight text-white/90 xl:text-4xl"
-          >
-            {bigTitle}
-          </div>
+      {/* Row B: big animated title centered, tabs on the right. */}
+      <div className="grid items-center gap-4 lg:grid-cols-[1fr,auto,1fr]">
+        <div className="hidden lg:block" />
+        <div
+          ref={titleRef}
+          className="hidden min-w-0 truncate text-center text-3xl font-bold tracking-tight text-white/90 lg:block xl:text-4xl"
+        >
+          {bigTitle}
         </div>
-
-        {/* Search launcher — opposite end of Materia/Deck, same baseline. */}
         <div className="flex justify-start lg:justify-end">
-          <button
-            type="button"
-            onClick={onOpenSearch}
-            className={`group inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-medium transition-colors ${
-              searchOpen
-                ? "bg-white text-black hover:bg-white/90"
-                : "bg-white/5 text-white/75 hover:bg-white/10 hover:text-white"
-            }`}
-            title={searchOpen ? "Cerrar navegador (Esc)" : "Buscar tarjetas en toda la biblioteca (⌘K · /)"}
-            aria-label={searchOpen ? "Cerrar navegador" : "Buscar tarjetas"}
-            aria-pressed={searchOpen}
-          >
-            {searchOpen ? (
-              <>
-                <X className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Cerrar&nbsp;navegador</span>
-              </>
-            ) : (
-              <>
-                <Search className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Buscar tarjetas…</span>
-                <kbd className="hidden items-center rounded-md bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/60 sm:inline-flex">
-                  ⌘K
-                </kbd>
-              </>
-            )}
-          </button>
+          <TabsList className="bg-white/5 backdrop-blur-sm">
+            <TabsTrigger value="study">Estudiar</TabsTrigger>
+            <TabsTrigger value="ai">IA</TabsTrigger>
+            <TabsTrigger value="builder">Builder</TabsTrigger>
+            <TabsTrigger value="io">IO</TabsTrigger>
+          </TabsList>
         </div>
       </div>
 
