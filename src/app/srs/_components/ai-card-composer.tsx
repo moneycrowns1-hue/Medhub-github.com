@@ -175,33 +175,34 @@ export function AiCardComposer({ lib, deckId, subjectSlug, onLibraryChange }: Pr
   }, [drafts, lib, onLibraryChange, selectedDeck, subjectSlug, topic]);
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-white/20 bg-white/5 p-4 space-y-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-white">
-          <Sparkles className="h-4 w-4" /> Generar con IA
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-white/55">
+          <Sparkles className="h-3.5 w-3.5" /> Generar con IA
         </div>
-        <div className="grid gap-3 sm:grid-cols-[1fr,180px,120px]">
+        <div className="grid gap-3 sm:grid-cols-[1fr,200px,auto]">
           <input
-            className="h-9 w-full rounded-md border border-white/25 bg-white/8 px-3 text-sm text-white placeholder:text-white/45"
+            className="h-10 w-full rounded-xl border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/45 outline-none focus:border-white/35"
             placeholder="Tema (opcional, ej. ‘Ciclo de Krebs’)"
             value={topic}
             onChange={(e) => setTopic(e.currentTarget.value)}
             disabled={busy}
           />
-          <div className="flex items-center gap-2 text-xs text-white/70">
-            <span className="shrink-0">Máx. tarjetas</span>
+          <label className="flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 text-xs text-white/70">
+            <span className="shrink-0">Máx.</span>
             <input
               type="number"
               min={5}
               max={80}
-              className="h-9 w-full rounded-md border border-white/25 bg-white/8 px-2 text-sm text-white"
+              className="h-7 w-full rounded-md border border-white/15 bg-white/5 px-2 text-right text-sm text-white outline-none focus:border-white/35"
               value={maxCards}
               onChange={(e) => setMaxCards(Math.max(5, Math.min(80, Number(e.currentTarget.value || 15))))}
               disabled={busy}
             />
-          </div>
+            <span className="shrink-0 text-white/40">tarjetas</span>
+          </label>
           <Button
-            className="h-9 border border-white/25 bg-white text-black hover:bg-white/90 disabled:opacity-60"
+            className="h-10 gap-1.5 rounded-xl border border-white/25 bg-white px-4 text-sm text-black hover:bg-white/90 disabled:opacity-60"
             onClick={generate}
             disabled={busy || text.trim().length < 60}
           >
@@ -217,20 +218,19 @@ export function AiCardComposer({ lib, deckId, subjectSlug, onLibraryChange }: Pr
           </Button>
         </div>
         <textarea
-          className="min-h-[140px] w-full rounded-md border border-white/25 bg-white/8 p-3 text-sm text-white placeholder:text-white/45"
+          className="min-h-[160px] w-full rounded-xl border border-white/15 bg-white/5 p-3 text-sm text-white placeholder:text-white/45 outline-none focus:border-white/35"
           placeholder="Pegá el texto fuente (notas, resumen, párrafos del PDF…). Mínimo 60 caracteres."
           value={text}
           onChange={(e) => setText(e.currentTarget.value)}
           disabled={busy}
         />
         {error ? (
-          <div className="rounded-md border border-rose-300/30 bg-rose-400/10 p-2 text-xs text-rose-100">
+          <div className="rounded-xl border border-rose-300/25 bg-rose-400/10 p-2.5 text-xs text-rose-100">
             {error}
           </div>
         ) : null}
         <div className="text-[11px] text-white/55">
-          Destino: <strong className="text-white">{selectedDeck?.name ?? "(elegí un deck)"}</strong>. Las tarjetas quedan
-          como borradores acá; se agregan al deck cuando tocás <em>Agregar al deck</em>.
+          Destino: <strong className="text-white">{selectedDeck?.name ?? "(elegí un deck)"}</strong>. Las tarjetas quedan como borradores hasta que toques <em>Agregar al deck</em>.
         </div>
       </div>
 
@@ -262,7 +262,7 @@ export function AiCardComposer({ lib, deckId, subjectSlug, onLibraryChange }: Pr
               <div
                 key={d.id}
                 data-ai-draft
-                className="space-y-2 rounded-xl border border-white/20 bg-white/5 p-3"
+                className="space-y-2 rounded-2xl border border-white/15 bg-white/5 p-3 backdrop-blur-sm"
               >
                 <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-white/60">
                   <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5">

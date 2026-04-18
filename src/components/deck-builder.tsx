@@ -83,195 +83,227 @@ export function DeckBuilder({
     setTags("");
   };
 
+  const inputCls =
+    "h-10 w-full rounded-xl border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/45 outline-none focus:border-white/35";
+  const textareaCls =
+    "min-h-[80px] w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none focus:border-white/35";
+  const sectionLabel =
+    "text-[10px] font-medium uppercase tracking-widest text-white/55";
+
   return (
-    <div className="space-y-4 rounded-xl border border-border bg-card/40 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Builder</div>
-          <div className="text-lg font-semibold">Decks & Cards</div>
+    <div className="grid gap-6 lg:grid-cols-[280px,1fr]">
+      {/* LEFT COLUMN — materia + crear deck + lista */}
+      <div className="space-y-5">
+        <div className="space-y-1">
+          <div className={sectionLabel}>Materia</div>
+          <SubjectSelect value={builderSubject} onChange={setBuilderSubject} />
+        </div>
+
+        <div className="space-y-2">
+          <div className={sectionLabel}>Crear deck</div>
+          <input
+            className={inputCls}
+            placeholder="Nombre del deck"
+            value={newDeckName}
+            onChange={(e) => setNewDeckName(e.target.value)}
+          />
+          <input
+            className={inputCls}
+            placeholder="Descripción (opcional)"
+            value={newDeckDesc}
+            onChange={(e) => setNewDeckDesc(e.target.value)}
+          />
+          <Button
+            className="w-full border border-white/25 bg-white text-black hover:bg-white/90"
+            onClick={createDeck}
+          >
+            Crear
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          <div className={sectionLabel}>Decks ({decks.length})</div>
+          <div className="space-y-1.5">
+            {decks.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                  d.id === selectedDeckId
+                    ? "border-white/40 bg-white text-black"
+                    : "border-white/15 bg-white/5 text-white/85 hover:bg-white/10 hover:text-white"
+                }`}
+                onClick={() => onSelectDeck(d.id)}
+              >
+                <div className="font-medium">{d.name}</div>
+                {d.description ? (
+                  <div
+                    className={`mt-0.5 text-xs ${
+                      d.id === selectedDeckId ? "text-black/60" : "text-white/55"
+                    }`}
+                  >
+                    {d.description}
+                  </div>
+                ) : null}
+              </button>
+            ))}
+            {!decks.length ? (
+              <div className="text-xs text-white/55">No hay decks para esta materia.</div>
+            ) : null}
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[280px,1fr]">
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Materia</div>
-            <SubjectSelect value={builderSubject} onChange={setBuilderSubject} />
-          </div>
-
-          <div className="space-y-2 rounded-xl border border-border bg-background/40 p-3">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Crear deck</div>
-            <input
-              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-              placeholder="Nombre del deck"
-              value={newDeckName}
-              onChange={(e) => setNewDeckName(e.target.value)}
-            />
-            <input
-              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-              placeholder="Descripción (opcional)"
-              value={newDeckDesc}
-              onChange={(e) => setNewDeckDesc(e.target.value)}
-            />
-            <Button onClick={createDeck}>Crear</Button>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Decks</div>
-            <div className="space-y-2">
-              {decks.map((d) => (
-                <button
-                  key={d.id}
-                  type="button"
-                  className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
-                    d.id === selectedDeckId
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-background hover:bg-muted"
-                  }`}
-                  onClick={() => onSelectDeck(d.id)}
-                >
-                  <div className="font-medium">{d.name}</div>
-                  {d.description ? (
-                    <div className="mt-0.5 text-xs text-muted-foreground">{d.description}</div>
-                  ) : null}
-                </button>
-              ))}
-              {!decks.length ? (
-                <div className="text-sm text-muted-foreground">No hay decks para esta materia.</div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-background/40 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Deck seleccionado</div>
-                <div className="text-sm font-medium">{selectedDeck?.name ?? "-"}</div>
+      {/* RIGHT COLUMN — deck seleccionado + crear tarjeta + lista */}
+      <div className="space-y-6">
+        {/* Deck seleccionado */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="space-y-1">
+              <div className={sectionLabel}>Deck seleccionado</div>
+              <div className="text-base font-semibold text-white">
+                {selectedDeck?.name ?? "—"}
               </div>
-              {selectedDeck ? (
-                <Button
-                  variant="outline"
-                  onClick={() => onChange(deleteDeck(lib, selectedDeck.id))}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Eliminar deck
-                </Button>
-              ) : null}
             </div>
             {selectedDeck ? (
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                <input
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-                  value={selectedDeck.name}
-                  onChange={(e) =>
-                    onChange(updateDeck(lib, selectedDeck.id, { name: e.target.value }))
-                  }
-                />
-                <input
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-                  value={selectedDeck.description ?? ""}
-                  onChange={(e) =>
-                    onChange(
-                      updateDeck(lib, selectedDeck.id, {
-                        description: e.target.value || undefined,
-                      }),
-                    )
-                  }
-                  placeholder="Descripción"
-                />
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-rose-300/30 bg-rose-400/10 text-rose-100 hover:bg-rose-400/20"
+                onClick={() => onChange(deleteDeck(lib, selectedDeck.id))}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Eliminar deck
+              </Button>
             ) : null}
           </div>
-
-          <div className="rounded-xl border border-border bg-background/40 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                Crear tarjeta (Basic/Cloze/Caso clínico)
-              </div>
-              <div className="flex flex-wrap gap-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setFront(
-                      "Viñeta clínica:\nPaciente de __ años con __.\nAntecedentes: __.\nExamen: __.\n\n¿Cuál es el diagnóstico más probable y por qué?",
-                    );
-                    setBack(
-                      "Diagnóstico: __\nFisiopatología: __\nHallazgo clave: __\nManejo inicial: __\nDx diferenciales: __",
-                    );
-                    setTags((t) => (t ? `${t}, Caso clínico` : "Caso clínico"));
-                  }}
-                >
-                  Plantilla: Caso clínico
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setFront("El {{c1::término}} se define como __.");
-                    setBack("Contexto y detalle adicional.");
-                  }}
-                >
-                  Plantilla: Cloze
-                </Button>
-              </div>
-            </div>
-            <div className="mt-2 grid gap-2">
-              <textarea
-                className="min-h-[80px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                placeholder="Frente (para cloze usa {{c1::...}})"
-                value={front}
-                onChange={(e) => setFront(e.target.value)}
-              />
-              <textarea
-                className="min-h-[80px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                placeholder="Reverso"
-                value={back}
-                onChange={(e) => setBack(e.target.value)}
+          {selectedDeck ? (
+            <div className="grid gap-2 md:grid-cols-2">
+              <input
+                className={inputCls}
+                value={selectedDeck.name}
+                onChange={(e) =>
+                  onChange(updateDeck(lib, selectedDeck.id, { name: e.target.value }))
+                }
               />
               <input
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-                placeholder="Tags (coma)"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
+                className={inputCls}
+                value={selectedDeck.description ?? ""}
+                onChange={(e) =>
+                  onChange(
+                    updateDeck(lib, selectedDeck.id, {
+                      description: e.target.value || undefined,
+                    }),
+                  )
+                }
+                placeholder="Descripción"
               />
-              <Button onClick={createCard} disabled={!selectedDeck}>
-                Crear tarjeta
+            </div>
+          ) : null}
+        </section>
+
+        {/* Crear tarjeta */}
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className={sectionLabel}>Crear tarjeta (Basic / Cloze / Caso clínico)</div>
+            <div className="flex flex-wrap gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+                onClick={() => {
+                  setFront(
+                    "Viñeta clínica:\nPaciente de __ años con __.\nAntecedentes: __.\nExamen: __.\n\n¿Cuál es el diagnóstico más probable y por qué?",
+                  );
+                  setBack(
+                    "Diagnóstico: __\nFisiopatología: __\nHallazgo clave: __\nManejo inicial: __\nDx diferenciales: __",
+                  );
+                  setTags((t) => (t ? `${t}, Caso clínico` : "Caso clínico"));
+                }}
+              >
+                Plantilla: Caso clínico
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+                onClick={() => {
+                  setFront("El {{c1::término}} se define como __.");
+                  setBack("Contexto y detalle adicional.");
+                }}
+              >
+                Plantilla: Cloze
               </Button>
             </div>
           </div>
-
-          <div className="rounded-xl border border-border bg-background/40 p-3">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Tarjetas</div>
-            <div className="mt-2 space-y-2">
-              {cards.slice(0, 10).map((c) => (
-                <div key={c.id} className="flex items-start justify-between gap-3 rounded-lg border border-border bg-background p-3">
-                  <div className="min-w-0">
-                    <div className="text-xs uppercase tracking-wider text-muted-foreground">{c.type}</div>
-                    <div className="mt-1 line-clamp-2 text-sm font-medium">{c.front}</div>
-                    <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{c.back}</div>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => onChange(deleteCard(lib, c.id))}>
-                    <Trash2 className="h-4 w-4" />
-                    Borrar
-                  </Button>
-                </div>
-              ))}
-              {cards.length > 10 ? (
-                <div className="text-xs text-muted-foreground">
-                  Mostrando 10 de {cards.length}.
-                </div>
-              ) : null}
-              {!cards.length ? (
-                <div className="text-sm text-muted-foreground">Este deck aún no tiene tarjetas.</div>
-              ) : null}
-            </div>
+          <div className="grid gap-2">
+            <textarea
+              className={textareaCls}
+              placeholder="Frente (para cloze usa {{c1::...}})"
+              value={front}
+              onChange={(e) => setFront(e.target.value)}
+            />
+            <textarea
+              className={textareaCls}
+              placeholder="Reverso"
+              value={back}
+              onChange={(e) => setBack(e.target.value)}
+            />
+            <input
+              className={inputCls}
+              placeholder="Tags (separados por coma)"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+            />
+            <Button
+              className="w-full border border-white/25 bg-white text-black hover:bg-white/90 disabled:opacity-60"
+              onClick={createCard}
+              disabled={!selectedDeck}
+            >
+              Crear tarjeta
+            </Button>
           </div>
-        </div>
+        </section>
+
+        {/* Tarjetas */}
+        <section className="space-y-3">
+          <div className={sectionLabel}>Tarjetas ({cards.length})</div>
+          <div className="space-y-2">
+            {cards.slice(0, 10).map((c) => (
+              <div
+                key={c.id}
+                className="flex items-start justify-between gap-3 rounded-xl border border-white/15 bg-white/5 p-3 backdrop-blur-sm"
+              >
+                <div className="min-w-0">
+                  <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">
+                    {c.type}
+                  </div>
+                  <div className="mt-1 line-clamp-2 text-sm font-medium text-white">
+                    {c.front}
+                  </div>
+                  <div className="mt-1 line-clamp-2 text-xs text-white/60">{c.back}</div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 border-rose-300/30 bg-rose-400/10 text-rose-100 hover:bg-rose-400/20"
+                  onClick={() => onChange(deleteCard(lib, c.id))}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Borrar
+                </Button>
+              </div>
+            ))}
+            {cards.length > 10 ? (
+              <div className="text-xs text-white/55">Mostrando 10 de {cards.length}.</div>
+            ) : null}
+            {!cards.length ? (
+              <div className="text-xs text-white/55">Este deck aún no tiene tarjetas.</div>
+            ) : null}
+          </div>
+        </section>
       </div>
     </div>
   );

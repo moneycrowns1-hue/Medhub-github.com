@@ -66,52 +66,59 @@ export function ImageOcclusionCreator({
     setExtraBoxes([]);
   };
 
-  return (
-    <div className="space-y-3 rounded-xl border border-border bg-card/40 p-4">
-      <div className="text-xs uppercase tracking-wider text-muted-foreground">Crear Image Occlusion (MVP)</div>
+  const inputCls =
+    "h-10 w-full rounded-xl border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/45 outline-none focus:border-white/35";
+  const numInputCls =
+    "h-10 w-full rounded-xl border border-white/15 bg-white/5 px-2 text-center text-sm tabular-nums text-white outline-none focus:border-white/35";
+  const sectionLabel =
+    "text-[10px] font-medium uppercase tracking-widest text-white/55";
 
-      <div className="grid gap-3 md:grid-cols-2">
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <div className="text-sm font-medium">URL de imagen</div>
+          <div className={sectionLabel}>URL de imagen</div>
           <input
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={inputCls}
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
           />
         </div>
 
         <div className="space-y-2">
-          <div className="text-sm font-medium">Coordenadas (%)</div>
+          <div className={sectionLabel}>Coordenadas activa (%)</div>
           <div className="grid grid-cols-4 gap-2">
-            <input className="h-10 rounded-md border border-border bg-background px-2 text-sm" type="number" value={x} onChange={(e) => setX(Number(e.target.value))} />
-            <input className="h-10 rounded-md border border-border bg-background px-2 text-sm" type="number" value={y} onChange={(e) => setY(Number(e.target.value))} />
-            <input className="h-10 rounded-md border border-border bg-background px-2 text-sm" type="number" value={w} onChange={(e) => setW(Number(e.target.value))} />
-            <input className="h-10 rounded-md border border-border bg-background px-2 text-sm" type="number" value={h} onChange={(e) => setH(Number(e.target.value))} />
+            <input className={numInputCls} type="number" value={x} onChange={(e) => setX(Number(e.target.value))} />
+            <input className={numInputCls} type="number" value={y} onChange={(e) => setY(Number(e.target.value))} />
+            <input className={numInputCls} type="number" value={w} onChange={(e) => setW(Number(e.target.value))} />
+            <input className={numInputCls} type="number" value={h} onChange={(e) => setH(Number(e.target.value))} />
           </div>
-          <div className="text-xs text-muted-foreground">x, y, w, h — relativo al tamaño de la imagen</div>
+          <div className="text-[11px] text-white/55">x, y, w, h — relativo al tamaño de la imagen</div>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <div className="text-sm font-medium">Frente</div>
+          <div className={sectionLabel}>Frente</div>
           <input
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={inputCls}
             value={front}
             onChange={(e) => setFront(e.target.value)}
           />
         </div>
         <div className="space-y-2">
-          <div className="text-sm font-medium">Reverso</div>
+          <div className={sectionLabel}>Reverso</div>
           <input
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={inputCls}
             value={back}
             onChange={(e) => setBack(e.target.value)}
           />
         </div>
       </div>
 
-      <ImageOcclusionPreview io={io} reveal={false} />
+      <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/5 p-3 backdrop-blur-sm">
+        <ImageOcclusionPreview io={io} reveal={false} />
+      </div>
 
       <ImageOcclusionDrawer
         io={io}
@@ -124,27 +131,35 @@ export function ImageOcclusionCreator({
       />
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" onClick={addBox}>
-          <Plus className="h-4 w-4" />
+        <Button
+          type="button"
+          variant="outline"
+          className="gap-1.5 border-white/20 bg-white/5 text-white hover:bg-white/10"
+          onClick={addBox}
+        >
+          <Plus className="h-3.5 w-3.5" />
           Agregar otra caja
         </Button>
         <Button
           type="button"
           variant="outline"
+          className="border-white/20 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40"
           onClick={removeLastBox}
           disabled={extraBoxes.length === 0}
         >
           Quitar última
         </Button>
-        <div className="text-xs text-muted-foreground">
+        <div className="text-[11px] text-white/55">
           {allBoxes.length} caja{allBoxes.length === 1 ? "" : "s"} · la activa es la que editás arriba
         </div>
+        <Button
+          className="ml-auto gap-1.5 border border-white/25 bg-white text-black hover:bg-white/90"
+          onClick={create}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Guardar tarjeta IO
+        </Button>
       </div>
-
-      <Button onClick={create}>
-        <Plus className="h-4 w-4" />
-        Guardar tarjeta IO
-      </Button>
     </div>
   );
 }

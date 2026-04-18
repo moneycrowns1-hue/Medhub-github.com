@@ -202,18 +202,18 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
   return (
     <div ref={rootRef} className="space-y-3">
       {/* Filters */}
-      <div className="grid gap-2 rounded-xl border border-white/20 bg-white/5 p-3 md:grid-cols-[1fr,180px,160px,140px,auto]">
+      <div className="grid gap-2 rounded-2xl border border-white/15 bg-white/5 p-3 backdrop-blur-sm md:grid-cols-[1fr,180px,160px,140px,auto]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-2.5 h-3.5 w-3.5 text-white/50" />
           <input
-            className="h-9 w-full rounded-md border border-white/25 bg-white/8 pl-7 pr-2 text-sm text-white placeholder:text-white/45"
+            className="h-9 w-full rounded-lg border border-white/15 bg-white/5 pl-7 pr-2 text-sm text-white placeholder:text-white/45 outline-none focus:border-white/35"
             placeholder="Buscar en front/back/tags…"
             value={filters.query}
             onChange={(e) => applyFilters({ query: e.currentTarget.value })}
           />
         </div>
         <select
-          className="h-9 rounded-md border border-white/25 bg-white/8 px-2 text-sm text-white"
+          className="h-9 rounded-lg border border-white/15 bg-white/5 px-2 text-sm text-white outline-none focus:border-white/35"
           value={filters.subject}
           onChange={(e) => applyFilters({ subject: e.currentTarget.value, deckId: "all" })}
         >
@@ -224,7 +224,7 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
           ))}
         </select>
         <select
-          className="h-9 rounded-md border border-white/25 bg-white/8 px-2 text-sm text-white"
+          className="h-9 rounded-lg border border-white/15 bg-white/5 px-2 text-sm text-white outline-none focus:border-white/35"
           value={filters.deckId}
           onChange={(e) => applyFilters({ deckId: e.currentTarget.value })}
         >
@@ -236,7 +236,7 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
           ))}
         </select>
         <select
-          className="h-9 rounded-md border border-white/25 bg-white/8 px-2 text-sm text-white"
+          className="h-9 rounded-lg border border-white/15 bg-white/5 px-2 text-sm text-white outline-none focus:border-white/35"
           value={filters.type}
           onChange={(e) => applyFilters({ type: e.currentTarget.value as SrsCardType | "all" })}
         >
@@ -245,7 +245,7 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
           <option value="cloze" className="bg-black text-white">cloze</option>
           <option value="image_occlusion" className="bg-black text-white">image_occlusion</option>
         </select>
-        <label className="inline-flex h-9 items-center gap-2 rounded-md border border-white/25 bg-white/8 px-2 text-xs text-white">
+        <label className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-2 text-xs text-white">
           <input
             type="checkbox"
             checked={filters.leechOnly}
@@ -256,7 +256,7 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
       </div>
 
       {allTags.length ? (
-        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/20 bg-white/5 p-2 text-[11px]">
+        <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-white/15 bg-white/5 p-2 text-[11px] backdrop-blur-sm">
           <TagIcon className="h-3 w-3 text-white/60" />
           <button
             type="button"
@@ -284,7 +284,7 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
 
       {/* Bulk actions */}
       {selectedIds.size > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/25 bg-white/10 p-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/20 bg-white/10 p-2 text-xs backdrop-blur-sm">
           <span className="font-medium text-white">{selectedIds.size} seleccionadas</span>
           <div className="flex items-center gap-1">
             <DeckSelect
@@ -303,7 +303,7 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
           </div>
           <div className="flex items-center gap-1">
             <input
-              className="h-7 rounded-md border border-white/25 bg-white/8 px-2 text-xs text-white"
+              className="h-7 rounded-md border border-white/15 bg-white/5 px-2 text-xs text-white outline-none focus:border-white/35"
               placeholder="tag"
               value={bulkTag}
               onChange={(e) => setBulkTag(e.currentTarget.value)}
@@ -353,8 +353,8 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
       ) : null}
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-white/20 bg-white/5">
-        <div className="grid grid-cols-[32px,1fr,120px,80px,60px,60px,70px] items-center gap-2 border-b border-white/15 bg-white/5 px-3 py-2 text-[10px] uppercase tracking-wider text-white/60">
+      <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/5 backdrop-blur-sm">
+        <div className="grid grid-cols-[32px,1fr,120px,80px,60px,60px,70px] items-center gap-2 border-b border-white/10 bg-white/5 px-3 py-2 text-[10px] uppercase tracking-wider text-white/60">
           <button
             type="button"
             onClick={togglePage}
