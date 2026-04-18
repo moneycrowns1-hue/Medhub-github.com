@@ -4,9 +4,21 @@ export type SrsCardType = "basic" | "cloze" | "image_occlusion";
 
 export type SrsCardState = "new" | "learning" | "due";
 
+export type SrsIoBox = { x: number; y: number; w: number; h: number };
+
 export type SrsImageOcclusion = {
   imageUrl: string;
-  box: { x: number; y: number; w: number; h: number }; // percentages 0-100
+  /** Legacy single-box occlusion. New cards should use `boxes`. */
+  box: SrsIoBox;
+  /** Multi-box occlusion (Flashmed-style). Optional to preserve backward compat. */
+  boxes?: SrsIoBox[];
+};
+
+export type SrsConfidence = 1 | 2 | 3 | 4 | 5;
+
+export type SrsSource = {
+  kind: "ai" | "manual" | "import";
+  prompt?: string;
 };
 
 export type SrsCard = {
@@ -22,10 +34,20 @@ export type SrsCard = {
   io?: SrsImageOcclusion;
   state?: SrsCardState;
   dueAtMs?: number;
+  // --- Legacy SM-2 fields (kept for migration) ---
   intervalDays?: number;
   ease?: number;
   reps?: number;
   lapses?: number;
+  // --- FSRS-6 fields ---
+  stability?: number;
+  difficulty?: number;
+  lastReviewMs?: number;
+  scheduledDays?: number;
+  // --- Brainscape confidence ---
+  confidence?: SrsConfidence;
+  // --- Provenance ---
+  source?: SrsSource;
 };
 
 export type SrsDeck = {
@@ -45,16 +67,19 @@ export function clampPct(n: number) {
   return Math.max(0, Math.min(100, x));
 }
 
+function clampBox(b: SrsIoBox): SrsIoBox {
+  return { x: clampPct(b.x), y: clampPct(b.y), w: clampPct(b.w), h: clampPct(b.h) };
+}
+
 export function normalizeIo(io: SrsImageOcclusion): SrsImageOcclusion {
-  return {
+  const out: SrsImageOcclusion = {
     imageUrl: io.imageUrl,
-    box: {
-      x: clampPct(io.box.x),
-      y: clampPct(io.box.y),
-      w: clampPct(io.box.w),
-      h: clampPct(io.box.h),
-    },
+    box: clampBox(io.box),
   };
+  if (Array.isArray(io.boxes) && io.boxes.length) {
+    out.boxes = io.boxes.map(clampBox);
+  }
+  return out;
 }
 
 export function isCloze(text: string) {

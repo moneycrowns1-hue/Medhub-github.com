@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 import { Trash2 } from "lucide-react";
 
-import type { SrsDeck, SrsLibrary } from "@/lib/srs";
+import type { SrsLibrary } from "@/lib/srs";
 import {
   addBasicOrClozeCard,
   addDeck,
@@ -186,7 +186,40 @@ export function DeckBuilder({
           </div>
 
           <div className="rounded-xl border border-border bg-background/40 p-3">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Crear tarjeta (Basic/Cloze)</div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                Crear tarjeta (Basic/Cloze/Caso clínico)
+              </div>
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFront(
+                      "Viñeta clínica:\nPaciente de __ años con __.\nAntecedentes: __.\nExamen: __.\n\n¿Cuál es el diagnóstico más probable y por qué?",
+                    );
+                    setBack(
+                      "Diagnóstico: __\nFisiopatología: __\nHallazgo clave: __\nManejo inicial: __\nDx diferenciales: __",
+                    );
+                    setTags((t) => (t ? `${t}, Caso clínico` : "Caso clínico"));
+                  }}
+                >
+                  Plantilla: Caso clínico
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFront("El {{c1::término}} se define como __.");
+                    setBack("Contexto y detalle adicional.");
+                  }}
+                >
+                  Plantilla: Cloze
+                </Button>
+              </div>
+            </div>
             <div className="mt-2 grid gap-2">
               <textarea
                 className="min-h-[80px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm"

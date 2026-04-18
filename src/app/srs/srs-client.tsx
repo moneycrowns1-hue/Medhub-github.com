@@ -13,12 +13,16 @@ import { SubjectSelect } from "@/components/subject-select";
 import { Button } from "@/components/ui/button";
 // Card imports removed — page uses standalone layout now
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { algoStats, buildStudyQueueAnkiLike, dueQueue, isLeech, type SrsDailyLimits } from "@/lib/srs-algo";
+import { algoStats, buildStudyQueueAnkiLike, buildTodayPlan, cardMastery, deckMastery, dueQueue, isLeech, type SrsDailyLimits } from "@/lib/srs-algo";
 import { clozeIndices } from "@/lib/srs-cloze-utils";
 import { renderCloze } from "@/lib/srs-cloze";
 import { markSrsDeckVisited } from "@/lib/rabbit-guide";
-import { applyReview, loadSrsLibrary, resetCardLapses, saveSrsLibrary } from "@/lib/srs-storage";
+import { applyReview, loadSrsLibrary, resetCardLapses, saveSrsLibrary, setCardConfidence } from "@/lib/srs-storage";
 import { SrsFiltersPanel } from "./_components/srs-filters-panel";
+import { ConfidenceRater } from "./_components/confidence-rater";
+import { AiCardComposer } from "./_components/ai-card-composer";
+import { CardBrowser } from "./_components/card-browser";
+import { ExplainButton } from "./_components/explain-button";
 import { toast } from "@/components/ui/toast";
 import { incrementStat } from "@/lib/stats-store";
 import {
@@ -28,7 +32,7 @@ import {
   saveSession,
   type SrsSessionState,
 } from "@/lib/srs-session";
-import type { SrsCard, SrsLibrary, SrsRating } from "@/lib/srs";
+import type { SrsCard, SrsConfidence, SrsLibrary, SrsRating } from "@/lib/srs";
 
 type SlideAnim = "none" | "next";
 
@@ -45,7 +49,16 @@ export function SrsClient() {
   const [deckId, setDeckId] = useState<string>("deck-histo");
   const [state, setState] = useState<SrsSessionState | null>(() => loadSession());
   const [slide, setSlide] = useState<SlideAnim>("none");
-  const [queueMode, setQueueMode] = useState<"anki" | "due" | "all">("anki");
+  const [queueMode, setQueueMode] = useState<"anki" | "due" | "all" | "today">("anki");
+  const [studyMode, setStudyMode] = useState<"anki" | "confidence">(() => {
+    if (typeof window === "undefined") return "anki";
+    try {
+      const raw = window.localStorage.getItem("somagnus:srs:study-mode:v1");
+      return raw === "confidence" ? "confidence" : "anki";
+    } catch {
+      return "anki";
+    }
+  });
   const [dailyLimits, setDailyLimits] = useState<SrsDailyLimits>(() => {
     try {
       const raw = window.localStorage.getItem(LIMITS_KEY);
@@ -72,6 +85,14 @@ export function SrsClient() {
       return;
     }
   }, [dailyLimits]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("somagnus:srs:study-mode:v1", studyMode);
+    } catch {
+      return;
+    }
+  }, [studyMode]);
 
   useEffect(() => {
     saveSrsLibrary(lib);
@@ -134,6 +155,7 @@ export function SrsClient() {
   const cardsForSession = useMemo(() => {
     if (queueMode === "anki") return buildStudyQueueAnkiLike(filteredCards, dailyLimits);
     if (queueMode === "due") return dueQueue(filteredCards);
+    if (queueMode === "today") return buildTodayPlan(filteredCards, 50);
     return [...filteredCards];
   }, [filteredCards, queueMode, dailyLimits]);
 
@@ -236,6 +258,26 @@ export function SrsClient() {
     goNext({ rating: r, requeueCurrent: r === "again" });
   }, [goNext]);
 
+  // Brainscape-style confidence rating: also reschedules via FSRS by mapping
+  // confidence level to a rating, and stores the confidence value for mastery.
+  const rateConfidence = useCallback((value: SrsConfidence) => {
+    const snapshot = stateRef.current;
+    if (!snapshot) return;
+    const currentCard = snapshot.queue[snapshot.currentIndex] ?? null;
+    if (!currentCard) return;
+    const rating: SrsRating =
+      value === 1 ? "again" : value === 2 ? "again" : value === 3 ? "hard" : value === 4 ? "good" : "easy";
+    const wasNew = currentCard.state === "new";
+    setLib((prev) => {
+      const next = applyReview(prev, currentCard.id, rating);
+      return setCardConfidence(next, currentCard.id, value);
+    });
+    incrementStat("srsReviewed", 1);
+    if (value >= 4) incrementStat("srsCorrect", 1);
+    if (wasNew) incrementStat("srsNew", 1);
+    goNext({ rating, requeueCurrent: value <= 2 });
+  }, [goNext]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!state || state.done || !card) return;
@@ -249,6 +291,14 @@ export function SrsClient() {
         restart();
         return;
       }
+      if (studyMode === "confidence") {
+        if (e.key === "1") return rateConfidence(1);
+        if (e.key === "2") return rateConfidence(2);
+        if (e.key === "3") return rateConfidence(3);
+        if (e.key === "4") return rateConfidence(4);
+        if (e.key === "5") return rateConfidence(5);
+        return;
+      }
       if (!state?.revealed) return;
       if (e.key === "1") return rate("again");
       if (e.key === "2") return rate("hard");
@@ -257,7 +307,7 @@ export function SrsClient() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [state, card, flip, rate, restart]);
+  }, [state, card, flip, rate, rateConfidence, restart, studyMode]);
 
   const selectedDeck = useMemo(() => lib.decks.find((d) => d.id === resolvedDeckId) ?? null, [lib.decks, resolvedDeckId]);
 
@@ -289,7 +339,8 @@ export function SrsClient() {
       {} as Record<string, number>,
     );
     const algo = algoStats(filteredCards);
-    return { total, byType, algo };
+    const mastery = deckMastery(filteredCards);
+    return { total, byType, algo, mastery };
   }, [filteredCards]);
 
   const sessionCounts = state?.counts ?? { again: 0, hard: 0, good: 0, easy: 0 };
@@ -372,6 +423,8 @@ export function SrsClient() {
             <div className="ml-auto">
               <TabsList>
                 <TabsTrigger value="study">Estudiar</TabsTrigger>
+                <TabsTrigger value="ai">IA</TabsTrigger>
+                <TabsTrigger value="browser">Navegador</TabsTrigger>
                 <TabsTrigger value="builder">Builder</TabsTrigger>
                 <TabsTrigger value="io">IO</TabsTrigger>
               </TabsList>
@@ -401,12 +454,43 @@ export function SrsClient() {
                 >
                   Todo el deck
                 </Button>
+                <Button
+                  variant={queueMode === "today" ? "secondary" : "outline"}
+                  className={queueMode === "today" ? "border border-white/25 bg-white text-black hover:bg-white/90" : "border-white/25 bg-white/10 text-white hover:bg-white/15"}
+                  onClick={() => setQueueMode("today")}
+                  title="Plan adaptativo: prioriza las cartas con menor retención prevista"
+                >
+                  Plan hoy
+                </Button>
                 <Button className="border border-white/25 bg-white text-black hover:bg-white/90" onClick={startDeck} disabled={cardsInDeck.length === 0}>
                   Iniciar
                 </Button>
                 <Button variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={() => setState(null)}>
                   Salir
                 </Button>
+
+                <div className="ml-auto flex items-center gap-1 rounded-full border border-white/20 bg-white/5 p-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setStudyMode("anki")}
+                    className={`rounded-full px-3 py-1 transition-colors ${
+                      studyMode === "anki" ? "bg-white text-black" : "text-white/80 hover:bg-white/10"
+                    }`}
+                    title="Modo Anki: revelar → calificar 1-4"
+                  >
+                    Anki
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStudyMode("confidence")}
+                    className={`rounded-full px-3 py-1 transition-colors ${
+                      studyMode === "confidence" ? "bg-white text-black" : "text-white/80 hover:bg-white/10"
+                    }`}
+                    title="Modo Brainscape: confianza 1-5 sin voltear"
+                  >
+                    Confianza
+                  </button>
+                </div>
               </div>
 
               {queueMode === "anki" ? (
@@ -482,6 +566,9 @@ export function SrsClient() {
                     </div>
                     <div className="rounded-md border border-white/20 bg-white/8 px-2 py-1">
                       Learning: {deckStats.algo.learning}
+                    </div>
+                    <div className="rounded-md border border-white/20 bg-gradient-to-r from-rose-400/20 via-amber-300/20 to-emerald-400/20 px-2 py-1 font-medium text-white">
+                      Mastery: {deckStats.mastery}%
                     </div>
                   </div>
                 </div>
@@ -579,35 +666,43 @@ export function SrsClient() {
                     </div>
 
                     <div className="space-y-3">
-                      <div className="rounded-xl border border-white/20 bg-white/5 p-4">
-                        <div className="text-xs uppercase tracking-wider text-foreground/70">Controles</div>
-                        <div className="mt-3 flex flex-col gap-2">
-                          {!state.revealed ? (
-                            <Button className="border border-white/25 bg-white text-black hover:bg-white/90" onClick={reveal}>Mostrar respuesta</Button>
-                          ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                              <Button variant="outline" className="border-red-300/35 bg-red-500/8 text-red-100 hover:bg-red-500/15" onClick={() => rate("again")}>
-                                1 · Again
-                              </Button>
-                              <Button variant="outline" className="border-amber-300/35 bg-amber-500/8 text-amber-100 hover:bg-amber-500/15" onClick={() => rate("hard")}>
-                                2 · Hard
-                              </Button>
-                              <Button variant="secondary" className="border border-white/25 bg-white/85 text-black hover:bg-white" onClick={() => rate("good")}>
-                                3 · Good
-                              </Button>
-                              <Button className="border border-emerald-300/35 bg-emerald-400/85 text-black hover:bg-emerald-300" onClick={() => rate("easy")}>4 · Easy</Button>
-                            </div>
-                          )}
-                          <Button
-                            variant="outline"
-                            className="border-white/25 bg-white/10 text-white hover:bg-white/15"
-                            onClick={() => goNext()}
-                            disabled={state.currentIndex >= state.queue.length - 1}
-                          >
-                            Saltar
-                          </Button>
+                      {studyMode === "confidence" && card ? (
+                        <ConfidenceRater
+                          value={(card.confidence ?? null) as SrsConfidence | null}
+                          masteryPct={cardMastery(card)}
+                          onRate={(v) => rateConfidence(v)}
+                        />
+                      ) : (
+                        <div className="rounded-xl border border-white/20 bg-white/5 p-4">
+                          <div className="text-xs uppercase tracking-wider text-foreground/70">Controles</div>
+                          <div className="mt-3 flex flex-col gap-2">
+                            {!state.revealed ? (
+                              <Button className="border border-white/25 bg-white text-black hover:bg-white/90" onClick={reveal}>Mostrar respuesta</Button>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button variant="outline" className="border-red-300/35 bg-red-500/8 text-red-100 hover:bg-red-500/15" onClick={() => rate("again")}>
+                                  1 · Again
+                                </Button>
+                                <Button variant="outline" className="border-amber-300/35 bg-amber-500/8 text-amber-100 hover:bg-amber-500/15" onClick={() => rate("hard")}>
+                                  2 · Hard
+                                </Button>
+                                <Button variant="secondary" className="border border-white/25 bg-white/85 text-black hover:bg-white" onClick={() => rate("good")}>
+                                  3 · Good
+                                </Button>
+                                <Button className="border border-emerald-300/35 bg-emerald-400/85 text-black hover:bg-emerald-300" onClick={() => rate("easy")}>4 · Easy</Button>
+                              </div>
+                            )}
+                            <Button
+                              variant="outline"
+                              className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+                              onClick={() => goNext()}
+                              disabled={state.currentIndex >= state.queue.length - 1}
+                            >
+                              Saltar
+                            </Button>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       <div className="rounded-xl border border-white/20 bg-white/5 p-4">
                         <div className="text-xs uppercase tracking-wider text-foreground/70">Estado</div>
@@ -618,10 +713,34 @@ export function SrsClient() {
                           <div className="rounded-md border border-white/15 bg-white/8 p-2">Easy: {sessionCounts.easy}</div>
                         </div>
                       </div>
+
+                      {card ? (
+                        <div className="rounded-xl border border-white/20 bg-white/5 p-4">
+                          <div className="mb-2 text-xs uppercase tracking-wider text-foreground/70">Ayuda IA</div>
+                          <ExplainButton
+                            front={card.front}
+                            back={card.back}
+                            subjectSlug={card.subjectSlug}
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="ai" className="space-y-4">
+              <AiCardComposer
+                lib={lib}
+                deckId={resolvedDeckId}
+                subjectSlug={selectedDeck?.subjectSlug ?? subject}
+                onLibraryChange={(next) => setLib(next)}
+              />
+            </TabsContent>
+
+            <TabsContent value="browser" className="space-y-4">
+              <CardBrowser lib={lib} onLibraryChange={(next) => setLib(next)} />
             </TabsContent>
 
             <TabsContent value="builder" className="space-y-4">

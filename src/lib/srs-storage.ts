@@ -1,5 +1,5 @@
 import { inferCardType, normalizeIo, type SrsCard, type SrsDeck, type SrsLibrary } from "@/lib/srs";
-import { applySm2Review } from "@/lib/srs-algo";
+import { applyFsrsReview, defaultFsrsParams } from "@/lib/srs-fsrs";
 
 const STORAGE_KEY = "somagnus:srs:library:v1";
 export const SRS_UPDATED_EVENT = "somagnus:srs:updated";
@@ -156,6 +156,93 @@ export function resetCardLapses(lib: SrsLibrary, cardId: string): SrsLibrary {
   });
 }
 
+export function bulkDeleteCards(lib: SrsLibrary, ids: string[]): SrsLibrary {
+  if (!ids.length) return lib;
+  const set = new Set(ids);
+  return { ...lib, cards: lib.cards.filter((c) => !set.has(c.id)) };
+}
+
+export function bulkMoveCards(lib: SrsLibrary, ids: string[], targetDeckId: string): SrsLibrary {
+  if (!ids.length) return lib;
+  const set = new Set(ids);
+  const deck = lib.decks.find((d) => d.id === targetDeckId);
+  if (!deck) return lib;
+  return {
+    ...lib,
+    cards: lib.cards.map((c) =>
+      set.has(c.id) ? { ...c, deckId: targetDeckId, subjectSlug: deck.subjectSlug } : c,
+    ),
+  };
+}
+
+function normalizeTagList(tags: string[] | undefined): string[] {
+  return Array.from(
+    new Set(
+      (tags ?? [])
+        .map((t) => (typeof t === "string" ? t.trim() : ""))
+        .filter(Boolean),
+    ),
+  );
+}
+
+export function bulkAddTag(lib: SrsLibrary, ids: string[], tag: string): SrsLibrary {
+  const clean = tag.trim();
+  if (!clean || !ids.length) return lib;
+  const set = new Set(ids);
+  return {
+    ...lib,
+    cards: lib.cards.map((c) => {
+      if (!set.has(c.id)) return c;
+      const next = normalizeTagList([...(c.tags ?? []), clean]);
+      return { ...c, tags: next };
+    }),
+  };
+}
+
+export function bulkRemoveTag(lib: SrsLibrary, ids: string[], tag: string): SrsLibrary {
+  const clean = tag.trim();
+  if (!clean || !ids.length) return lib;
+  const set = new Set(ids);
+  return {
+    ...lib,
+    cards: lib.cards.map((c) => {
+      if (!set.has(c.id)) return c;
+      const next = (c.tags ?? []).filter((t) => t !== clean);
+      return { ...c, tags: next.length ? next : undefined };
+    }),
+  };
+}
+
+export function bulkResetLapses(lib: SrsLibrary, ids: string[]): SrsLibrary {
+  if (!ids.length) return lib;
+  const set = new Set(ids);
+  const now = Date.now();
+  return {
+    ...lib,
+    cards: lib.cards.map((c) =>
+      set.has(c.id)
+        ? {
+            ...c,
+            lapses: 0,
+            reps: 0,
+            intervalDays: 0,
+            ease: 2.5,
+            state: "learning" as const,
+            dueAtMs: now,
+          }
+        : c,
+    ),
+  };
+}
+
+export function setCardConfidence(
+  lib: SrsLibrary,
+  cardId: string,
+  confidence: 1 | 2 | 3 | 4 | 5,
+): SrsLibrary {
+  return updateCard(lib, cardId, { confidence });
+}
+
 export function applyReview(
   lib: SrsLibrary,
   cardId: string,
@@ -163,8 +250,8 @@ export function applyReview(
 ): SrsLibrary {
   const target = lib.cards.find((c) => c.id === cardId);
   if (!target) return lib;
-  const updated = applySm2Review(target, rating);
-  return updateCard(lib, cardId, updated);
+  const patch = applyFsrsReview(target, rating, Date.now(), defaultFsrsParams());
+  return updateCard(lib, cardId, patch);
 }
 
 export function defaultSrsLibrary(): SrsLibrary {
@@ -363,6 +450,7 @@ export function addImageOcclusionCard(
     back: string;
     imageUrl: string;
     box: { x: number; y: number; w: number; h: number };
+    boxes?: { x: number; y: number; w: number; h: number }[];
     tags?: string[];
   },
 ): SrsLibrary {
@@ -377,7 +465,7 @@ export function addImageOcclusionCard(
     front: input.front,
     back: input.back,
     tags: input.tags,
-    io: normalizeIo({ imageUrl: input.imageUrl, box: input.box }),
+    io: normalizeIo({ imageUrl: input.imageUrl, box: input.box, boxes: input.boxes }),
   };
 
   return {
@@ -393,6 +481,7 @@ export function importAiNotesToDeck(
     subjectSlug: string;
     notes: AiNoteDraft[];
     defaultTags?: string[];
+    sourcePrompt?: string;
   },
 ): SrsLibrary {
   const deckExists = lib.decks.some((d) => d.id === input.deckId);
@@ -451,6 +540,7 @@ export function importAiNotesToDeck(
         front,
         back,
         tags: tags.length ? Array.from(new Set(tags)) : undefined,
+        source: { kind: "ai", prompt: input.sourcePrompt },
       });
       knownFingerprints.add(fingerprint);
     }

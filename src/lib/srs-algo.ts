@@ -1,4 +1,5 @@
-import type { SrsCard, SrsRating } from "@/lib/srs";
+import type { SrsCard, SrsLibrary, SrsRating } from "@/lib/srs";
+import { predictRetention } from "@/lib/srs-fsrs";
 
 export type SrsAlgoStats = {
   total: number;
@@ -214,4 +215,56 @@ export function applySm2Review(
     intervalDays,
     dueAtMs,
   };
+}
+
+// --- Brainscape-style mastery + FSRS-aware prioritisation -------------------
+
+/**
+ * Per-card mastery in [0, 100]. Combines explicit confidence (Brainscape 1-5)
+ * with predicted retention from FSRS-6 when the user has never self-rated.
+ */
+export function cardMastery(card: SrsCard, now: number = Date.now()): number {
+  const c = normalizeCardForAlgo(card, now);
+  const confidence = typeof c.confidence === "number" ? c.confidence : 0;
+  if (confidence > 0) {
+    return Math.round(((confidence - 1) / 4) * 100);
+  }
+  // No confidence set yet → fall back to predicted retention.
+  if (c.state === "new") return 0;
+  const r = predictRetention(c, now);
+  return Math.round(clamp01(r) * 100);
+}
+
+function clamp01(x: number) {
+  if (!Number.isFinite(x)) return 0;
+  return Math.max(0, Math.min(1, x));
+}
+
+export function deckMastery(cards: SrsCard[], now: number = Date.now()): number {
+  if (!cards.length) return 0;
+  let acc = 0;
+  for (const c of cards) acc += cardMastery(c, now);
+  return Math.round(acc / cards.length);
+}
+
+export function subjectMastery(lib: SrsLibrary, subjectSlug: string, now: number = Date.now()): number {
+  const deckIds = new Set(lib.decks.filter((d) => d.subjectSlug === subjectSlug).map((d) => d.id));
+  const cards = lib.cards.filter((c) => deckIds.has(c.deckId));
+  return deckMastery(cards, now);
+}
+
+/**
+ * Build a "Today plan" queue prioritised by lowest predicted retention (Laxu-style).
+ * New cards are intermixed at the end so due/at-risk cards come first.
+ */
+export function buildTodayPlan(
+  cards: SrsCard[],
+  limit = 50,
+  now: number = Date.now(),
+): SrsCard[] {
+  const normalized = cards.map((c) => normalizeCardForAlgo(c, now));
+  const due = normalized.filter((c) => c.state !== "new");
+  const fresh = normalized.filter((c) => c.state === "new");
+  due.sort((a, b) => predictRetention(a, now) - predictRetention(b, now));
+  return burySiblingsByNoteId([...due, ...fresh]).slice(0, Math.max(1, limit));
 }

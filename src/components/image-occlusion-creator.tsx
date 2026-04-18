@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 import { Plus } from "lucide-react";
 
-import type { SrsDeck, SrsLibrary } from "@/lib/srs";
+import type { SrsDeck, SrsIoBox, SrsLibrary } from "@/lib/srs";
 import { addImageOcclusionCard } from "@/lib/srs-storage";
 import { ImageOcclusionDrawer } from "@/components/image-occlusion-drawer";
 import { ImageOcclusionPreview } from "@/components/image-occlusion-preview";
@@ -28,11 +28,28 @@ export function ImageOcclusionCreator({
   const [y, setY] = useState(32);
   const [w, setW] = useState(24);
   const [h, setH] = useState(18);
+  const [extraBoxes, setExtraBoxes] = useState<SrsIoBox[]>([]);
+
+  const allBoxes = useMemo<SrsIoBox[]>(
+    () => [...extraBoxes, { x, y, w, h }],
+    [extraBoxes, x, y, w, h],
+  );
 
   const io = useMemo(
-    () => ({ imageUrl, box: { x, y, w, h } }),
-    [imageUrl, x, y, w, h],
+    () => ({ imageUrl, box: allBoxes[0], boxes: allBoxes }),
+    [imageUrl, allBoxes],
   );
+
+  const addBox = () => {
+    setExtraBoxes((p) => [...p, { x, y, w, h }]);
+    // Offset the next box slightly so the user can see it.
+    setX((v) => Math.min(100, v + 6));
+    setY((v) => Math.min(100, v + 6));
+  };
+
+  const removeLastBox = () => {
+    setExtraBoxes((p) => p.slice(0, -1));
+  };
 
   const create = () => {
     const next = addImageOcclusionCard(lib, {
@@ -41,10 +58,12 @@ export function ImageOcclusionCreator({
       front,
       back,
       imageUrl,
-      box: { x, y, w, h },
+      box: allBoxes[0],
+      boxes: allBoxes.length > 1 ? allBoxes : undefined,
       tags: ["IO"],
     });
     onChange(next);
+    setExtraBoxes([]);
   };
 
   return (
@@ -103,6 +122,24 @@ export function ImageOcclusionCreator({
           setH(b.h);
         }}
       />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" onClick={addBox}>
+          <Plus className="h-4 w-4" />
+          Agregar otra caja
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={removeLastBox}
+          disabled={extraBoxes.length === 0}
+        >
+          Quitar última
+        </Button>
+        <div className="text-xs text-muted-foreground">
+          {allBoxes.length} caja{allBoxes.length === 1 ? "" : "s"} · la activa es la que editás arriba
+        </div>
+      </div>
 
       <Button onClick={create}>
         <Plus className="h-4 w-4" />
