@@ -17,7 +17,7 @@ import { markSrsDeckVisited } from "@/lib/rabbit-guide";
 import { applyReview, loadSrsLibrary, resetCardLapses, saveSrsLibrary, setCardConfidence } from "@/lib/srs-storage";
 import { SrsFiltersPanel } from "./_components/srs-filters-panel";
 import { ConfidenceRater } from "./_components/confidence-rater";
-import { AiCardComposer } from "./_components/ai-card-composer";
+import { AiModesHub } from "./_components/ai-modes-hub";
 import { CardBrowser } from "./_components/card-browser";
 import { ExplainButton } from "./_components/explain-button";
 import { SessionHud } from "./_components/session-hud";
@@ -28,7 +28,6 @@ import { incrementStat } from "@/lib/stats-store";
 import {
   clearSession,
   freshSession,
-  loadSession,
   saveSession,
   type SrsSessionState,
 } from "@/lib/srs-session";
@@ -47,7 +46,10 @@ export function SrsClient() {
   const [lib, setLib] = useState<SrsLibrary>(() => loadSrsLibrary());
   const [subject, setSubject] = useState<string>("histologia");
   const [deckId, setDeckId] = useState<string>("deck-histo");
-  const [state, setState] = useState<SrsSessionState | null>(() => loadSession());
+  // Always start paused. Session persistence was causing the FAB to render as
+  // "Pause" when the user re-entered /srs; we now clear any stored session on
+  // mount and require an explicit Start click.
+  const [state, setState] = useState<SrsSessionState | null>(null);
   const [slide, setSlide] = useState<SlideAnim>("none");
   const [queueMode, setQueueMode] = useState<"anki" | "due" | "all" | "today">("anki");
   const [activeTab, setActiveTab] = useState<SrsTab>("study");
@@ -107,6 +109,11 @@ export function SrsClient() {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  // Drop any persisted session exactly once on mount so /srs always opens paused.
+  useEffect(() => {
+    clearSession();
+  }, []);
 
   const decksForSubject = useMemo(() => {
     return lib.decks.filter((d) => (subject === "all" ? true : d.subjectSlug === subject));
@@ -622,7 +629,7 @@ export function SrsClient() {
             </TabsContent>
 
             <TabsContent value="ai" className="space-y-4">
-              <AiCardComposer
+              <AiModesHub
                 lib={lib}
                 deckId={resolvedDeckId}
                 subjectSlug={selectedDeck?.subjectSlug ?? subject}

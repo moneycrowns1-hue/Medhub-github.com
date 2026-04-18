@@ -41,16 +41,7 @@ export function StartFab({ sessionActive, disabled, onStart, onExit }: Props) {
     };
   }, [sessionActive, disabled]);
 
-  // Pop transition when sessionActive flips.
-  useEffect(() => {
-    const el = btnRef.current;
-    if (!el) return;
-    gsap.fromTo(
-      el,
-      { scale: 0.85, rotate: sessionActive ? -10 : 10 },
-      { scale: 1, rotate: 0, duration: 0.3, ease: "back.out(1.8)" },
-    );
-  }, [sessionActive]);
+  // (No pop transition on toggle — user requested removing the bounce.)
 
   return (
     <div className="pointer-events-none fixed bottom-6 right-6 z-50 sm:bottom-8 sm:right-8">
