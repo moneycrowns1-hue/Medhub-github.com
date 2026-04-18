@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 // Card imports removed — page uses standalone layout now
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { algoStats, buildStudyQueueAnkiLike, buildTodayPlan, cardMastery, deckMastery, dueQueue, isLeech, type SrsDailyLimits } from "@/lib/srs-algo";
+import gsap from "gsap";
 import { clozeIndices } from "@/lib/srs-cloze-utils";
 import { renderCloze } from "@/lib/srs-cloze";
 import { markSrsDeckVisited } from "@/lib/rabbit-guide";
@@ -23,6 +24,8 @@ import { ConfidenceRater } from "./_components/confidence-rater";
 import { AiCardComposer } from "./_components/ai-card-composer";
 import { CardBrowser } from "./_components/card-browser";
 import { ExplainButton } from "./_components/explain-button";
+import { SessionControls } from "./_components/session-controls";
+import { SessionHud } from "./_components/session-hud";
 import { toast } from "@/components/ui/toast";
 import { incrementStat } from "@/lib/stats-store";
 import {
@@ -188,13 +191,24 @@ export function SrsClient() {
 
   const card: SrsCard | null = state ? state.queue[state.currentIndex] ?? null : null;
 
+  // GSAP: slide-in animation whenever the visible card changes.
+  useEffect(() => {
+    const el = cardBtnRef.current;
+    if (!el || !card) return;
+    gsap.fromTo(
+      el,
+      { x: 24, opacity: 0, scale: 0.98 },
+      { x: 0, opacity: 1, scale: 1, duration: 0.35, ease: "power3.out" },
+    );
+    // We only want to run when the card id changes, not on every card prop update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card?.id]);
+
   const progress = useMemo(() => {
     const total = state?.queue.length ?? 0;
     const done = state ? Math.min(total, state.currentIndex) : 0;
     return { total, done };
   }, [state]);
-
-  const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   const reveal = useCallback(() => setState((p) => (p ? { ...p, revealed: true } : p)), []);
   const flip = useCallback(() => {
@@ -445,110 +459,18 @@ export function SrsClient() {
           </div>
 
             <TabsContent value="study" className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant={queueMode === "anki" ? "secondary" : "outline"}
-                  className={queueMode === "anki" ? "border border-white/25 bg-white text-black hover:bg-white/90" : "border-white/25 bg-white/10 text-white hover:bg-white/15"}
-                  onClick={() => setQueueMode("anki")}
-                >
-                  Anki
-                </Button>
-                <Button
-                  variant={queueMode === "due" ? "secondary" : "outline"}
-                  className={queueMode === "due" ? "border border-white/25 bg-white text-black hover:bg-white/90" : "border-white/25 bg-white/10 text-white hover:bg-white/15"}
-                  onClick={() => setQueueMode("due")}
-                >
-                  Due hoy
-                </Button>
-                <Button
-                  variant={queueMode === "all" ? "secondary" : "outline"}
-                  className={queueMode === "all" ? "border border-white/25 bg-white text-black hover:bg-white/90" : "border-white/25 bg-white/10 text-white hover:bg-white/15"}
-                  onClick={() => setQueueMode("all")}
-                >
-                  Todo el deck
-                </Button>
-                <Button
-                  variant={queueMode === "today" ? "secondary" : "outline"}
-                  className={queueMode === "today" ? "border border-white/25 bg-white text-black hover:bg-white/90" : "border-white/25 bg-white/10 text-white hover:bg-white/15"}
-                  onClick={() => setQueueMode("today")}
-                  title="Plan adaptativo: prioriza las cartas con menor retención prevista"
-                >
-                  Plan hoy
-                </Button>
-                <Button className="border border-white/25 bg-white text-black hover:bg-white/90" onClick={startDeck} disabled={cardsInDeck.length === 0}>
-                  Iniciar
-                </Button>
-                <Button variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={() => setState(null)}>
-                  Salir
-                </Button>
-
-                <div className="ml-auto flex items-center gap-1 rounded-full border border-white/20 bg-white/5 p-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setStudyMode("anki")}
-                    className={`rounded-full px-3 py-1 transition-colors ${
-                      studyMode === "anki" ? "bg-white text-black" : "text-white/80 hover:bg-white/10"
-                    }`}
-                    title="Modo Anki: revelar → calificar 1-4"
-                  >
-                    Anki
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStudyMode("confidence")}
-                    className={`rounded-full px-3 py-1 transition-colors ${
-                      studyMode === "confidence" ? "bg-white text-black" : "text-white/80 hover:bg-white/10"
-                    }`}
-                    title="Modo Brainscape: confianza 1-5 sin voltear"
-                  >
-                    Confianza
-                  </button>
-                </div>
-              </div>
-
-              {queueMode === "anki" ? (
-                <div className="grid gap-2 rounded-xl border border-white/20 bg-white/5 p-3 sm:grid-cols-3">
-                  <div className="space-y-1">
-                    <div className="text-xs uppercase tracking-wider text-foreground/70">Límite New</div>
-                    <input
-                      className="h-9 w-full rounded-md border border-white/25 bg-white/8 px-3 text-sm"
-                      type="number"
-                      min={0}
-                      max={9999}
-                      value={dailyLimits.newLimit}
-                      onChange={(e) =>
-                        setDailyLimits((p) => ({ ...p, newLimit: Number(e.currentTarget.value || 0) }))
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-xs uppercase tracking-wider text-foreground/70">Límite Review</div>
-                    <input
-                      className="h-9 w-full rounded-md border border-white/25 bg-white/8 px-3 text-sm"
-                      type="number"
-                      min={0}
-                      max={9999}
-                      value={dailyLimits.reviewLimit}
-                      onChange={(e) =>
-                        setDailyLimits((p) => ({ ...p, reviewLimit: Number(e.currentTarget.value || 0) }))
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-xs uppercase tracking-wider text-foreground/70">Límite Learning</div>
-                    <input
-                      className="h-9 w-full rounded-md border border-white/25 bg-white/8 px-3 text-sm"
-                      type="number"
-                      min={0}
-                      max={9999}
-                      value={dailyLimits.learningLimit}
-                      onChange={(e) =>
-                        setDailyLimits((p) => ({ ...p, learningLimit: Number(e.currentTarget.value || 0) }))
-                      }
-                    />
-                  </div>
-                </div>
-              ) : null}
+              <SessionControls
+                queueMode={queueMode}
+                onQueueModeChange={setQueueMode}
+                studyMode={studyMode}
+                onStudyModeChange={setStudyMode}
+                onStart={startDeck}
+                onExit={() => setState(null)}
+                canStart={cardsInDeck.length > 0}
+                sessionActive={!!state && !state.done}
+                dailyLimits={dailyLimits}
+                onDailyLimitsChange={(patch) => setDailyLimits((p) => ({ ...p, ...patch }))}
+              />
 
               <SrsFiltersPanel
                 cardsInDeck={cardsInDeck}
@@ -560,50 +482,29 @@ export function SrsClient() {
                 filteredCount={filteredCards.length}
               />
 
-              <div className="grid gap-3 lg:grid-cols-[1fr,260px]">
-                <div className="rounded-xl border border-white/20 bg-white/5 p-4">
-                  <div className="text-xs uppercase tracking-wider text-foreground/70">Deck</div>
-                  <div className="mt-1 text-sm font-medium">{selectedDeck?.name ?? "-"}</div>
-                  {selectedDeck?.description ? (
-                    <div className="mt-1 text-xs text-foreground/60">{selectedDeck.description}</div>
-                  ) : null}
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                    <div className="rounded-md border border-white/20 bg-white/8 px-2 py-1">
-                      Total: {deckStats.total}
-                    </div>
-                    <div className="rounded-md border border-white/20 bg-white/8 px-2 py-1">
-                      Due hoy: {deckStats.algo.dueToday}
-                    </div>
-                    <div className="rounded-md border border-white/20 bg-white/8 px-2 py-1">
-                      New: {deckStats.algo.newCount}
-                    </div>
-                    <div className="rounded-md border border-white/20 bg-white/8 px-2 py-1">
-                      Learning: {deckStats.algo.learning}
-                    </div>
-                    <div className="rounded-md border border-white/20 bg-gradient-to-r from-rose-400/20 via-amber-300/20 to-emerald-400/20 px-2 py-1 font-medium text-white">
-                      Mastery: {deckStats.mastery}%
-                    </div>
-                  </div>
-                </div>
-
-                <SrsStats
-                  total={state?.queue.length ?? 0}
-                  remaining={state ? Math.max(0, state.queue.length - state.currentIndex) : 0}
-                  counts={sessionCounts}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="text-muted-foreground">Progreso</div>
-                  <div className="tabular-nums">
-                    {Math.min(progress.done + 1, progress.total)}/{progress.total}
-                  </div>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
+              <SessionHud
+                deckName={selectedDeck?.name ?? "—"}
+                deckDescription={selectedDeck?.description}
+                stats={{
+                  total: deckStats.total,
+                  dueToday: deckStats.algo.dueToday,
+                  newCount: deckStats.algo.newCount,
+                  learning: deckStats.algo.learning,
+                  mastery: deckStats.mastery,
+                }}
+                session={
+                  state
+                    ? {
+                        total: state.queue.length,
+                        done: state.currentIndex,
+                        again: sessionCounts.again,
+                        hard: sessionCounts.hard,
+                        good: sessionCounts.good,
+                        easy: sessionCounts.easy,
+                      }
+                    : null
+                }
+              />
 
               {!state ? (
                 <div className="rounded-xl border border-white/20 bg-white/5 p-6 text-sm text-foreground/70">
