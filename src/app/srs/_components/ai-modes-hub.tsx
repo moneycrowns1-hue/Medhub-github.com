@@ -100,24 +100,44 @@ export function AiModesHub({ lib, deckId, subjectSlug, onLibraryChange }: Props)
   const hubRef = useRef<HTMLDivElement | null>(null);
 
   // Stagger the primary mode cards on mount / when returning to home.
+  // Using fromTo + clearProps avoids a StrictMode race where a reverted
+  // `gsap.from` could leave a card stranded at opacity:0.
   useEffect(() => {
     if (mode !== "home" || !hubRef.current) return;
-    const ctx = gsap.context(() => {
-      gsap.from("[data-ai-primary]", {
-        y: 16,
-        opacity: 0,
+    const cards = hubRef.current.querySelectorAll<HTMLElement>("[data-ai-primary]");
+    const progress = hubRef.current.querySelectorAll<HTMLElement>("[data-ai-progress]");
+    gsap.killTweensOf(cards);
+    gsap.killTweensOf(progress);
+    gsap.fromTo(
+      cards,
+      { y: 16, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
         duration: 0.45,
         ease: "power3.out",
         stagger: 0.08,
-      });
-      gsap.from("[data-ai-progress]", {
-        scaleX: 0,
+        clearProps: "all",
+      },
+    );
+    gsap.fromTo(
+      progress,
+      { scaleX: 0 },
+      {
+        scaleX: 1,
         transformOrigin: "left center",
         duration: 0.9,
         ease: "power3.out",
-      });
-    }, hubRef);
-    return () => ctx.revert();
+        clearProps: "all",
+      },
+    );
+    return () => {
+      gsap.killTweensOf(cards);
+      gsap.killTweensOf(progress);
+      // Safety net: force cards back to their natural rendered state.
+      gsap.set(cards, { clearProps: "all" });
+      gsap.set(progress, { clearProps: "all" });
+    };
   }, [mode]);
 
   // Texto mode wraps the existing composer directly.

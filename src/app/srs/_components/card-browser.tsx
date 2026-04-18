@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
-import { CheckSquare, Filter, Flame, Search, Square, Tag as TagIcon, Trash2 } from "lucide-react";
+import { CheckSquare, Filter, Flame, Pencil, Search, Square, Tag as TagIcon, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -412,75 +412,132 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
         </div>
       ) : null}
 
-      {/* Results — compact, borderless list. One line per card; hover to see
-          the full front/back/tags via the native tooltip. */}
-      <div className="overflow-hidden">
-        <div className="grid grid-cols-[28px,1fr,110px,64px,56px,44px,56px] items-center gap-2 px-2 py-1.5 text-[10px] uppercase tracking-wider text-white/50">
+      {/* Select-all bar: replaces the tiny header checkbox with a clear button. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-white/70">
+        <div>
           <button
             type="button"
             onClick={togglePage}
-            className="flex h-4 w-4 items-center justify-center rounded bg-white/8 text-white/80 hover:bg-white/15"
-            title={allSelected ? "Deseleccionar página" : "Seleccionar página"}
+            className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors ${
+              allSelected
+                ? "bg-white text-black hover:bg-white/90"
+                : "bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
+            }`}
+            title={allSelected ? "Deseleccionar la página actual" : "Seleccionar todas las de esta página"}
           >
-            {allSelected ? <CheckSquare className="h-3 w-3" /> : <Square className="h-3 w-3" />}
+            {allSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+            {allSelected ? "Deseleccionar todos" : "Seleccionar todos"}
           </button>
-          <div>Front</div>
-          <div>Deck</div>
-          <div>Tipo</div>
-          <div>Due</div>
-          <div>Laps</div>
-          <div className="text-right">Mastery</div>
         </div>
-
-        {pagedCards.length === 0 ? (
-          <div className="rounded-xl bg-white/[0.03] p-6 text-center text-xs text-white/55">
-            No hay tarjetas para estos filtros.
-          </div>
-        ) : (
-          <div className="divide-y divide-white/[0.06]">
-            {pagedCards.map((c) => {
-              const deck = lib.decks.find((d) => d.id === c.deckId);
-              const selected = selectedIds.has(c.id);
-              const leech = isLeech(c);
-              const tagSuffix = c.tags?.length ? `\n${c.tags.join(" · ")}` : "";
-              const hoverTitle = `${c.front}\n— — —\n${c.back}${tagSuffix}`;
-              return (
-                <div
-                  key={c.id}
-                  data-browser-row
-                  title={hoverTitle}
-                  className={`grid grid-cols-[28px,1fr,110px,64px,56px,44px,56px] items-center gap-2 px-2 py-1.5 text-xs transition-colors ${
-                    selected ? "bg-white/[0.09]" : "hover:bg-white/[0.04]"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleOne(c.id)}
-                    className="flex h-4 w-4 items-center justify-center rounded bg-white/8 text-white/80 hover:bg-white/15"
-                  >
-                    {selected ? <CheckSquare className="h-3 w-3" /> : <Square className="h-3 w-3" />}
-                  </button>
-                  <div className="min-w-0 truncate text-white">
-                    {truncate(c.front, 110)}
-                    {c.tags?.length ? (
-                      <span className="ml-2 text-[10px] text-white/45">#{c.tags[0]}{c.tags.length > 1 ? ` +${c.tags.length - 1}` : ""}</span>
-                    ) : null}
-                  </div>
-                  <div className="truncate text-white/70" title={deck?.name}>{deck?.name ?? "—"}</div>
-                  <div className="truncate text-white/60">
-                    {c.type === "image_occlusion" ? "IO" : c.type}
-                  </div>
-                  <div className="tabular-nums text-white/65">{formatDue(c.dueAtMs)}</div>
-                  <div className={`tabular-nums ${leech ? "text-rose-300" : "text-white/65"}`}>
-                    {c.lapses ?? 0}
-                  </div>
-                  <div className="text-right text-white/85 tabular-nums">{cardMastery(c)}%</div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div className="tabular-nums text-white/55">
+          {filteredCards.length} resultado{filteredCards.length === 1 ? "" : "s"}
+        </div>
       </div>
+
+      {/* Results — panel / tile grid. Each card is a compact panel with a
+          prominent edit icon that toggles its inclusion in the current
+          bulk-edit selection. Hover any tile to see the full back content. */}
+      {pagedCards.length === 0 ? (
+        <div className="rounded-2xl bg-white/[0.03] p-8 text-center text-xs text-white/55">
+          No hay tarjetas para estos filtros.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {pagedCards.map((c) => {
+            const deck = lib.decks.find((d) => d.id === c.deckId);
+            const selected = selectedIds.has(c.id);
+            const leech = isLeech(c);
+            const tagSuffix = c.tags?.length ? `\n${c.tags.join(" · ")}` : "";
+            const hoverTitle = `${c.front}\n— — —\n${c.back}${tagSuffix}`;
+            return (
+              <div
+                key={c.id}
+                data-browser-row
+                title={hoverTitle}
+                className={`group relative flex gap-3 rounded-2xl p-3 transition-colors ${
+                  selected
+                    ? "bg-white/[0.12] ring-1 ring-white/30"
+                    : "bg-white/[0.04] hover:bg-white/[0.07]"
+                }`}
+              >
+                {/* Large edit icon button — toggles selection for bulk edit. */}
+                <button
+                  type="button"
+                  onClick={() => toggleOne(c.id)}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                    selected
+                      ? "bg-white text-black hover:bg-white/90"
+                      : "bg-white/10 text-white/80 hover:bg-white/20 hover:text-white"
+                  }`}
+                  title={
+                    selected
+                      ? "Quitar de la selección"
+                      : "Marcar para editar / mover / eliminar"
+                  }
+                  aria-label={selected ? "Deseleccionar" : "Seleccionar para editar"}
+                  aria-pressed={selected}
+                >
+                  {selected ? (
+                    <CheckSquare className="h-5 w-5" />
+                  ) : (
+                    <Pencil className="h-[18px] w-[18px]" />
+                  )}
+                </button>
+
+                {/* Tile body */}
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="line-clamp-2 text-sm font-medium leading-snug text-white">
+                    {truncate(c.front, 160)}
+                  </div>
+                  <div className="line-clamp-1 text-[11px] text-white/55">
+                    {truncate(c.back, 140)}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[10px] text-white/60">
+                    {deck ? (
+                      <span
+                        className="truncate rounded-full bg-white/8 px-2 py-0.5 text-white/75"
+                        title={deck.name}
+                      >
+                        {deck.name}
+                      </span>
+                    ) : null}
+                    <span className="rounded-full bg-white/8 px-2 py-0.5 text-white/70">
+                      {c.type === "image_occlusion" ? "IO" : c.type}
+                    </span>
+                    <span className="tabular-nums text-white/55">
+                      {formatDue(c.dueAtMs)}
+                    </span>
+                    <span
+                      className={`tabular-nums ${leech ? "text-rose-300" : "text-white/55"}`}
+                    >
+                      {leech ? "🔥 " : ""}
+                      {c.lapses ?? 0} laps
+                    </span>
+                    <span className="ml-auto rounded-full bg-white/8 px-2 py-0.5 tabular-nums text-white/85">
+                      {cardMastery(c)}%
+                    </span>
+                  </div>
+                  {c.tags?.length ? (
+                    <div className="flex flex-wrap gap-1 pt-0.5 text-[10px] text-white/55">
+                      {c.tags.slice(0, 3).map((t) => (
+                        <span
+                          key={t}
+                          className="rounded-full bg-white/6 px-1.5 py-0.5"
+                        >
+                          #{t}
+                        </span>
+                      ))}
+                      {c.tags.length > 3 ? (
+                        <span className="text-white/40">+{c.tags.length - 3}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Pagination */}
       <div className="flex items-center justify-between text-xs text-white/70">
