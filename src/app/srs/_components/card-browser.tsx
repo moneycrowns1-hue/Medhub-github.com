@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
-import { CheckSquare, Flame, Search, Square, Tag as TagIcon, Trash2 } from "lucide-react";
+import { CheckSquare, Filter, Flame, Search, Square, Tag as TagIcon, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { DeckSelect } from "@/components/deck-select";
+import { SoftPopover } from "./soft-popover";
 import { cardMastery, isLeech } from "@/lib/srs-algo";
 import {
   bulkAddTag,
@@ -199,88 +200,147 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
     setBulkTag("");
   }, [lib, selectedList, bulkTag, onLibraryChange]);
 
+  // Summaries shown inside the popover triggers (like the Estudiar popovers).
+  const scopeSummary = [
+    filters.subject === "all" ? "Todas" : filters.subject,
+    filters.deckId === "all"
+      ? "decks"
+      : decksForSubject.find((d) => d.id === filters.deckId)?.name ?? "deck",
+    filters.type === "all" ? "tipos" : filters.type,
+    filters.leechOnly ? "🔥" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const tagSummary = filters.tag || "todos";
+
   return (
-    <div ref={rootRef} className="space-y-3">
-      {/* Filters */}
-      <div className="grid gap-2 rounded-2xl border border-white/15 bg-white/5 p-3 backdrop-blur-sm md:grid-cols-[1fr,180px,160px,140px,auto]">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2 top-2.5 h-3.5 w-3.5 text-white/50" />
-          <input
-            className="h-9 w-full rounded-lg border border-white/15 bg-white/5 pl-7 pr-2 text-sm text-white placeholder:text-white/45 outline-none focus:border-white/35"
-            placeholder="Buscar en front/back/tags…"
-            value={filters.query}
-            onChange={(e) => applyFilters({ query: e.currentTarget.value })}
-          />
-        </div>
-        <select
-          className="h-9 rounded-lg border border-white/15 bg-white/5 px-2 text-sm text-white outline-none focus:border-white/35"
-          value={filters.subject}
-          onChange={(e) => applyFilters({ subject: e.currentTarget.value, deckId: "all" })}
-        >
-          {subjects.map((s) => (
-            <option key={s} value={s} className="bg-black text-white">
-              {s === "all" ? "Todas las materias" : s}
-            </option>
-          ))}
-        </select>
-        <select
-          className="h-9 rounded-lg border border-white/15 bg-white/5 px-2 text-sm text-white outline-none focus:border-white/35"
-          value={filters.deckId}
-          onChange={(e) => applyFilters({ deckId: e.currentTarget.value })}
-        >
-          <option value="all" className="bg-black text-white">Todos los decks</option>
-          {decksForSubject.map((d) => (
-            <option key={d.id} value={d.id} className="bg-black text-white">
-              {d.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="h-9 rounded-lg border border-white/15 bg-white/5 px-2 text-sm text-white outline-none focus:border-white/35"
-          value={filters.type}
-          onChange={(e) => applyFilters({ type: e.currentTarget.value as SrsCardType | "all" })}
-        >
-          <option value="all" className="bg-black text-white">Todos los tipos</option>
-          <option value="basic" className="bg-black text-white">basic</option>
-          <option value="cloze" className="bg-black text-white">cloze</option>
-          <option value="image_occlusion" className="bg-black text-white">image_occlusion</option>
-        </select>
-        <label className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-2 text-xs text-white">
-          <input
-            type="checkbox"
-            checked={filters.leechOnly}
-            onChange={(e) => applyFilters({ leechOnly: e.currentTarget.checked })}
-          />
-          <Flame className="h-3 w-3 text-rose-300" /> Leeches
-        </label>
+    <div ref={rootRef} className="space-y-4">
+      {/* Large borderless search bar — hero of the navegador. */}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
+        <input
+          className="h-12 w-full rounded-2xl bg-white/[0.06] pl-11 pr-4 text-base text-white placeholder:text-white/40 outline-none transition-colors focus:bg-white/[0.09]"
+          placeholder="Buscar en front, back o tags…"
+          value={filters.query}
+          onChange={(e) => applyFilters({ query: e.currentTarget.value })}
+        />
       </div>
 
-      {allTags.length ? (
-        <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-white/15 bg-white/5 p-2 text-[11px] backdrop-blur-sm">
-          <TagIcon className="h-3 w-3 text-white/60" />
-          <button
-            type="button"
-            onClick={() => applyFilters({ tag: "" })}
-            className={`rounded-full border border-white/20 px-2 py-0.5 ${
-              filters.tag === "" ? "bg-white text-black" : "bg-white/10 text-white/80 hover:bg-white/15"
-            }`}
+      {/* Two popovers at opposite ends: Ámbito (left) · Tags (right). */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SoftPopover
+          label="Ámbito"
+          icon={<Filter className="h-3.5 w-3.5" />}
+          summary={scopeSummary || undefined}
+          width={320}
+        >
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">
+                Materia
+              </div>
+              <select
+                className="h-9 w-full rounded-lg bg-white/5 px-2 text-sm text-white outline-none focus:bg-white/10"
+                value={filters.subject}
+                onChange={(e) => applyFilters({ subject: e.currentTarget.value, deckId: "all" })}
+              >
+                {subjects.map((s) => (
+                  <option key={s} value={s} className="bg-black text-white">
+                    {s === "all" ? "Todas las materias" : s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">
+                Deck
+              </div>
+              <select
+                className="h-9 w-full rounded-lg bg-white/5 px-2 text-sm text-white outline-none focus:bg-white/10"
+                value={filters.deckId}
+                onChange={(e) => applyFilters({ deckId: e.currentTarget.value })}
+              >
+                <option value="all" className="bg-black text-white">Todos los decks</option>
+                {decksForSubject.map((d) => (
+                  <option key={d.id} value={d.id} className="bg-black text-white">
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">
+                Tipo
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                {(["all", "basic", "cloze", "image_occlusion"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => applyFilters({ type: t })}
+                    className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                      filters.type === t
+                        ? "bg-white text-black"
+                        : "bg-white/5 text-white/80 hover:bg-white/10"
+                    }`}
+                  >
+                    {t === "all" ? "Todos" : t === "image_occlusion" ? "IO" : t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <label className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-xs text-white">
+              <span className="inline-flex items-center gap-1.5">
+                <Flame className="h-3.5 w-3.5 text-rose-300" /> Solo leeches
+              </span>
+              <input
+                type="checkbox"
+                checked={filters.leechOnly}
+                onChange={(e) => applyFilters({ leechOnly: e.currentTarget.checked })}
+                className="h-4 w-4 accent-white"
+              />
+            </label>
+          </div>
+        </SoftPopover>
+
+        {allTags.length ? (
+          <SoftPopover
+            label="Tags"
+            icon={<TagIcon className="h-3.5 w-3.5" />}
+            summary={tagSummary}
+            align="right"
+            width={340}
           >
-            Todos
-          </button>
-          {allTags.slice(0, 40).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => applyFilters({ tag: filters.tag === t ? "" : t })}
-              className={`rounded-full border border-white/20 px-2 py-0.5 ${
-                filters.tag === t ? "bg-white text-black" : "bg-white/10 text-white/80 hover:bg-white/15"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      ) : null}
+            <div className="flex flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={() => applyFilters({ tag: "" })}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  filters.tag === ""
+                    ? "bg-white text-black"
+                    : "bg-white/8 text-white/80 hover:bg-white/15"
+                }`}
+              >
+                Todos
+              </button>
+              {allTags.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => applyFilters({ tag: filters.tag === t ? "" : t })}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    filters.tag === t
+                      ? "bg-white text-black"
+                      : "bg-white/8 text-white/80 hover:bg-white/15"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </SoftPopover>
+        ) : null}
+      </div>
 
       {/* Bulk actions */}
       {selectedIds.size > 0 ? (
@@ -352,18 +412,19 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
         </div>
       ) : null}
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/5 backdrop-blur-sm">
-        <div className="grid grid-cols-[32px,1fr,120px,80px,60px,60px,70px] items-center gap-2 border-b border-white/10 bg-white/5 px-3 py-2 text-[10px] uppercase tracking-wider text-white/60">
+      {/* Results — compact, borderless list. One line per card; hover to see
+          the full front/back/tags via the native tooltip. */}
+      <div className="overflow-hidden">
+        <div className="grid grid-cols-[28px,1fr,110px,64px,56px,44px,56px] items-center gap-2 px-2 py-1.5 text-[10px] uppercase tracking-wider text-white/50">
           <button
             type="button"
             onClick={togglePage}
-            className="flex h-5 w-5 items-center justify-center rounded border border-white/25 bg-white/8 text-white/80 hover:bg-white/15"
+            className="flex h-4 w-4 items-center justify-center rounded bg-white/8 text-white/80 hover:bg-white/15"
             title={allSelected ? "Deseleccionar página" : "Seleccionar página"}
           >
             {allSelected ? <CheckSquare className="h-3 w-3" /> : <Square className="h-3 w-3" />}
           </button>
-          <div>Front / Back</div>
+          <div>Front</div>
           <div>Deck</div>
           <div>Tipo</div>
           <div>Due</div>
@@ -372,48 +433,45 @@ export function CardBrowser({ lib, onLibraryChange }: Props) {
         </div>
 
         {pagedCards.length === 0 ? (
-          <div className="p-6 text-center text-xs text-white/60">No hay tarjetas para estos filtros.</div>
+          <div className="rounded-xl bg-white/[0.03] p-6 text-center text-xs text-white/55">
+            No hay tarjetas para estos filtros.
+          </div>
         ) : (
-          <div>
+          <div className="divide-y divide-white/[0.06]">
             {pagedCards.map((c) => {
               const deck = lib.decks.find((d) => d.id === c.deckId);
               const selected = selectedIds.has(c.id);
               const leech = isLeech(c);
+              const tagSuffix = c.tags?.length ? `\n${c.tags.join(" · ")}` : "";
+              const hoverTitle = `${c.front}\n— — —\n${c.back}${tagSuffix}`;
               return (
                 <div
                   key={c.id}
                   data-browser-row
-                  className={`grid grid-cols-[32px,1fr,120px,80px,60px,60px,70px] items-center gap-2 border-b border-white/10 px-3 py-2 text-xs transition-colors ${
-                    selected ? "bg-white/10" : "hover:bg-white/5"
+                  title={hoverTitle}
+                  className={`grid grid-cols-[28px,1fr,110px,64px,56px,44px,56px] items-center gap-2 px-2 py-1.5 text-xs transition-colors ${
+                    selected ? "bg-white/[0.09]" : "hover:bg-white/[0.04]"
                   }`}
                 >
                   <button
                     type="button"
                     onClick={() => toggleOne(c.id)}
-                    className="flex h-5 w-5 items-center justify-center rounded border border-white/25 bg-white/8 text-white/80 hover:bg-white/15"
+                    className="flex h-4 w-4 items-center justify-center rounded bg-white/8 text-white/80 hover:bg-white/15"
                   >
                     {selected ? <CheckSquare className="h-3 w-3" /> : <Square className="h-3 w-3" />}
                   </button>
-                  <div className="min-w-0">
-                    <div className="truncate text-white">{truncate(c.front, 90)}</div>
-                    <div className="truncate text-[10px] text-white/50">{truncate(c.back, 110)}</div>
+                  <div className="min-w-0 truncate text-white">
+                    {truncate(c.front, 110)}
                     {c.tags?.length ? (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {c.tags.slice(0, 4).map((t) => (
-                          <span
-                            key={t}
-                            className="rounded-full border border-white/15 bg-white/8 px-1.5 py-0.5 text-[9px] text-white/70"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                      </div>
+                      <span className="ml-2 text-[10px] text-white/45">#{c.tags[0]}{c.tags.length > 1 ? ` +${c.tags.length - 1}` : ""}</span>
                     ) : null}
                   </div>
-                  <div className="truncate text-white/75" title={deck?.name}>{deck?.name ?? "—"}</div>
-                  <div className="text-white/70">{c.type}</div>
-                  <div className="tabular-nums text-white/70">{formatDue(c.dueAtMs)}</div>
-                  <div className={`tabular-nums ${leech ? "text-rose-300" : "text-white/70"}`}>
+                  <div className="truncate text-white/70" title={deck?.name}>{deck?.name ?? "—"}</div>
+                  <div className="truncate text-white/60">
+                    {c.type === "image_occlusion" ? "IO" : c.type}
+                  </div>
+                  <div className="tabular-nums text-white/65">{formatDue(c.dueAtMs)}</div>
+                  <div className={`tabular-nums ${leech ? "text-rose-300" : "text-white/65"}`}>
                     {c.lapses ?? 0}
                   </div>
                   <div className="text-right text-white/85 tabular-nums">{cardMastery(c)}%</div>

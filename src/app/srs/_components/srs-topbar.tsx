@@ -100,18 +100,38 @@ export function SrsTopbar({
 
   return (
     <div className="space-y-3">
-      {/* Top mini-row: only the tabs, pushed to the right edge. */}
+      {/* Top mini-row: compact global search launcher (toggles the navegador). */}
       <div className="flex justify-start lg:justify-end">
-        <TabsList className="bg-white/5 backdrop-blur-sm">
-          <TabsTrigger value="study">Estudiar</TabsTrigger>
-          <TabsTrigger value="ai">IA</TabsTrigger>
-          <TabsTrigger value="builder">Builder</TabsTrigger>
-          <TabsTrigger value="io">IO</TabsTrigger>
-        </TabsList>
+        <button
+          type="button"
+          onClick={onOpenSearch}
+          className={`group inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-medium transition-colors ${
+            searchOpen
+              ? "bg-white text-black hover:bg-white/90"
+              : "bg-white/5 text-white/75 hover:bg-white/10 hover:text-white"
+          }`}
+          title={searchOpen ? "Cerrar navegador (Esc)" : "Buscar tarjetas en toda la biblioteca (⌘K · /)"}
+          aria-label={searchOpen ? "Cerrar navegador" : "Buscar tarjetas"}
+          aria-pressed={searchOpen}
+        >
+          {searchOpen ? (
+            <>
+              <X className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Cerrar navegador</span>
+            </>
+          ) : (
+            <>
+              <Search className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Buscar tarjetas…</span>
+              <kbd className="hidden items-center rounded-md bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/60 sm:inline-flex">
+                ⌘K
+              </kbd>
+            </>
+          )}
+        </button>
       </div>
 
-      {/* Main row: [Materia + Deck]  ·  Big animated title  ·  Search button.
-          All items share the same bottom baseline. */}
+      {/* Main row: [Materia + Deck]  ·  Big animated title  ·  Tabs. Shared baseline. */}
       <div className="grid items-end gap-4 lg:grid-cols-[auto,1fr,auto]">
         {/* Subject + Deck */}
         <div className="flex flex-wrap items-end gap-3">
@@ -135,40 +155,20 @@ export function SrsTopbar({
           </div>
         </div>
 
-        {/* Search launcher — mirror of Materia/Deck on the right. */}
+        {/* Tabs — aligned to the same baseline as Materia/Deck selects. */}
         <div className="flex justify-start lg:justify-end">
-          <button
-            type="button"
-            onClick={onOpenSearch}
-            className={`group inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors ${
-              searchOpen
-                ? "border-white/40 bg-white text-black hover:bg-white/90"
-                : "border-white/15 bg-black/20 text-white/70 hover:border-white/30 hover:bg-white/10 hover:text-white"
-            }`}
-            title={searchOpen ? "Cerrar navegador (Esc)" : "Buscar tarjetas en toda la biblioteca (⌘K · /)"}
-            aria-label={searchOpen ? "Cerrar navegador" : "Buscar tarjetas"}
-            aria-pressed={searchOpen}
-          >
-            {searchOpen ? (
-              <>
-                <X className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Cerrar</span>
-              </>
-            ) : (
-              <>
-                <Search className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Buscar tarjetas…</span>
-                <kbd className="hidden items-center rounded-md border border-white/15 bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/60 group-hover:border-white/25 sm:inline-flex">
-                  ⌘K
-                </kbd>
-              </>
-            )}
-          </button>
+          <TabsList className="bg-white/5 backdrop-blur-sm">
+            <TabsTrigger value="study">Estudiar</TabsTrigger>
+            <TabsTrigger value="ai">IA</TabsTrigger>
+            <TabsTrigger value="builder">Builder</TabsTrigger>
+            <TabsTrigger value="io">IO</TabsTrigger>
+          </TabsList>
         </div>
       </div>
 
-      {/* Row 2: popovers + filter toggle (only on study tab) */}
-      {activeTab === "study" ? (
+      {/* Row 2: popovers + filter toggle (only on Estudiar, and only when not
+          browsing in the navegador view). */}
+      {activeTab === "study" && !searchOpen ? (
         <div className="flex flex-wrap items-center gap-2">
           <ModePopover
             queueMode={queueMode}
