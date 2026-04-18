@@ -2,17 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { RotateCw } from "lucide-react";
-
 import { DeckBuilder } from "@/components/deck-builder";
-import { DeckSelect } from "@/components/deck-select";
 import { ImageOcclusionCreator } from "@/components/image-occlusion-creator";
 import { ImageOcclusionPreview } from "@/components/image-occlusion-preview";
 import { SrsStats } from "@/components/srs-stats";
-import { SubjectSelect } from "@/components/subject-select";
 import { Button } from "@/components/ui/button";
 // Card imports removed — page uses standalone layout now
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { algoStats, buildStudyQueueAnkiLike, buildTodayPlan, cardMastery, deckMastery, dueQueue, isLeech, type SrsDailyLimits } from "@/lib/srs-algo";
 import gsap from "gsap";
 import { clozeIndices } from "@/lib/srs-cloze-utils";
@@ -24,8 +20,9 @@ import { ConfidenceRater } from "./_components/confidence-rater";
 import { AiCardComposer } from "./_components/ai-card-composer";
 import { CardBrowser } from "./_components/card-browser";
 import { ExplainButton } from "./_components/explain-button";
-import { SessionControls } from "./_components/session-controls";
 import { SessionHud } from "./_components/session-hud";
+import { SrsTopbar, type SrsTab } from "./_components/srs-topbar";
+import { StartFab } from "./_components/start-fab";
 import { toast } from "@/components/ui/toast";
 import { incrementStat } from "@/lib/stats-store";
 import {
@@ -53,6 +50,8 @@ export function SrsClient() {
   const [state, setState] = useState<SrsSessionState | null>(() => loadSession());
   const [slide, setSlide] = useState<SlideAnim>("none");
   const [queueMode, setQueueMode] = useState<"anki" | "due" | "all" | "today">("anki");
+  const [activeTab, setActiveTab] = useState<SrsTab>("study");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [studyMode, setStudyMode] = useState<"anki" | "confidence">(() => {
     if (typeof window === "undefined") return "anki";
     try {
@@ -420,67 +419,45 @@ export function SrsClient() {
   }, [card]);
 
   return (
-    <div className="space-y-10">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 rounded-3xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Repetición espaciada</h1>
-          <p className="text-sm text-foreground/70">
-            Atajos: <kbd className="rounded border border-border/50 bg-muted/50 px-1.5 py-0.5 text-[10px] font-mono">Espacio</kbd> voltear · <kbd className="rounded border border-border/50 bg-muted/50 px-1.5 py-0.5 text-[10px] font-mono">1-4</kbd> calificar · <kbd className="rounded border border-border/50 bg-muted/50 px-1.5 py-0.5 text-[10px] font-mono">R</kbd> reiniciar
-          </p>
-        </div>
-        <Button variant="outline" size="sm" className="gap-1.5 rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={restart}>
-          <RotateCw className="h-3.5 w-3.5" />
-          Reiniciar
-        </Button>
-      </div>
-
-      <div className="space-y-6">
-        <Tabs defaultValue="study" className="w-full rounded-3xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="space-y-1">
-              <div className="text-[10px] font-medium uppercase tracking-widest text-foreground/70">Materia</div>
-              <SubjectSelect value={subject} onChange={setSubject} allowAll />
-            </div>
-            <div className="space-y-1">
-              <div className="text-[10px] font-medium uppercase tracking-widest text-foreground/70">Deck</div>
-              <DeckSelect value={resolvedDeckId} onChange={handleSelectDeck} decks={decksForSubject} />
-            </div>
-
-            <div className="ml-auto">
-              <TabsList>
-                <TabsTrigger value="study">Estudiar</TabsTrigger>
-                <TabsTrigger value="ai">IA</TabsTrigger>
-                <TabsTrigger value="browser">Navegador</TabsTrigger>
-                <TabsTrigger value="builder">Builder</TabsTrigger>
-                <TabsTrigger value="io">IO</TabsTrigger>
-              </TabsList>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as SrsTab)}
+        className="w-full space-y-6"
+      >
+        <SrsTopbar
+          activeTab={activeTab}
+          subject={subject}
+          onSubjectChange={setSubject}
+          deckId={resolvedDeckId}
+          decks={decksForSubject}
+          onDeckChange={handleSelectDeck}
+          queueMode={queueMode}
+          onQueueModeChange={setQueueMode}
+          studyMode={studyMode}
+          onStudyModeChange={setStudyMode}
+          dailyLimits={dailyLimits}
+          onDailyLimitsChange={(patch) =>
+            setDailyLimits((p) => ({ ...p, ...patch }))
+          }
+          onRestart={restart}
+          onToggleFilters={() => setFiltersOpen((v) => !v)}
+          filtersOpen={filtersOpen}
+          filteredCount={filteredCards.length}
+        />
 
             <TabsContent value="study" className="space-y-4">
-              <SessionControls
-                queueMode={queueMode}
-                onQueueModeChange={setQueueMode}
-                studyMode={studyMode}
-                onStudyModeChange={setStudyMode}
-                onStart={startDeck}
-                onExit={() => setState(null)}
-                canStart={cardsInDeck.length > 0}
-                sessionActive={!!state && !state.done}
-                dailyLimits={dailyLimits}
-                onDailyLimitsChange={(patch) => setDailyLimits((p) => ({ ...p, ...patch }))}
-              />
-
-              <SrsFiltersPanel
-                cardsInDeck={cardsInDeck}
-                selectedTags={effectiveTags}
-                onSelectedTagsChange={setSelectedTags}
-                leechOnly={leechOnly}
-                onLeechOnlyChange={setLeechOnly}
-                onResetLeech={handleResetLeech}
-                filteredCount={filteredCards.length}
-              />
+              {filtersOpen ? (
+                <SrsFiltersPanel
+                  cardsInDeck={cardsInDeck}
+                  selectedTags={effectiveTags}
+                  onSelectedTagsChange={setSelectedTags}
+                  leechOnly={leechOnly}
+                  onLeechOnlyChange={setLeechOnly}
+                  onResetLeech={handleResetLeech}
+                  filteredCount={filteredCards.length}
+                />
+              ) : null}
 
               <SessionHud
                 deckName={selectedDeck?.name ?? "—"}
@@ -681,8 +658,14 @@ export function SrsClient() {
                 />
               ) : null}
             </TabsContent>
-          </Tabs>
-      </div>
+      </Tabs>
+
+      <StartFab
+        sessionActive={!!state && !state.done}
+        disabled={cardsInDeck.length === 0}
+        onStart={startDeck}
+        onExit={() => setState(null)}
+      />
     </div>
   );
 }
