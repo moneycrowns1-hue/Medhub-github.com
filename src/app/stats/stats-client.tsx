@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import gsap from "gsap";
 import {
   ArrowRight,
   Award,
@@ -20,7 +21,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getAllDailyStats,
   getCalendarData,
@@ -159,6 +160,35 @@ export function StatsClient() {
   const [aiArtifactCount, setAiArtifactCount] = useState(0);
   const [aiArtifactCardsCount, setAiArtifactCardsCount] = useState(0);
   const [tick, setTick] = useState(0);
+  const [statsTab, setStatsTab] = useState<"resumen" | "actividad" | "tracks">("resumen");
+  const titleRef = useRef<HTMLSpanElement | null>(null);
+
+  useEffect(() => {
+    if (!titleRef.current) return;
+    gsap.fromTo(
+      titleRef.current,
+      { opacity: 0, y: 6 },
+      { opacity: 1, y: 0, duration: 0.28, ease: "power2.out", clearProps: "transform" },
+    );
+  }, [statsTab]);
+
+  useEffect(() => {
+    const isTypingTarget = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null;
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+      if (e.key === "s" || e.key === "S") setStatsTab("resumen");
+      else if (e.key === "a" || e.key === "A") setStatsTab("actividad");
+      else if (e.key === "t" || e.key === "T") setStatsTab("tracks");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     const refresh = async () => {
@@ -320,33 +350,43 @@ export function StatsClient() {
     else setCalMonth((m) => m + 1);
   };
 
-  return (
-    <div className="space-y-12">
-      {/* Header */}
-      <div className="rounded-3xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-2">
-            <div className="text-xs font-medium uppercase tracking-widest text-foreground/70">Analíticas</div>
-            <h1 className="text-3xl font-bold tracking-tight">Estadísticas</h1>
-            <p className="text-sm text-foreground/70">
-              Vista integrada del progreso para estudiar con foco y menos ruido.
-            </p>
-          </div>
+  const tabLabel =
+    statsTab === "resumen" ? "Resumen" : statsTab === "actividad" ? "Actividad" : "Tracks";
 
-          <div className="grid min-w-[250px] grid-cols-2 gap-2 text-sm">
-            <div className="rounded-xl border border-white/20 bg-white/8 px-3 py-2">
+  return (
+    <div className="space-y-6">
+      {/* Topbar compacto */}
+      <div className="rounded-3xl bg-white/[0.04] p-4 backdrop-blur-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Tabs value={statsTab} onValueChange={(v) => setStatsTab(v as typeof statsTab)}>
+            <TabsList className="bg-white/5">
+              <TabsTrigger value="resumen" className="text-xs">Resumen</TabsTrigger>
+              <TabsTrigger value="actividad" className="text-xs">Actividad</TabsTrigger>
+              <TabsTrigger value="tracks" className="text-xs">Tracks</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <span
+            ref={titleRef}
+            className="hidden text-lg font-semibold text-white/90 md:inline-block"
+          >
+            {tabLabel}
+          </span>
+
+          <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+            <div className="rounded-xl bg-white/[0.06] px-3 py-2">
               <div className="text-[10px] uppercase tracking-wider text-foreground/60">Hoy · foco</div>
               <div className="text-base font-semibold tabular-nums">{todayFocus}m</div>
             </div>
-            <div className="rounded-xl border border-white/20 bg-white/8 px-3 py-2">
+            <div className="rounded-xl bg-white/[0.06] px-3 py-2">
               <div className="text-[10px] uppercase tracking-wider text-foreground/60">Hoy · SRS</div>
               <div className="text-base font-semibold tabular-nums">{todayReviews}</div>
             </div>
-            <div className="rounded-xl border border-white/20 bg-white/8 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-wider text-foreground/60">Rutina semana</div>
+            <div className="rounded-xl bg-white/[0.06] px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wider text-foreground/60">Rutina sem.</div>
               <div className="text-base font-semibold tabular-nums">{routineWeeklyCompleted}/7</div>
             </div>
-            <div className="rounded-xl border border-white/20 bg-white/8 px-3 py-2">
+            <div className="rounded-xl bg-white/[0.06] px-3 py-2">
               <div className="text-[10px] uppercase tracking-wider text-foreground/60">Precisión</div>
               <div className="text-base font-semibold tabular-nums">{accuracy}%</div>
             </div>
@@ -354,6 +394,9 @@ export function StatsClient() {
         </div>
       </div>
 
+      <Tabs value={statsTab} onValueChange={(v) => setStatsTab(v as typeof statsTab)}>
+
+      <TabsContent value="resumen" className="space-y-6">
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
@@ -382,7 +425,7 @@ export function StatsClient() {
             iconBg: "bg-emerald-500/10 text-emerald-400",
           },
         ].map((kpi) => (
-          <div key={kpi.label} className="rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl">
+          <div key={kpi.label} className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-xl">
             <div className="space-y-3">
               <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${kpi.iconBg}`}>
                 {kpi.icon}
@@ -397,7 +440,7 @@ export function StatsClient() {
       </div>
 
       {/* Academic summary */}
-      <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
+      <div className="rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400/20 text-amber-200">
@@ -415,7 +458,7 @@ export function StatsClient() {
           </div>
           <Link
             href="/academico"
-            className="inline-flex items-center gap-1 rounded-md border border-white/25 bg-white/10 px-2.5 py-1.5 text-xs text-white hover:bg-white/15"
+            className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2.5 py-1.5 text-xs text-white hover:bg-white/10"
           >
             Ir a Académico
             <ArrowRight className="h-3.5 w-3.5" />
@@ -423,7 +466,7 @@ export function StatsClient() {
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {academicGpa.subjects.map((item) => (
-            <div key={item.subjectSlug} className="rounded-xl border border-white/15 bg-white/8 px-3 py-2">
+            <div key={item.subjectSlug} className="rounded-xl bg-white/[0.06] px-3 py-2">
               <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-foreground/60">
                 <Award className="h-3 w-3" />
                 {SUBJECTS[item.subjectSlug].name}
@@ -438,11 +481,13 @@ export function StatsClient() {
           ))}
         </div>
       </div>
+      </TabsContent>
 
+      <TabsContent value="actividad" className="space-y-6">
       {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Focus Chart */}
-        <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
+        <div className="rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs font-medium uppercase tracking-widest text-primary">Enfoque</div>
@@ -463,7 +508,7 @@ export function StatsClient() {
         </div>
 
         {/* SRS Chart */}
-        <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
+        <div className="rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs font-medium uppercase tracking-widest text-primary">SRS</div>
@@ -488,7 +533,7 @@ export function StatsClient() {
       <div className="grid gap-6 lg:grid-cols-[1fr,340px]">
         {/* Weekly Activity */}
         <div className="space-y-4">
-          <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
+          <div className="rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl">
             <div className="text-xs font-medium uppercase tracking-widest text-primary">Actividad</div>
             <div className="text-lg font-bold">Últimos 7 días</div>
             <div className="mt-4">
@@ -496,7 +541,7 @@ export function StatsClient() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
+          <div className="rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-xs font-medium uppercase tracking-widest text-foreground/70">Rutina</div>
@@ -515,7 +560,7 @@ export function StatsClient() {
 
         {/* Quick Stats */}
         <div className="space-y-4">
-          <div className="rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl">
+          <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <TrendingUp className="h-5 w-5" />
@@ -526,7 +571,7 @@ export function StatsClient() {
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl">
+          <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
                 <Brain className="h-5 w-5" />
@@ -537,7 +582,7 @@ export function StatsClient() {
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl">
+          <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
                 <BookOpen className="h-5 w-5" />
@@ -548,9 +593,9 @@ export function StatsClient() {
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl">
+          <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-xl">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.08] text-white/90">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div className="space-y-1">
@@ -560,7 +605,7 @@ export function StatsClient() {
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl">
+          <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-fuchsia-500/10 text-fuchsia-300">
                 <Brain className="h-5 w-5" />
@@ -584,20 +629,30 @@ export function StatsClient() {
           <h2 className="text-xl font-bold tracking-tight">Mapa de actividad</h2>
         </div>
 
-        <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
+        <div className="rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl">
           <div className="flex items-center justify-between">
-            <Button variant="outline" size="sm" className="rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={prevMonth}>
+            <button
+              type="button"
+              onClick={prevMonth}
+              aria-label="Mes anterior"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white/80 transition-colors hover:bg-white/10"
+            >
               <ChevronLeft className="h-4 w-4" />
-            </Button>
+            </button>
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-primary" />
               <span className="text-sm font-semibold capitalize">
                 {new Date(calYear, calMonth).toLocaleDateString("es", { month: "long", year: "numeric" })}
               </span>
             </div>
-            <Button variant="outline" size="sm" className="rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={nextMonth}>
+            <button
+              type="button"
+              onClick={nextMonth}
+              aria-label="Mes siguiente"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white/80 transition-colors hover:bg-white/10"
+            >
               <ChevronRight className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
           <div className="mt-4 flex justify-center">
             <ActivityCalendar year={calYear} month={calMonth} />
@@ -619,7 +674,7 @@ export function StatsClient() {
             { label: "Aprendiendo", value: srsStats.learning, color: "text-amber-400", bg: "bg-amber-500/10" },
             { label: "Due hoy", value: srsStats.dueToday, color: "text-emerald-400", bg: "bg-emerald-500/10" },
           ].map((s) => (
-            <div key={s.label} className="rounded-2xl border border-white/20 bg-white/5 p-5 text-center backdrop-blur-xl">
+            <div key={s.label} className="rounded-2xl bg-white/[0.04] p-5 text-center backdrop-blur-xl">
               <div className={`mx-auto flex h-12 w-12 items-center justify-center rounded-xl ${s.bg}`}>
                 <span className={`text-lg font-bold tabular-nums ${s.color}`}>{s.value}</span>
               </div>
@@ -628,7 +683,9 @@ export function StatsClient() {
           ))}
         </div>
       </section>
+      </TabsContent>
 
+      <TabsContent value="tracks" className="space-y-6">
       <section className="space-y-4">
         <div className="space-y-1">
           <div className="text-xs font-medium uppercase tracking-widest text-primary">Tracks</div>
@@ -636,7 +693,7 @@ export function StatsClient() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl">
+          <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-300">
                 <Mic className="h-5 w-5" />
@@ -647,15 +704,15 @@ export function StatsClient() {
               </div>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg bg-white/10 p-2">
+              <div className="rounded-lg bg-white/[0.06] p-2">
                 <div className="text-[10px] uppercase tracking-wider text-foreground/60">Decks</div>
                 <div className="text-lg font-bold tabular-nums">{trackStats.ingles.decks}</div>
               </div>
-              <div className="rounded-lg bg-white/10 p-2">
+              <div className="rounded-lg bg-white/[0.06] p-2">
                 <div className="text-[10px] uppercase tracking-wider text-foreground/60">Cards</div>
                 <div className="text-lg font-bold tabular-nums">{trackStats.ingles.cards}</div>
               </div>
-              <div className="rounded-lg bg-white/10 p-2">
+              <div className="rounded-lg bg-white/[0.06] p-2">
                 <div className="text-[10px] uppercase tracking-wider text-foreground/60">PDFs</div>
                 <div className="text-lg font-bold tabular-nums">{trackPdfCounts.ingles}</div>
               </div>
@@ -663,7 +720,7 @@ export function StatsClient() {
             <div className="mt-3 text-xs text-foreground/70">Due hoy: <span className="font-semibold tabular-nums">{trackStats.ingles.dueToday}</span></div>
           </div>
 
-          <div className="rounded-2xl border border-white/20 bg-white/5 p-5 backdrop-blur-xl">
+          <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-300">
                 <Megaphone className="h-5 w-5" />
@@ -674,15 +731,15 @@ export function StatsClient() {
               </div>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg bg-white/10 p-2">
+              <div className="rounded-lg bg-white/[0.06] p-2">
                 <div className="text-[10px] uppercase tracking-wider text-foreground/60">Decks</div>
                 <div className="text-lg font-bold tabular-nums">{trackStats["trabajo-online"].decks}</div>
               </div>
-              <div className="rounded-lg bg-white/10 p-2">
+              <div className="rounded-lg bg-white/[0.06] p-2">
                 <div className="text-[10px] uppercase tracking-wider text-foreground/60">Cards</div>
                 <div className="text-lg font-bold tabular-nums">{trackStats["trabajo-online"].cards}</div>
               </div>
-              <div className="rounded-lg bg-white/10 p-2">
+              <div className="rounded-lg bg-white/[0.06] p-2">
                 <div className="text-[10px] uppercase tracking-wider text-foreground/60">PDFs</div>
                 <div className="text-lg font-bold tabular-nums">{trackPdfCounts["trabajo-online"]}</div>
               </div>
@@ -691,6 +748,8 @@ export function StatsClient() {
           </div>
         </div>
       </section>
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }
