@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
-import { Bell, BellOff, Check, CircleAlert, Clock, Send } from "lucide-react";
+import { Bell, BellOff, Check, CircleAlert, Clock, Send, X } from "lucide-react";
 
 import { toast } from "@/components/ui/toast";
 import {
@@ -25,6 +25,38 @@ function readPermission(): Permission {
   return Notification.permission as Permission;
 }
 
+function IconToggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      title={checked ? "Activado" : "Desactivado"}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onChange(!checked);
+      }}
+      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors ${
+        checked
+          ? "bg-white text-black hover:bg-white/90"
+          : "bg-white/[0.08] text-white/50 hover:bg-white/[0.12] hover:text-white/70"
+      }`}
+    >
+      {checked ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+    </button>
+  );
+}
+
 function ToggleRow({
   label,
   desc,
@@ -37,18 +69,13 @@ function ToggleRow({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <label className="flex items-start justify-between gap-3 rounded-xl bg-white/[0.04] p-3">
+    <div className="flex items-start justify-between gap-3 rounded-xl bg-white/[0.04] p-3">
       <div className="min-w-0">
         <div className="text-sm font-medium text-white">{label}</div>
         {desc ? <div className="mt-0.5 text-xs text-white/65">{desc}</div> : null}
       </div>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-1 h-4 w-4 cursor-pointer accent-white"
-      />
-    </label>
+      <IconToggle checked={checked} onChange={onChange} label={label} />
+    </div>
   );
 }
 
@@ -261,11 +288,10 @@ export function NotificationsSection() {
                 <Clock className="h-4 w-4 text-white/85" />
                 Plan diario
               </div>
-              <input
-                type="checkbox"
+              <IconToggle
                 checked={draft.dailyPlanEnabled}
-                onChange={(e) => setDraft((p) => ({ ...p, dailyPlanEnabled: e.target.checked }))}
-                className="h-4 w-4 cursor-pointer accent-white"
+                onChange={(next) => setDraft((p) => ({ ...p, dailyPlanEnabled: next }))}
+                label="Plan diario"
               />
             </div>
             <div className="text-xs text-white/65">
@@ -277,7 +303,7 @@ export function NotificationsSection() {
                 type="time"
                 value={draft.dailyPlanTime}
                 onChange={(e) => setDraft((p) => ({ ...p, dailyPlanTime: e.target.value }))}
-                className="h-10 w-full rounded-lg bg-white/[0.06] px-3 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                className="h-10 w-full rounded-lg bg-black/25 px-3 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-white/20"
               />
             </label>
           </div>
@@ -288,11 +314,10 @@ export function NotificationsSection() {
                 <CircleAlert className="h-4 w-4 text-white/85" />
                 Evaluaciones
               </div>
-              <input
-                type="checkbox"
+              <IconToggle
                 checked={draft.evaluationsEnabled}
-                onChange={(e) => setDraft((p) => ({ ...p, evaluationsEnabled: e.target.checked }))}
-                className="h-4 w-4 cursor-pointer accent-white"
+                onChange={(next) => setDraft((p) => ({ ...p, evaluationsEnabled: next }))}
+                label="Evaluaciones"
               />
             </div>
             <div className="text-xs text-white/65">
@@ -304,7 +329,7 @@ export function NotificationsSection() {
                 type="time"
                 value={draft.evaluationsTime}
                 onChange={(e) => setDraft((p) => ({ ...p, evaluationsTime: e.target.value }))}
-                className="h-10 w-full rounded-lg bg-white/[0.06] px-3 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                className="h-10 w-full rounded-lg bg-black/25 px-3 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-white/20"
               />
             </label>
             <div className="space-y-1">
