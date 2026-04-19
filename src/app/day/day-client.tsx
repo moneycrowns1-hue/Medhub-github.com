@@ -129,18 +129,16 @@ export function DayClient({ plan }: Props) {
   const secondaryDef = SUBJECTS[plan.secondary as SubjectSlug];
 
   return (
-    <div className="space-y-12">
-      {/* Header */}
-      <div className="space-y-3 rounded-3xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl">
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-medium text-foreground">
+    <div className="space-y-6">
+      {/* Day label chip */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-3 py-1 text-xs font-medium text-white">
           <Sparkles className="h-3.5 w-3.5" />
           {summary.dayLabel}
         </div>
-        <h1 className="text-3xl font-bold tracking-tight">Plan del día</h1>
-        <p className="text-sm text-foreground/70">
-          Rutina base + materias programadas según tu cronograma.
-        </p>
-        {summary.focusNote ? <p className="text-xs text-foreground/60">{summary.focusNote}</p> : null}
+        {summary.focusNote ? (
+          <span className="text-xs text-foreground/60">{summary.focusNote}</span>
+        ) : null}
       </div>
 
       {/* Materias */}
@@ -157,13 +155,13 @@ export function DayClient({ plan }: Props) {
             <>
               <Link
                 href={`/study/${plan.primary}`}
-                className="group rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:shadow-[0_14px_36px_-20px_rgba(255,255,255,0.45)]"
+                className="group rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.07]"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.08] text-white/90">
                     <GraduationCap className="h-5 w-5" />
                   </div>
-                  <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
+                  <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
                     Principal
                   </span>
                 </div>
@@ -178,13 +176,13 @@ export function DayClient({ plan }: Props) {
 
               <Link
                 href={`/study/${plan.secondary}`}
-                className="group rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:shadow-[0_14px_36px_-20px_rgba(255,255,255,0.45)]"
+                className="group rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.07]"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.08] text-white/90">
                     <Layers className="h-5 w-5" />
                   </div>
-                  <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
+                  <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
                     Secundaria
                   </span>
                 </div>
@@ -198,7 +196,7 @@ export function DayClient({ plan }: Props) {
               </Link>
             </>
           ) : (
-            <div className="rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl sm:col-span-2">
+            <div className="rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl sm:col-span-2">
               <div className="text-sm font-semibold">Domingo: descanso</div>
               <div className="mt-1 text-xs text-foreground/70">Sin cátedras hoy. Recuperación física y mental.</div>
             </div>
@@ -207,13 +205,13 @@ export function DayClient({ plan }: Props) {
           {/* Lectura */}
           <Link
             href="/biblioteca"
-            className="group rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:shadow-[0_14px_36px_-20px_rgba(255,255,255,0.45)]"
+            className="group rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.07]"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.08] text-white/90">
                 <BookOpen className="h-5 w-5" />
               </div>
-              <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
+              <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
                 Lectura
               </span>
             </div>
@@ -246,7 +244,7 @@ export function DayClient({ plan }: Props) {
         </div>
 
         {/* Progress bar */}
-        <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.08]">
           <div
             className="h-full rounded-full bg-gradient-to-r from-white via-white/85 to-white/65 transition-all duration-500"
             style={{ width: `${progress.pct}%` }}
@@ -255,8 +253,8 @@ export function DayClient({ plan }: Props) {
 
         {/* Completion banner */}
         {allDone && (
-          <div className="flex items-center gap-3 rounded-2xl border border-white/30 bg-white/10 p-4 backdrop-blur-xl">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
+          <div className="flex items-center gap-3 rounded-2xl bg-white/[0.07] p-4 backdrop-blur-xl">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.1] text-white/90">
               <Trophy className="h-5 w-5" />
             </div>
             <div>
@@ -271,7 +269,7 @@ export function DayClient({ plan }: Props) {
         )}
 
         {/* Checklist items */}
-        <div className="overflow-hidden rounded-2xl border border-white/20 bg-white/5 backdrop-blur-xl">
+        <div className="overflow-hidden rounded-2xl bg-white/[0.04] backdrop-blur-xl">
           {ROUTINE_STEPS.map((step, i) => {
             const done = checked.has(step.id);
             return (
@@ -279,27 +277,27 @@ export function DayClient({ plan }: Props) {
                 key={step.id}
                 type="button"
                 onClick={() => handleToggle(step.id)}
-                className={`flex w-full items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-white/10 ${
-                  i > 0 ? "border-t border-white/10" : ""
+                className={`flex w-full items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-white/[0.07] ${
+                  i > 0 ? "border-t border-white/[0.06]" : ""
                 } ${done ? "opacity-60" : ""}`}
               >
-                {/* Checkbox */}
+                {/* Toggle icon */}
                 <div
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 transition-all ${
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors ${
                     done
-                      ? "border-white/80 bg-white text-black"
-                      : "border-white/35 bg-transparent"
+                      ? "bg-white text-black"
+                      : "bg-white/[0.08] text-white/40"
                   }`}
                 >
-                  {done && <Check className="h-4 w-4" />}
+                  <Check className="h-4 w-4" />
                 </div>
 
                 {/* Icon */}
                 <div
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
                     done
-                      ? "bg-white/20 text-white"
-                      : "bg-white/10 text-foreground/65"
+                      ? "bg-white/[0.15] text-white"
+                      : "bg-white/[0.06] text-foreground/65"
                   }`}
                 >
                   {STEP_ICONS[step.id] ?? (
