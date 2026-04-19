@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import gsap from "gsap";
 import { CalendarClock, ClipboardCheck, GraduationCap, Sparkles } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { QuickQuiz } from "@/app/academico/_components/quick-quiz";
 import {
   ACADEMIC_UPDATED_EVENT,
@@ -26,35 +25,31 @@ function subjectLabel(slug: AcademicSubjectSlug): string {
   return known ? known.name : slug;
 }
 
-function urgencyStyle(daysUntil: number): { border: string; bg: string; chip: string; label: string } {
+function urgencyStyle(daysUntil: number): { bg: string; chip: string; label: string } {
   if (daysUntil <= 0) {
     return {
-      border: "border-rose-300/40",
-      bg: "bg-rose-400/10",
-      chip: "border-rose-300/50 bg-rose-400/20 text-rose-100",
+      bg: "bg-rose-400/12",
+      chip: "bg-rose-400/25 text-rose-100",
       label: "Hoy",
     };
   }
   if (daysUntil <= 3) {
     return {
-      border: "border-amber-300/40",
-      bg: "bg-amber-400/10",
-      chip: "border-amber-300/50 bg-amber-400/20 text-amber-100",
+      bg: "bg-amber-400/12",
+      chip: "bg-amber-400/25 text-amber-100",
       label: `En ${daysUntil} d`,
     };
   }
   if (daysUntil <= 7) {
     return {
-      border: "border-cyan-300/35",
-      bg: "bg-cyan-400/10",
-      chip: "border-cyan-300/45 bg-cyan-400/20 text-cyan-100",
+      bg: "bg-cyan-400/12",
+      chip: "bg-cyan-400/25 text-cyan-100",
       label: `En ${daysUntil} d`,
     };
   }
   return {
-    border: "border-white/25",
-    bg: "bg-white/8",
-    chip: "border-white/25 bg-white/10 text-white/80",
+    bg: "bg-white/[0.04]",
+    chip: "bg-white/[0.1] text-white/85",
     label: `En ${daysUntil} d`,
   };
 }
@@ -236,28 +231,27 @@ function NextEvalCard({
   return (
     <div
       data-home-eval-card
-      className={`relative overflow-hidden rounded-2xl border ${style.border} ${style.bg} p-5 text-white backdrop-blur-xl`}
+      className={`relative overflow-hidden rounded-2xl ${style.bg} p-5 text-white backdrop-blur-xl`}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(255,255,255,0.14),transparent_55%)]" />
       <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-white/70">
-            <div data-home-eval-pulse className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/25 bg-white/10">
-              <CalendarClock className="h-3.5 w-3.5 text-white/90" />
+            <div data-home-eval-pulse className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.12]">
+              <CalendarClock className="h-4 w-4 text-white/90" />
             </div>
             Próxima evaluación
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${style.chip}`}>
+              <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${style.chip}`}>
                 {style.label}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[11px] text-white/80">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.08] px-2.5 py-0.5 text-[11px] text-white/85">
                 <GraduationCap className="h-3 w-3" />
                 {subjectLabel(next.record.subjectSlug)}
               </span>
             </div>
-            <div className="text-xl font-semibold text-white">{next.record.title}</div>
+            <div className="text-2xl font-bold leading-tight tracking-tight text-white">{next.record.title}</div>
             <div className="text-xs text-white/70">
               {next.semester.name} · {dateLabel}
             </div>
@@ -265,17 +259,17 @@ function NextEvalCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button
+          <button
             type="button"
-            className="border border-white/25 bg-white text-black hover:bg-white/90"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-4 text-xs font-semibold text-black transition-colors hover:bg-white/90"
             onClick={onQuickQuiz}
           >
             <Sparkles className="h-4 w-4" />
             Quiz rápido
-          </Button>
+          </button>
           <Link
             href="/academico"
-            className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-3 py-2 text-xs font-medium text-white/90 transition-colors hover:bg-white/15"
+            className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/[0.08] px-3 text-xs font-medium text-white/90 transition-colors hover:bg-white/[0.12]"
           >
             Ver agenda
           </Link>
@@ -292,11 +286,11 @@ function NextEvalCard({
               <div
                 key={entry.record.id}
                 data-home-eval-item
-                className={`rounded-xl border px-3 py-2 text-xs text-white/85 ${s.border} ${s.bg}`}
+                className={`rounded-xl px-3 py-2 text-xs text-white/85 ${s.bg}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-medium text-white">{entry.record.title}</span>
-                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${s.chip}`}>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${s.chip}`}>
                     {s.label}
                   </span>
                 </div>
@@ -316,28 +310,27 @@ function EmptyEvalCard({ onQuickQuiz }: { onQuickQuiz: () => void }) {
   return (
     <div
       data-home-eval-card
-      className="relative overflow-hidden rounded-2xl border border-white/20 bg-white/6 p-5 text-white backdrop-blur-xl"
+      className="relative overflow-hidden rounded-2xl bg-white/[0.04] p-5 text-white backdrop-blur-xl"
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(255,255,255,0.12),transparent_55%)]" />
       <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-white/70">
             <CalendarClock className="h-3.5 w-3.5" />
             Próxima evaluación
           </div>
-          <div className="text-base font-semibold text-white">Sin evaluaciones cercanas</div>
+          <div className="text-2xl font-bold leading-tight tracking-tight text-white">Sin evaluaciones cercanas</div>
           <div className="text-xs text-white/70">
             Cargá fechas en <Link href="/academico" className="underline underline-offset-2 hover:text-white">Académico</Link> para ver la agenda aquí, o practicá ahora con un quiz rápido.
           </div>
         </div>
-        <Button
+        <button
           type="button"
-          className="border border-white/25 bg-white text-black hover:bg-white/90"
+          className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-4 text-xs font-semibold text-black transition-colors hover:bg-white/90"
           onClick={onQuickQuiz}
         >
           <ClipboardCheck className="h-4 w-4" />
           Quiz rápido
-        </Button>
+        </button>
       </div>
     </div>
   );

@@ -81,10 +81,9 @@ export function HomeStatsChips({ plannedBlocks = 3 }: { plannedBlocks?: number }
       {chips.map((s) => (
         <div
           key={s.label}
-          className="relative flex items-center gap-3 overflow-hidden rounded-2xl border border-white/20 bg-white/8 px-5 py-4 text-white backdrop-blur-xl"
+          className="relative flex items-center gap-3 overflow-hidden rounded-2xl bg-white/[0.08] px-5 py-4 text-white backdrop-blur-xl"
         >
-          <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${s.accent}`} />
-          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
+          <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.12] text-white">
             {s.icon}
           </div>
           <div className="relative">

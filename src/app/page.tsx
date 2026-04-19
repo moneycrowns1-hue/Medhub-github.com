@@ -25,7 +25,7 @@ export default function Home() {
   const summary = formatPlanSummary(plan);
 
   return (
-    <div className="space-y-16">
+    <div className="space-y-12">
       <HomeMotion />
       {/* ── HERO full-screen video (no inner container) ── */}
       <section className="font-general-sans relative -mx-6 -mt-8 min-h-screen overflow-hidden bg-black text-white">
@@ -117,21 +117,21 @@ export default function Home() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
             {
-              icon: <GraduationCap className="h-5 w-5" />,
+              icon: <GraduationCap className="h-7 w-7" />,
               title: summary.primaryName,
               desc: "Materia principal del día",
               badge: "Principal",
               href: `/study/${plan.primary}`,
             },
             {
-              icon: <Layers className="h-5 w-5" />,
+              icon: <Layers className="h-7 w-7" />,
               title: summary.secondaryName,
               desc: "Materia complementaria",
               badge: "Secundaria",
               href: `/study/${plan.secondary}`,
             },
             {
-              icon: <Brain className="h-5 w-5" />,
+              icon: <Brain className="h-7 w-7" />,
               title: "Repetición espaciada",
               desc: "Flashcards y cloze del día",
               badge: "SRS",
@@ -144,25 +144,26 @@ export default function Home() {
               key={mod.title}
               href={mod.href}
               data-home-module
-              className="group relative overflow-hidden rounded-2xl border border-white/20 bg-white/8 p-6 text-white backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-white/35 hover:bg-white/12 hover:shadow-[0_14px_36px_-18px_rgba(255,255,255,0.85)]"
+              className="group relative flex flex-col gap-4 overflow-hidden rounded-2xl bg-white/[0.04] p-6 text-white backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.07]"
             >
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.16),transparent_45%)]" />
-              <div className="relative z-10 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90 transition-colors group-hover:bg-white/15">
-                    {mod.icon}
-                  </div>
-                  <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/80">
-                    {mod.badge}
-                  </span>
+              <div className="flex items-center justify-between">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.1] text-white">
+                  {mod.icon}
                 </div>
-                <div>
-                  <div className="text-base font-semibold text-white">{mod.title}</div>
-                  <div className="mt-0.5 text-xs text-white/60">{mod.desc}</div>
+                <span className="rounded-full bg-white/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/85">
+                  {mod.badge}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                <div className="text-2xl font-bold leading-tight tracking-tight text-white">{mod.title}</div>
+                <div className="flex items-center gap-1.5 text-xs text-white/60">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {mod.desc}
                 </div>
-                <div className="flex items-center gap-1 text-xs font-medium text-white/85 opacity-0 transition-opacity group-hover:opacity-100">
-                  Abrir <ArrowRight className="h-3.5 w-3.5" />
-                </div>
+              </div>
+              <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-3">
+                <span className="text-xs font-medium text-white/80">Abrir</span>
+                <ArrowRight className="h-4 w-4 text-white/70 transition-transform group-hover:translate-x-1 group-hover:text-white" />
               </div>
             </Link>
             ))}
@@ -175,24 +176,24 @@ export default function Home() {
           <ClinicalBoard date={todayIso} />
 
           {/* ── LECTURA ── */}
-          <div className="rounded-2xl border border-white/20 bg-white/8 p-6 text-white backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white/90">
-                <BookOpen className="h-5 w-5" />
+          <div className="rounded-2xl bg-white/[0.04] p-6 text-white backdrop-blur-xl">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.1] text-white">
+                <BookOpen className="h-7 w-7" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="text-xs font-medium uppercase tracking-wider text-white/60">Lectura del día</div>
-                <div className="text-base font-semibold text-white">{summary.reading}</div>
+                <div className="text-2xl font-bold leading-tight tracking-tight text-white">{summary.reading}</div>
               </div>
             </div>
-            <div className="mt-3 text-sm text-white/70">
+            <div className="mt-4 text-sm text-white/70">
               20–40 min de lectura enfocada. Sin multitarea. Subrayá y generá flashcards después.
             </div>
             <Link
               href="/biblioteca"
-              className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-white transition-colors hover:text-white/85"
+              className="group mt-4 inline-flex items-center gap-2 text-sm font-medium text-white transition-colors hover:text-white/85"
             >
-              Ir a Biblioteca <ArrowRight className="h-3.5 w-3.5" />
+              Ir a Biblioteca <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
         </div>
@@ -216,9 +217,9 @@ export default function Home() {
               key={q.href}
               href={q.href}
               data-home-quick
-              className="flex items-center gap-3 rounded-xl border border-white/20 bg-white/8 px-4 py-3 text-sm font-medium text-white/90 backdrop-blur-xl transition-all hover:border-white/35 hover:bg-white/12 hover:shadow-[0_14px_30px_-20px_rgba(255,255,255,0.85)]"
+              className="group flex items-center gap-3 rounded-xl bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/90 backdrop-blur-xl transition-all hover:bg-white/[0.07]"
             >
-              <div className="text-white/85">{q.icon}</div>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.08] text-white/85 transition-colors group-hover:bg-white/[0.12] group-hover:text-white">{q.icon}</div>
               {q.label}
             </Link>
           ))}
