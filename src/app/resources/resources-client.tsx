@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import QuickPinchZoom from "react-quick-pinch-zoom";
 import { gsap } from "gsap";
 
-import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Filter, Info, Loader2, MoreHorizontal, PanelRight, Save, Search, Sparkles, Star, StickyNote, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileText, Filter, FolderUp, Info, Loader2, MoreHorizontal, PanelRight, RefreshCw, Save, Search, Sparkles, Star, StickyNote, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
@@ -3426,33 +3426,23 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   return (
     <div className={immersiveMode ? "relative min-h-dvh bg-black" : "space-y-8 pb-4"}>
       {!immersiveMode ? (
-      <div className="relative space-y-4 overflow-hidden rounded-[30px] bg-black/45 p-6 shadow-[0_26px_90px_-54px_rgba(0,0,0,0.95)] backdrop-blur-2xl sm:p-7">
-        <div className="pointer-events-none absolute -left-12 -top-12 h-32 w-32 rounded-full bg-cyan-300/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-14 right-6 h-32 w-32 rounded-full bg-indigo-300/10 blur-3xl" />
-        <div className="space-y-2">
-          <div className="text-xs font-medium uppercase tracking-[0.2em] text-white/65">Recursos</div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Biblioteca inteligente</h1>
-          <p className="text-sm text-white/70">
-            Alterna entre gestión e inmersión. Mantén el PDF como protagonista y abre herramientas solo cuando las necesites.
-          </p>
-        </div>
-
+      <div className="space-y-4 rounded-3xl bg-white/[0.04] p-4 backdrop-blur-xl sm:p-5">
         {!workspaceModeLocked ? (
           <div className="flex flex-wrap items-center gap-2">
-            <div className="rounded-full border border-white/25 bg-white/8 p-1">
+            <div className="rounded-full bg-white/5 p-1">
               <button
                 type="button"
                 className={`rounded-full px-3 py-1.5 text-xs transition ${!immersiveMode ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
                 onClick={() => setWorkspaceMode("gestion")}
               >
-                Vista gestión
+                Gestión
               </button>
               <button
                 type="button"
                 className={`rounded-full px-3 py-1.5 text-xs transition ${immersiveMode ? "bg-white text-black" : "text-white/80 hover:text-white"}`}
                 onClick={() => setWorkspaceMode("inmersion")}
               >
-                Vista inmersión
+                Inmersión
               </button>
             </div>
           </div>
@@ -3464,12 +3454,12 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar PDF por título..."
-            className="h-11 w-full rounded-2xl bg-white/10 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/45 focus-visible:ring-2 focus-visible:ring-white/35"
+            className="h-11 w-full rounded-2xl bg-white/[0.06] pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/45 focus-visible:ring-2 focus-visible:ring-white/25"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-1.5 text-white">
+          <div className="flex items-center gap-1.5 rounded-xl bg-white/[0.06] px-3 py-1.5 text-white">
             <Filter className="h-3.5 w-3.5 text-white/70" />
             <select
               value={filterSubject}
@@ -3488,46 +3478,52 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
             onChange={(e) => setFilterFolder(e.target.value)}
             placeholder="Carpeta"
             list="resource-folder-suggestions"
-            className="h-9 rounded-xl border border-white/20 bg-white/8 px-3 text-xs text-white outline-none placeholder:text-white/45"
+            className="h-9 rounded-xl bg-white/[0.06] px-3 text-xs text-white outline-none placeholder:text-white/45"
           />
           <input
             value={filterTag}
             onChange={(e) => setFilterTag(e.target.value)}
             placeholder="Tag"
             list="resource-tag-suggestions"
-            className="h-9 rounded-xl border border-white/20 bg-white/8 px-3 text-xs text-white outline-none placeholder:text-white/45"
+            className="h-9 rounded-xl bg-white/[0.06] px-3 text-xs text-white outline-none placeholder:text-white/45"
           />
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as "recent" | "title" | "size")}
-            className="h-9 rounded-xl border border-white/20 bg-white/8 px-3 text-xs text-white outline-none"
+            className="h-9 rounded-xl bg-white/[0.06] px-3 text-xs text-white outline-none"
           >
             <option value="recent">Recientes</option>
             <option value="title">Título</option>
             <option value="size">Tamaño</option>
           </select>
-          <Button
-            variant={filterStarredOnly ? "secondary" : "outline"}
-            className="h-9 rounded-xl border-white/25 bg-white/10 px-3 text-xs text-white hover:bg-white/15"
+          <button
+            type="button"
+            aria-label={filterStarredOnly ? "Mostrar todos" : "Solo favoritos"}
+            title={filterStarredOnly ? "Mostrar todos" : "Solo favoritos"}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs transition-colors ${filterStarredOnly ? "bg-white text-black hover:bg-white/90" : "bg-white/[0.06] text-white hover:bg-white/10"}`}
             onClick={() => setFilterStarredOnly((prev) => !prev)}
           >
             <Star className={`h-3.5 w-3.5 ${filterStarredOnly ? "fill-current" : ""}`} />
-            Solo favoritos
-          </Button>
-          <Button
-            variant="outline"
-            className="h-9 rounded-xl border-white/25 bg-white/10 px-3 text-xs text-white hover:bg-white/15"
+            Favoritos
+          </button>
+          <button
+            type="button"
+            aria-label="Alternar agrupación por carpeta"
+            title={listMode === "flat" ? "Agrupar por carpeta" : "Ver como lista plana"}
+            className="inline-flex h-9 items-center rounded-xl bg-white/[0.06] px-3 text-xs text-white transition-colors hover:bg-white/10"
             onClick={() => setListMode((prev) => (prev === "flat" ? "folder" : "flat"))}
           >
-            {listMode === "flat" ? "Vista: Lista" : "Vista: Carpetas"}
-          </Button>
-          <Button
-            variant="outline"
-            className="h-9 rounded-xl border-white/25 bg-white/10 px-3 text-xs text-white hover:bg-white/15"
+            {listMode === "flat" ? "Lista" : "Carpetas"}
+          </button>
+          <button
+            type="button"
+            aria-label="Alternar vista grid/lista"
+            title={libraryVisualMode === "grid" ? "Cambiar a lista" : "Cambiar a grid"}
+            className="inline-flex h-9 items-center rounded-xl bg-white/[0.06] px-3 text-xs text-white transition-colors hover:bg-white/10"
             onClick={() => setLibraryVisualMode((prev) => (prev === "grid" ? "list" : "grid"))}
           >
-            {libraryVisualMode === "grid" ? "Tarjetas: Grid" : "Tarjetas: Lista"}
-          </Button>
+            {libraryVisualMode === "grid" ? "Grid" : "Lista"}
+          </button>
           <input
             ref={fileRef}
             type="file"
@@ -3551,93 +3547,104 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
               e.target.value = "";
             }}
           />
-          <Button variant="secondary" className="rounded-xl border-0 bg-white text-black hover:bg-white/90" onClick={() => fileRef.current?.click()} disabled={busy}>
+          <button
+            type="button"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-3 text-xs font-medium text-black transition-colors hover:bg-white/90 disabled:opacity-50"
+            onClick={() => fileRef.current?.click()}
+            disabled={busy}
+          >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            {busy ? `Subiendo PDF${typeof uploadProgress === "number" ? ` ${uploadProgress}%` : "..."}` : "Subir PDF"}
-          </Button>
-          <Button
-            variant="outline"
-            className="h-9 rounded-xl border-white/25 bg-white/10 px-3 text-xs text-white hover:bg-white/15"
+            {busy ? `Subiendo${typeof uploadProgress === "number" ? ` ${uploadProgress}%` : "..."}` : "Subir PDF"}
+          </button>
+          <button
+            type="button"
+            aria-label="Exportar biblioteca"
+            title="Exportar biblioteca"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-white transition-colors hover:bg-white/10"
             onClick={() => void handleExportLibraryBackup()}
           >
-            Exportar biblioteca
-          </Button>
-          <Button
-            variant="outline"
-            className="h-9 rounded-xl border-white/25 bg-white/10 px-3 text-xs text-white hover:bg-white/15"
+            <Download className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Importar biblioteca"
+            title="Importar biblioteca"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-white transition-colors hover:bg-white/10"
             onClick={() => libraryBackupImportRef.current?.click()}
           >
-            Importar biblioteca
-          </Button>
-          <Button
-            variant="outline"
-            className="h-9 rounded-xl border-white/25 bg-white/10 px-3 text-xs text-white hover:bg-white/15"
+            <FolderUp className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Sincronizar ahora"
+            title={syncBusy ? "Sincronizando..." : "Sync ahora"}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-white transition-colors hover:bg-white/10 disabled:opacity-50"
             onClick={() => void handleSyncNow()}
             disabled={syncBusy}
           >
-            {syncBusy ? "Sincronizando..." : "Sync ahora"}
-          </Button>
-          <div className="ml-auto rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">
+            <RefreshCw className={`h-4 w-4 ${syncBusy ? "animate-spin" : ""}`} />
+          </button>
+          <div className="ml-auto rounded-full bg-white/[0.06] px-3 py-1 text-xs text-white/80">
             {filtered.length} PDF{filtered.length === 1 ? "" : "s"}
           </div>
         </div>
         {bulkSelectedCount > 0 ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/20 bg-white/8 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white/[0.04] px-3 py-2">
             <span className="text-xs text-white/85">Seleccionados: {bulkSelectedCount}</span>
-            <Button
-              variant="outline"
-              className="h-8 rounded-lg border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
+            <button
+              type="button"
+              className="inline-flex h-8 items-center rounded-lg bg-white/[0.06] px-2.5 text-xs text-white transition-colors hover:bg-white/10 disabled:opacity-50"
               onClick={() => void applyBulkFavorite(true)}
               disabled={busy}
             >
               Favorito
-            </Button>
-            <Button
-              variant="outline"
-              className="h-8 rounded-lg border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-8 items-center rounded-lg bg-white/[0.06] px-2.5 text-xs text-white transition-colors hover:bg-white/10 disabled:opacity-50"
               onClick={() => void applyBulkFavorite(false)}
               disabled={busy}
             >
               Quitar favorito
-            </Button>
+            </button>
             <input
               value={bulkFolderInput}
               onChange={(e) => setBulkFolderInput(e.target.value)}
               placeholder="Carpeta masiva"
               list="resource-folder-suggestions"
-              className="h-8 rounded-lg border border-white/20 bg-white/8 px-2.5 text-xs text-white outline-none placeholder:text-white/45"
+              className="h-8 rounded-lg bg-white/[0.06] px-2.5 text-xs text-white outline-none placeholder:text-white/45"
             />
-            <Button
-              variant="outline"
-              className="h-8 rounded-lg border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
+            <button
+              type="button"
+              className="inline-flex h-8 items-center rounded-lg bg-white/[0.06] px-2.5 text-xs text-white transition-colors hover:bg-white/10 disabled:opacity-50"
               onClick={() => void applyBulkFolder()}
               disabled={busy}
             >
               Aplicar carpeta
-            </Button>
+            </button>
             <input
               value={bulkTagsInput}
               onChange={(e) => setBulkTagsInput(e.target.value)}
               placeholder="Tags masivos"
               list="resource-tag-suggestions"
-              className="h-8 rounded-lg border border-white/20 bg-white/8 px-2.5 text-xs text-white outline-none placeholder:text-white/45"
+              className="h-8 rounded-lg bg-white/[0.06] px-2.5 text-xs text-white outline-none placeholder:text-white/45"
             />
-            <Button
-              variant="outline"
-              className="h-8 rounded-lg border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
+            <button
+              type="button"
+              className="inline-flex h-8 items-center rounded-lg bg-white/[0.06] px-2.5 text-xs text-white transition-colors hover:bg-white/10 disabled:opacity-50"
               onClick={() => void applyBulkTagsMerge()}
               disabled={busy}
             >
               Agregar tags
-            </Button>
-            <Button
-              variant="outline"
-              className="h-8 rounded-lg border-white/25 bg-white/10 px-2.5 text-xs text-white hover:bg-white/15"
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-8 items-center rounded-lg bg-white/[0.06] px-2.5 text-xs text-white transition-colors hover:bg-white/10 disabled:opacity-50"
               onClick={clearBulkSelection}
               disabled={busy}
             >
               Limpiar
-            </Button>
+            </button>
           </div>
         ) : null}
         {uploadError ? (
@@ -3701,7 +3708,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
               ).map((group) => (
                 <div key={group.folder || "flat"} className={libraryVisualMode === "grid" ? "space-y-2 sm:col-span-2" : "space-y-2"}>
                   {listMode === "folder" ? (
-                    <div className="rounded-xl border border-white/15 bg-white/6 px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-white/70">
+                    <div className="rounded-xl bg-white/[0.04] px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-white/70">
                       {group.folder} · {group.docs.length}
                     </div>
                   ) : null}
@@ -3727,8 +3734,8 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       }}
                       role="button"
                       tabIndex={0}
-                      className={`group w-full rounded-2xl ${libraryVisualMode === "grid" ? "p-2.5" : "p-3"} text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 ${
-                        i.id === selectedId ? "bg-white/18 ring-1 ring-white/35" : "bg-white/8 ring-1 ring-white/10"
+                      className={`group w-full rounded-2xl ${libraryVisualMode === "grid" ? "p-2.5" : "p-3"} text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/[0.08] ${
+                        i.id === selectedId ? "bg-white/[0.12]" : "bg-white/[0.04]"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -3773,29 +3780,28 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                         </div>
                         <div className="flex items-center gap-1.5 opacity-80 transition group-hover:opacity-100">
                           {!immersiveMode ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-white/25 bg-black/30 text-white hover:bg-white/15"
+                            <button
+                              type="button"
+                              className="inline-flex h-8 items-center rounded-md bg-white/[0.06] px-2 text-[11px] text-white transition-colors hover:bg-white/10"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedId(i.id);
                               }}
                             >
                               Clasificar
-                            </Button>
+                            </button>
                           ) : null}
                           <Link
                             href={`/lector?openPdf=${encodeURIComponent(i.id)}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex h-8 items-center rounded-md border border-white/25 bg-black/30 px-2 text-[10px] text-white hover:bg-white/15"
+                            className="inline-flex h-8 items-center rounded-md bg-white/[0.06] px-2 text-[10px] text-white transition-colors hover:bg-white/10"
                           >
                             Abrir
                           </Link>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-white/25 bg-black/30 text-white hover:bg-white/15"
+                          <button
+                            type="button"
+                            aria-label={i.starred ? "Quitar de favoritos" : "Marcar favorito"}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.06] text-white transition-colors hover:bg-white/10 disabled:opacity-50"
                             onClick={(e) => {
                               e.stopPropagation();
                               const next = !i.starred;
@@ -3806,11 +3812,11 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                             disabled={busy}
                           >
                             <Star className={`h-4 w-4 ${i.starred ? "fill-current text-amber-300" : ""}`} />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-white/25 bg-black/30 text-white hover:bg-white/15"
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Eliminar PDF"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.06] text-white transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:opacity-50"
                             onClick={(e) => {
                               e.stopPropagation();
                               void onDelete(i.id);
@@ -3818,7 +3824,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                             disabled={busy}
                           >
                             <Trash2 className="h-4 w-4" />
-                          </Button>
+                          </button>
                         </div>
                       </div>
                     </div>
