@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import QuickPinchZoom from "react-quick-pinch-zoom";
 import { gsap } from "gsap";
 
-import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileText, Filter, FolderUp, Info, Loader2, MoreHorizontal, PanelRight, RefreshCw, Save, Search, Sparkles, Star, StickyNote, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileText, Filter, FolderUp, Info, Loader2, MoreHorizontal, PanelRight, RefreshCw, Save, Search, Sparkles, Star, StickyNote, Tags, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
@@ -3584,9 +3584,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           >
             <RefreshCw className={`h-4 w-4 ${syncBusy ? "animate-spin" : ""}`} />
           </button>
-          <div className="ml-auto rounded-full bg-white/[0.06] px-3 py-1 text-xs text-white/80">
-            {filtered.length} PDF{filtered.length === 1 ? "" : "s"}
-          </div>
         </div>
         {bulkSelectedCount > 0 ? (
           <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white/[0.04] px-3 py-2">
@@ -3734,7 +3731,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       }}
                       role="button"
                       tabIndex={0}
-                      className={`group relative flex gap-3 rounded-2xl p-3 text-left transition-colors ${
+                      className={`group relative flex gap-3 rounded-2xl p-4 text-left transition-colors ${
                         i.id === selectedId
                           ? "bg-white/[0.12] ring-1 ring-white/25"
                           : "bg-white/[0.04] hover:bg-white/[0.07]"
@@ -3749,26 +3746,27 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                           e.stopPropagation();
                           toggleBulkSelection(i.id, !bulkSelection.has(i.id));
                         }}
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${
                           bulkSelection.has(i.id)
                             ? "bg-white text-black hover:bg-white/90"
                             : "bg-white/10 text-white/80 hover:bg-white/20 hover:text-white"
                         }`}
                       >
-                        <FileText className="h-[18px] w-[18px]" />
+                        <FileText className="h-5 w-5" />
                       </button>
 
-                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      <div className="flex min-w-0 flex-1 flex-col gap-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex min-w-0 items-center gap-1.5">
-                            {i.starred ? <Star className="h-3.5 w-3.5 shrink-0 fill-current text-amber-300" /> : null}
-                            <div className="truncate text-sm font-medium leading-snug text-white">{i.title}</div>
+                            {i.starred ? <Star className="h-4 w-4 shrink-0 fill-current text-amber-300" /> : null}
+                            <div className="truncate text-[15px] font-semibold leading-snug text-white">{i.title}</div>
                           </div>
-                          <div className="flex items-center gap-1 opacity-60 transition group-hover:opacity-100">
+                          <div className="flex items-center gap-1.5 opacity-80 transition group-hover:opacity-100">
                             <button
                               type="button"
                               aria-label={i.starred ? "Quitar de favoritos" : "Marcar favorito"}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+                              title={i.starred ? "Quitar favorito" : "Marcar favorito"}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.06] text-white transition-colors hover:bg-white/10 disabled:opacity-50"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const next = !i.starred;
@@ -3778,41 +3776,43 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                               }}
                               disabled={busy}
                             >
-                              <Star className={`h-3.5 w-3.5 ${i.starred ? "fill-current text-amber-300" : ""}`} />
+                              <Star className={`h-4 w-4 ${i.starred ? "fill-current text-amber-300" : ""}`} />
                             </button>
                             {!immersiveMode ? (
                               <button
                                 type="button"
                                 aria-label="Clasificar PDF"
                                 title="Clasificar"
-                                className="inline-flex h-7 items-center rounded-md px-2 text-[10px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.06] text-white transition-colors hover:bg-white/10"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setSelectedId(i.id);
                                 }}
                               >
-                                Clasificar
+                                <Tags className="h-4 w-4" />
                               </button>
                             ) : null}
                             <Link
                               href={`/lector?openPdf=${encodeURIComponent(i.id)}`}
                               onClick={(e) => e.stopPropagation()}
                               title="Abrir en lector"
-                              className="inline-flex h-7 items-center rounded-md px-2 text-[10px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                              aria-label="Abrir en lector"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.06] text-white transition-colors hover:bg-white/10"
                             >
-                              Abrir
+                              <ExternalLink className="h-4 w-4" />
                             </Link>
                             <button
                               type="button"
                               aria-label="Eliminar PDF"
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-white/60 transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:opacity-50"
+                              title="Eliminar"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.06] text-white transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:opacity-50"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 void onDelete(i.id);
                               }}
                               disabled={busy}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
