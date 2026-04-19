@@ -155,43 +155,51 @@ export function DayClient({ plan }: Props) {
             <>
               <Link
                 href={`/study/${plan.primary}`}
-                className="group rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.07]"
+                className="group flex flex-col gap-4 rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.07]"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.08] text-white/90">
-                    <GraduationCap className="h-5 w-5" />
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.1] text-white">
+                    <GraduationCap className="h-7 w-7" />
                   </div>
-                  <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
+                  <span className="rounded-full bg-white/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/85">
                     Principal
                   </span>
                 </div>
-                <div className="mt-3 text-base font-semibold">{summary.primaryName}</div>
-                <div className="mt-0.5 text-xs text-foreground/65">
-                  {primaryDef?.uiMode === "redirect" ? "App externa" : "Módulo interactivo"}
+                <div className="space-y-1.5">
+                  <div className="text-2xl font-bold leading-tight tracking-tight">{summary.primaryName}</div>
+                  <div className="flex items-center gap-1.5 text-xs text-white/60">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {primaryDef?.uiMode === "redirect" ? "App externa" : "Módulo interactivo"}
+                  </div>
                 </div>
-                <div className="mt-2 flex items-center gap-1 text-xs font-medium text-foreground/90 opacity-0 transition-opacity group-hover:opacity-100">
-                  Abrir módulo <ArrowRight className="h-3.5 w-3.5" />
+                <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-3">
+                  <span className="text-xs font-medium text-white/80">Abrir módulo</span>
+                  <ArrowRight className="h-4 w-4 text-white/70 transition-transform group-hover:translate-x-1 group-hover:text-white" />
                 </div>
               </Link>
 
               <Link
                 href={`/study/${plan.secondary}`}
-                className="group rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.07]"
+                className="group flex flex-col gap-4 rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.07]"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.08] text-white/90">
-                    <Layers className="h-5 w-5" />
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.1] text-white">
+                    <Layers className="h-7 w-7" />
                   </div>
-                  <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
+                  <span className="rounded-full bg-white/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/85">
                     Secundaria
                   </span>
                 </div>
-                <div className="mt-3 text-base font-semibold">{summary.secondaryName}</div>
-                <div className="mt-0.5 text-xs text-foreground/65">
-                  {secondaryDef?.uiMode === "redirect" ? "App externa" : "Módulo interactivo"}
+                <div className="space-y-1.5">
+                  <div className="text-2xl font-bold leading-tight tracking-tight">{summary.secondaryName}</div>
+                  <div className="flex items-center gap-1.5 text-xs text-white/60">
+                    <Layers className="h-3.5 w-3.5" />
+                    {secondaryDef?.uiMode === "redirect" ? "App externa" : "Módulo interactivo"}
+                  </div>
                 </div>
-                <div className="mt-2 flex items-center gap-1 text-xs font-medium text-foreground/90 opacity-0 transition-opacity group-hover:opacity-100">
-                  Abrir módulo <ArrowRight className="h-3.5 w-3.5" />
+                <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-3">
+                  <span className="text-xs font-medium text-white/80">Abrir módulo</span>
+                  <ArrowRight className="h-4 w-4 text-white/70 transition-transform group-hover:translate-x-1 group-hover:text-white" />
                 </div>
               </Link>
             </>
@@ -205,22 +213,26 @@ export function DayClient({ plan }: Props) {
           {/* Lectura */}
           <Link
             href="/biblioteca"
-            className="group rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.07]"
+            className="group flex flex-col gap-4 rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.07]"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.08] text-white/90">
-                <BookOpen className="h-5 w-5" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.1] text-white">
+                <BookOpen className="h-7 w-7" />
               </div>
-              <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
+              <span className="rounded-full bg-white/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/85">
                 Lectura
               </span>
             </div>
-            <div className="mt-3 text-base font-semibold">{summary.reading}</div>
-            <div className="mt-0.5 text-xs text-foreground/65">
-              Ver en Biblioteca
+            <div className="space-y-1.5">
+              <div className="text-2xl font-bold leading-tight tracking-tight">{summary.reading}</div>
+              <div className="flex items-center gap-1.5 text-xs text-white/60">
+                <BookOpen className="h-3.5 w-3.5" />
+                Ver en Biblioteca
+              </div>
             </div>
-            <div className="mt-2 flex items-center gap-1 text-xs font-medium text-foreground/90 opacity-0 transition-opacity group-hover:opacity-100">
-              Abrir libros <ArrowRight className="h-3.5 w-3.5" />
+            <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-3">
+              <span className="text-xs font-medium text-white/80">Abrir libros</span>
+              <ArrowRight className="h-4 w-4 text-white/70 transition-transform group-hover:translate-x-1 group-hover:text-white" />
             </div>
           </Link>
         </div>
