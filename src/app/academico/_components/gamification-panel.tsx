@@ -34,7 +34,7 @@ export function GamificationPanel({ refreshKey }: Props) {
   );
 
   return (
-    <div className="rounded-2xl border border-white/20 bg-white/6 p-4">
+    <div className="rounded-2xl bg-white/[0.04] p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Trophy className="h-4 w-4 text-amber-200" />
@@ -46,11 +46,11 @@ export function GamificationPanel({ refreshKey }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs text-white/75">
-          <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/30 bg-amber-400/15 px-2 py-0.5">
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5">
             <Star className="h-3 w-3" />
             {unlockedBadges.length}/{Object.keys(BADGE_CATALOG).length}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-rose-300/30 bg-rose-400/15 px-2 py-0.5">
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-400/15 px-2 py-0.5">
             <Flame className="h-3 w-3" />
             {state.currentStreakDays}d
           </span>
@@ -66,7 +66,7 @@ export function GamificationPanel({ refreshKey }: Props) {
               return (
                 <li
                   key={goal.id}
-                  className={`rounded-xl border px-3 py-2 text-xs ${goal.completed ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100" : "border-white/20 bg-white/8 text-white/85"}`}
+                  className={`rounded-xl px-3 py-2 text-xs ${goal.completed ? "bg-emerald-400/10 text-emerald-100" : "bg-white/[0.06] text-white/85"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold">{goal.label}</span>
@@ -90,7 +90,7 @@ export function GamificationPanel({ refreshKey }: Props) {
             {unlockedBadges.map((badge) => (
               <li
                 key={badge.id}
-                className="rounded-xl border border-amber-300/35 bg-amber-400/15 px-2.5 py-2 text-[11px] text-amber-100"
+                className="rounded-xl bg-amber-400/15 px-2.5 py-2 text-[11px] text-amber-100"
                 title={badge.description}
               >
                 <div className="flex items-center gap-1.5 font-semibold">
@@ -103,7 +103,7 @@ export function GamificationPanel({ refreshKey }: Props) {
             {lockedBadges.slice(0, Math.max(0, 4 - unlockedBadges.length)).map((badge) => (
               <li
                 key={badge.id}
-                className="rounded-xl border border-white/15 bg-white/5 px-2.5 py-2 text-[11px] text-white/55"
+                className="rounded-xl bg-white/[0.04] px-2.5 py-2 text-[11px] text-white/55"
                 title={badge.description}
               >
                 <div className="font-semibold">{badge.label}</div>

@@ -141,10 +141,10 @@ function difficultyLabel(value?: AcademicDifficulty) {
 }
 
 function difficultyBadgeClass(value?: AcademicDifficulty): string {
-  if (value === "alta") return "border-rose-300/40 bg-rose-400/15 text-rose-100";
-  if (value === "media") return "border-amber-300/40 bg-amber-400/15 text-amber-100";
-  if (value === "baja") return "border-emerald-300/40 bg-emerald-400/15 text-emerald-100";
-  return "border-white/20 bg-white/8 text-white/65";
+  if (value === "alta") return "bg-rose-400/15 text-rose-100";
+  if (value === "media") return "bg-amber-400/15 text-amber-100";
+  if (value === "baja") return "bg-emerald-400/15 text-emerald-100";
+  return "bg-white/[0.06] text-white/65";
 }
 
 function BlockRecordsList({
@@ -162,7 +162,7 @@ function BlockRecordsList({
 }) {
   if (!records.length) {
     return (
-      <div className="rounded-xl border border-dashed border-white/20 bg-white/5 p-3 text-xs text-white/60">
+      <div className="rounded-xl bg-white/[0.03] p-3 text-xs text-white/55">
         No hay registros todavía en este bloque.
       </div>
     );
@@ -176,19 +176,19 @@ function BlockRecordsList({
         return (
           <div
             key={record.id}
-            className={`rounded-xl border p-3 ${isEditing ? "border-cyan-300/50 bg-cyan-400/10" : "border-white/20 bg-white/8"}`}
+            className={`rounded-xl p-3 ${isEditing ? "bg-cyan-400/10 ring-1 ring-cyan-300/40" : "bg-white/[0.06]"}`}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="space-y-1">
                 <div className="text-sm font-semibold text-white">{record.title}</div>
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-white/65">
                   <span>{record.date} · {itemTypeLabel(record.itemType)}</span>
-                  <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] ${difficultyBadgeClass(record.difficulty)}`}>
+                  <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] ${difficultyBadgeClass(record.difficulty)}`}>
                     {difficultyLabel(record.difficulty)}
                   </span>
                 </div>
                 {typeof record.score === "number" ? (
-                  <div className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${isFailedEvaluation ? "border-rose-300/45 bg-rose-400/20 text-rose-100" : "border-emerald-300/45 bg-emerald-400/20 text-emerald-100"}`}>
+                  <div className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${isFailedEvaluation ? "bg-rose-400/20 text-rose-100" : "bg-emerald-400/20 text-emerald-100"}`}>
                     Nota: {record.score.toFixed(2)} / 10
                   </div>
                 ) : null}
@@ -203,14 +203,14 @@ function BlockRecordsList({
 
               <div className="flex items-center gap-2">
                 {record.itemType === "flashcard" ? (
-                  <Link href="/srs" className="inline-flex items-center gap-1 rounded-md border border-white/25 bg-white/10 px-2 py-1 text-[11px] text-white hover:bg-white/15">
+                  <Link href="/srs" className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-[11px] text-white hover:bg-white/15">
                     <Brain className="h-3.5 w-3.5" />
                     Ir a SRS
                   </Link>
                 ) : null}
                 <button
                   type="button"
-                  className="rounded-md border border-white/20 bg-black/25 p-1.5 text-white/75 hover:bg-white/15 hover:text-white"
+                  className="rounded-md bg-white/[0.06] p-1.5 text-white/75 hover:bg-white/15 hover:text-white"
                   onClick={() => onEdit(record)}
                   title="Editar registro"
                 >
@@ -218,7 +218,7 @@ function BlockRecordsList({
                 </button>
                 <button
                   type="button"
-                  className="rounded-md border border-white/20 bg-black/25 p-1.5 text-white/75 hover:bg-white/15 hover:text-white"
+                  className="rounded-md bg-white/[0.06] p-1.5 text-white/75 hover:bg-white/15 hover:text-white"
                   onClick={() => onDelete(record.id)}
                   title="Eliminar registro"
                 >
@@ -253,14 +253,14 @@ function RecordForm({
   onCancelEdit?: () => void;
 }) {
   return (
-    <div className={`space-y-2 rounded-xl border p-3 ${editing ? "border-cyan-300/50 bg-cyan-400/10" : "border-white/20 bg-white/6"}`}>
+    <div className={`space-y-2 rounded-xl p-3 ${editing ? "bg-cyan-400/10 ring-1 ring-cyan-300/40" : "bg-white/[0.05]"}`}>
       {editing ? (
         <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-cyan-100">
           <span>Editando registro</span>
           {onCancelEdit ? (
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-md border border-white/25 bg-black/25 px-2 py-0.5 text-white/85 hover:bg-white/15"
+              className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-white/85 hover:bg-white/15"
               onClick={onCancelEdit}
             >
               <X className="h-3 w-3" />
@@ -274,13 +274,13 @@ function RecordForm({
           value={draft.title}
           onChange={(event) => onChange({ title: event.target.value })}
           placeholder="Título del registro"
-          className="h-9 rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+          className="h-9 rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
         />
         <input
           type="date"
           value={draft.date}
           onChange={(event) => onChange({ date: event.target.value })}
-          className="h-9 rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+          className="h-9 rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
         />
       </div>
 
@@ -288,7 +288,7 @@ function RecordForm({
         <select
           value={draft.itemType}
           onChange={(event) => onChange({ itemType: event.target.value as AcademicItemType })}
-          className="h-9 rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+          className="h-9 rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
         >
           {ITEM_TYPE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
@@ -297,7 +297,7 @@ function RecordForm({
         <select
           value={draft.difficulty}
           onChange={(event) => onChange({ difficulty: event.target.value as AcademicDifficulty })}
-          className="h-9 rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+          className="h-9 rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
         >
           {DIFFICULTY_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
@@ -312,10 +312,10 @@ function RecordForm({
             value={draft.score}
             onChange={(event) => onChange({ score: event.target.value })}
             placeholder="Nota (0-10)"
-            className="h-9 rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+            className="h-9 rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
           />
         ) : (
-          <div className="h-9 rounded-lg border border-white/10 bg-white/3 px-2.5 text-xs leading-9 text-white/45">
+          <div className="h-9 rounded-lg bg-white/[0.03] px-2.5 text-xs leading-9 text-white/45">
             Nota solo aplica para evaluación
           </div>
         )}
@@ -326,7 +326,7 @@ function RecordForm({
           <select
             value={draft.linkedDeckId}
             onChange={(event) => onChange({ linkedDeckId: event.target.value })}
-            className="h-9 rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+            className="h-9 rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
           >
             <option value="">Deck SRS (opcional)</option>
             {deckOptions.map((deck) => (
@@ -337,7 +337,7 @@ function RecordForm({
             value={draft.linkedCardIdsText}
             onChange={(event) => onChange({ linkedCardIdsText: event.target.value })}
             placeholder="IDs cards (coma separada)"
-            className="h-9 rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+            className="h-9 rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
           />
         </div>
       ) : null}
@@ -346,17 +346,17 @@ function RecordForm({
         value={draft.notes}
         onChange={(event) => onChange({ notes: event.target.value })}
         placeholder="Notas opcionales"
-        className="min-h-[70px] w-full rounded-lg border border-white/25 bg-white/8 px-2.5 py-2 text-sm text-white outline-none"
+        className="min-h-[70px] w-full rounded-lg bg-white/[0.06] px-2.5 py-2 text-sm text-white outline-none focus:bg-white/[0.09]"
       />
 
       {scoreError ? (
-        <div className="rounded-lg border border-rose-300/30 bg-rose-400/15 px-2.5 py-1.5 text-xs text-rose-100">
+        <div className="rounded-lg bg-rose-400/15 px-2.5 py-1.5 text-xs text-rose-100">
           {scoreError}
         </div>
       ) : null}
 
       <div className="flex justify-end">
-        <Button type="button" className="border border-white/25 bg-white text-black hover:bg-white/90" onClick={onAdd}>
+        <Button type="button" className="bg-white text-black hover:bg-white/90" onClick={onAdd}>
           <Plus className="h-4 w-4" />
           {addLabel}
         </Button>
@@ -764,10 +764,10 @@ export function AcademicoClient() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-white/20 bg-white/6 p-6 backdrop-blur-xl">
+      <div className="rounded-3xl bg-white/[0.04] p-6 backdrop-blur-xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/8 px-3 py-1 text-xs text-white/75">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-3 py-1 text-xs text-white/75">
               <GraduationCap className="h-3.5 w-3.5" />
               Sección académica
             </div>
@@ -780,27 +780,27 @@ export function AcademicoClient() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              className={`rounded-lg border px-3 py-1.5 text-xs ${viewMode === "gestion" ? "border-white/20 bg-white text-black" : "border-white/20 bg-white/10 text-white"}`}
+              className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${viewMode === "gestion" ? "bg-white text-black hover:bg-white/90" : "bg-white/[0.06] text-white hover:bg-white/10"}`}
               onClick={() => setViewMode("gestion")}
             >
               Gestión académica
             </button>
             <button
               type="button"
-              className={`rounded-lg border px-3 py-1.5 text-xs ${viewMode === "repaso" ? "border-white/20 bg-white text-black" : "border-white/20 bg-white/10 text-white"}`}
+              className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${viewMode === "repaso" ? "bg-white text-black hover:bg-white/90" : "bg-white/[0.06] text-white hover:bg-white/10"}`}
               onClick={() => setViewMode("repaso")}
             >
               Modo repaso
             </button>
             <button
               type="button"
-              className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/15"
+              className="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs text-white hover:bg-white/10"
               onClick={() => downloadAcademicExport()}
               title="Exportar datos académicos"
             >
               Exportar
             </button>
-            <label className="cursor-pointer rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/15">
+            <label className="cursor-pointer rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs text-white hover:bg-white/10">
               Importar
               <input
                 type="file"
@@ -829,7 +829,7 @@ export function AcademicoClient() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/20 bg-white/6 p-4">
+      <div className="rounded-2xl bg-white/[0.04] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Award className="h-4 w-4 text-amber-200" />
@@ -843,7 +843,7 @@ export function AcademicoClient() {
         </div>
         <div className="mt-3 grid gap-2 md:grid-cols-4">
           {globalGpa.subjects.map((item) => (
-            <div key={item.subjectSlug} className="rounded-xl border border-white/15 bg-white/8 px-3 py-2">
+            <div key={item.subjectSlug} className="rounded-xl bg-white/[0.06] px-3 py-2">
               <div className="text-[11px] uppercase tracking-wider text-white/60">{SUBJECTS[item.subjectSlug].name}</div>
               <div className="mt-1 text-sm font-semibold text-white">
                 {item.average !== null ? item.average.toFixed(2) : "—"}
@@ -874,7 +874,7 @@ export function AcademicoClient() {
 
       <SrsLibraryPanel subjectSlug={subject} decks={srsLib.decks} cards={srsLib.cards} />
 
-      <div className="grid gap-3 rounded-2xl border border-white/20 bg-white/6 p-4 md:grid-cols-3">
+      <div className="grid gap-3 rounded-2xl bg-white/[0.04] p-4 md:grid-cols-3">
         <label className="space-y-1">
           <div className="text-xs uppercase tracking-wider text-white/65">Materia (cátedra fija)</div>
           <select
@@ -887,7 +887,7 @@ export function AcademicoClient() {
               setReviewSemesterFilter("all");
               cancelEditRecord();
             }}
-            className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm text-white outline-none"
+            className="h-10 w-full rounded-xl bg-white/[0.06] px-3 text-sm text-white outline-none focus:bg-white/[0.09]"
           >
             {ACADEMIC_MEDICAL_SUBJECTS.map((slug) => (
               <option key={slug} value={slug}>{SUBJECTS[slug].name}</option>
@@ -905,11 +905,11 @@ export function AcademicoClient() {
             value={passingGradeInput}
             onChange={(event) => setPassingGradeDraft(event.target.value)}
             onBlur={handlePassingGradeBlur}
-            className="h-10 w-full rounded-xl border border-white/25 bg-white/8 px-3 text-sm text-white outline-none"
+            className="h-10 w-full rounded-xl bg-white/[0.06] px-3 text-sm text-white outline-none focus:bg-white/[0.09]"
           />
         </label>
 
-        <div className="rounded-xl border border-white/20 bg-white/8 px-3 py-2">
+        <div className="rounded-xl bg-white/[0.06] px-3 py-2">
           <div className="text-xs uppercase tracking-wider text-white/65">Regla activa</div>
           <div className="mt-1 text-sm text-white/85">
             Promedio parciales + final. Si nota final &lt; {snapshot.config.passingGrade.toFixed(1)} aparece remedial.
@@ -919,7 +919,7 @@ export function AcademicoClient() {
 
       {viewMode === "gestion" ? (
         <div className="grid gap-4 lg:grid-cols-[360px,1fr]">
-          <div className="space-y-3 rounded-2xl border border-white/20 bg-white/6 p-4">
+          <div className="space-y-3 rounded-2xl bg-white/[0.04] p-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-xs uppercase tracking-wider text-white/65">Semestres</div>
@@ -933,7 +933,7 @@ export function AcademicoClient() {
                   key={entry.semester.id}
                   type="button"
                   onClick={() => setSelectedSemesterId(entry.semester.id)}
-                  className={`w-full rounded-xl border p-3 text-left transition ${activeSemesterId === entry.semester.id ? "border-white/45 bg-white/18" : "border-white/20 bg-white/8 hover:bg-white/12"}`}
+                  className={`w-full rounded-xl p-3 text-left transition ${activeSemesterId === entry.semester.id ? "bg-white/[0.14] ring-1 ring-white/30" : "bg-white/[0.06] hover:bg-white/[0.09]"}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -942,17 +942,17 @@ export function AcademicoClient() {
                     </div>
                     <div className="text-right">
                       {!entry.unlocked ? (
-                        <span className="inline-flex rounded-full border border-amber-300/30 bg-amber-400/15 px-2 py-0.5 text-[10px] text-amber-100">Bloqueado</span>
+                        <span className="inline-flex rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] text-amber-100">Bloqueado</span>
                       ) : entry.passedViaRemedial ? (
-                        <span className="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-2 py-0.5 text-[10px] text-cyan-100">Remedial ✓</span>
+                        <span className="inline-flex rounded-full bg-cyan-400/15 px-2 py-0.5 text-[10px] text-cyan-100">Remedial ✓</span>
                       ) : entry.passed ? (
-                        <span className="inline-flex rounded-full border border-emerald-300/30 bg-emerald-400/15 px-2 py-0.5 text-[10px] text-emerald-100">Aprobado</span>
+                        <span className="inline-flex rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] text-emerald-100">Aprobado</span>
                       ) : entry.needsRemedial ? (
-                        <span className="inline-flex rounded-full border border-rose-300/30 bg-rose-400/15 px-2 py-0.5 text-[10px] text-rose-100">Remedial</span>
+                        <span className="inline-flex rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] text-rose-100">Remedial</span>
                       ) : entry.finalGrade !== null ? (
-                        <span className="inline-flex rounded-full border border-rose-300/30 bg-rose-400/15 px-2 py-0.5 text-[10px] text-rose-100">Reprobado</span>
+                        <span className="inline-flex rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] text-rose-100">Reprobado</span>
                       ) : (
-                        <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[10px] text-white/75">En curso</span>
+                        <span className="inline-flex rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/75">En curso</span>
                       )}
                       <div className="mt-1 text-[11px] text-white/70">
                         Nota: {entry.effectiveGrade !== null ? entry.effectiveGrade.toFixed(2) : "—"}
@@ -962,31 +962,31 @@ export function AcademicoClient() {
                 </button>
               ))}
               {!semestersComputed.length ? (
-                <div className="rounded-xl border border-dashed border-white/20 bg-white/5 p-3 text-xs text-white/60">
+                <div className="rounded-xl bg-white/[0.03] p-3 text-xs text-white/55">
                   Aún no tienes semestres para esta materia.
                 </div>
               ) : null}
             </div>
 
-            <div className="space-y-2 rounded-xl border border-white/20 bg-white/8 p-3">
+            <div className="space-y-2 rounded-xl bg-white/[0.06] p-3">
               <div className="text-xs uppercase tracking-wider text-white/65">Crear semestre</div>
               <input
                 value={newSemesterName}
                 onChange={(event) => setNewSemesterName(event.target.value)}
                 placeholder="Ej: Semestre 1"
-                className="h-9 w-full rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+                className="h-9 w-full rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
               />
               <div className="flex items-center gap-2">
                 <select
                   value={newPartialCount}
                   onChange={(event) => setNewPartialCount(Number(event.target.value) || 4)}
-                  className="h-9 flex-1 rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+                  className="h-9 flex-1 rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
                 >
                   {[2, 3, 4, 5, 6].map((count) => (
                     <option key={count} value={count}>{count} parciales</option>
                   ))}
                 </select>
-                <Button type="button" className="border border-white/25 bg-white text-black hover:bg-white/90" onClick={handleCreateSemester}>
+                <Button type="button" className="bg-white text-black hover:bg-white/90" onClick={handleCreateSemester}>
                   <Plus className="h-4 w-4" />
                   Crear
                 </Button>
@@ -994,10 +994,10 @@ export function AcademicoClient() {
             </div>
           </div>
 
-          <div className="space-y-4 rounded-2xl border border-white/20 bg-white/6 p-4">
+          <div className="space-y-4 rounded-2xl bg-white/[0.04] p-4">
             {activeComputed ? (
               <>
-                <div className="rounded-xl border border-white/20 bg-white/8 p-3">
+                <div className="rounded-xl bg-white/[0.06] p-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="text-xs uppercase tracking-wider text-white/65">Semestre activo</div>
@@ -1006,7 +1006,7 @@ export function AcademicoClient() {
                         onChange={(event) =>
                           updateAcademicSemester(activeComputed.semester.id, { name: event.target.value })
                         }
-                        className="mt-1 h-9 w-[min(340px,92vw)] rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+                        className="mt-1 h-9 w-[min(340px,92vw)] rounded-lg bg-white/[0.08] px-2.5 text-sm text-white outline-none focus:bg-white/[0.11]"
                       />
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -1017,7 +1017,7 @@ export function AcademicoClient() {
                             partialCount: Number(event.target.value) || activeComputed.semester.partialCount,
                           })
                         }
-                        className="h-9 rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+                        className="h-9 rounded-lg bg-white/[0.08] px-2.5 text-sm text-white outline-none focus:bg-white/[0.11]"
                         disabled={!activeComputed.unlocked}
                       >
                         {[2, 3, 4, 5, 6].map((count) => (
@@ -1027,7 +1027,7 @@ export function AcademicoClient() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="border-cyan-300/40 bg-cyan-400/15 text-cyan-100 hover:bg-cyan-400/25"
+                        className="bg-cyan-400/15 text-cyan-100 hover:bg-cyan-400/25"
                         onClick={() => setQuickQuizOpen(true)}
                         disabled={!activeComputed.unlocked}
                       >
@@ -1037,7 +1037,7 @@ export function AcademicoClient() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+                        className="bg-white/10 text-white hover:bg-white/15"
                         onClick={() => {
                           if (!activeComputed) return;
                           setPendingDeleteSemesterId(activeComputed.semester.id);
@@ -1050,16 +1050,16 @@ export function AcademicoClient() {
                   </div>
 
                   <div className="mt-3 grid gap-2 md:grid-cols-4">
-                    <div className="rounded-lg border border-white/15 bg-white/8 px-2.5 py-2 text-xs text-white/80">
+                    <div className="rounded-lg bg-white/[0.05] px-2.5 py-2 text-xs text-white/80">
                       Final (parciales+final): <span className="font-semibold">{activeComputed.finalGrade !== null ? activeComputed.finalGrade.toFixed(2) : "—"}</span>
                     </div>
-                    <div className="rounded-lg border border-white/15 bg-white/8 px-2.5 py-2 text-xs text-white/80">
+                    <div className="rounded-lg bg-white/[0.05] px-2.5 py-2 text-xs text-white/80">
                       Nota efectiva: <span className="font-semibold">{activeComputed.effectiveGrade !== null ? activeComputed.effectiveGrade.toFixed(2) : "—"}</span>
                     </div>
-                    <div className="rounded-lg border border-white/15 bg-white/8 px-2.5 py-2 text-xs text-white/80">
+                    <div className="rounded-lg bg-white/[0.05] px-2.5 py-2 text-xs text-white/80">
                       Remedial: <span className="font-semibold">{activeComputed.needsRemedial ? (activeComputed.passedViaRemedial ? `Aprobado (${activeComputed.remedialScore?.toFixed(2) ?? "—"})` : "Activo") : "No requerido"}</span>
                     </div>
-                    <div className="rounded-lg border border-white/15 bg-white/8 px-2.5 py-2 text-xs text-white/80">
+                    <div className="rounded-lg bg-white/[0.05] px-2.5 py-2 text-xs text-white/80">
                       Estado: <span className="font-semibold">{
                         activeComputed.passedViaRemedial
                           ? "Aprobado vía remedial"
@@ -1074,7 +1074,7 @@ export function AcademicoClient() {
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-xs text-white/80">
+                  <div className="mt-3 rounded-lg bg-white/[0.04] px-3 py-2 text-xs text-white/80">
                     <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-white/60">
                       <Info className="h-3.5 w-3.5" />
                       Resumen inteligente
@@ -1105,17 +1105,17 @@ export function AcademicoClient() {
                     </ul>
 
                     {activeComputed.projection.status === "pending" && typeof activeComputed.projection.requiredFinal === "number" ? (
-                      <div className="mt-2 rounded-md border border-cyan-300/30 bg-cyan-400/10 px-2 py-1.5 text-[11px] text-cyan-100">
+                      <div className="mt-2 rounded-md bg-cyan-400/10 px-2 py-1.5 text-[11px] text-cyan-100">
                         Necesitas ≥ {activeComputed.projection.requiredFinal.toFixed(2)} en el Final para aprobar.
                       </div>
                     ) : null}
                     {activeComputed.projection.status === "failed" ? (
-                      <div className="mt-2 rounded-md border border-rose-300/30 bg-rose-400/10 px-2 py-1.5 text-[11px] text-rose-100">
+                      <div className="mt-2 rounded-md bg-rose-400/10 px-2 py-1.5 text-[11px] text-rose-100">
                         Con las notas actuales no alcanzas a aprobar aunque saques 10 en el Final. Prepárate para remedial.
                       </div>
                     ) : null}
                     {activeComputed.projection.status === "remedial" && typeof activeComputed.projection.requiredRemedial === "number" ? (
-                      <div className="mt-2 rounded-md border border-amber-300/30 bg-amber-400/10 px-2 py-1.5 text-[11px] text-amber-100">
+                      <div className="mt-2 rounded-md bg-amber-400/10 px-2 py-1.5 text-[11px] text-amber-100">
                         Necesitas ≥ {activeComputed.projection.requiredRemedial.toFixed(2)} en el Remedial para aprobar el semestre.
                       </div>
                     ) : null}
@@ -1127,7 +1127,7 @@ export function AcademicoClient() {
                   </div>
 
                   {!activeComputed.unlocked ? (
-                    <div className="mt-2 rounded-lg border border-amber-300/35 bg-amber-400/15 px-2.5 py-2 text-xs text-amber-100">
+                    <div className="mt-2 rounded-lg bg-amber-400/15 px-2.5 py-2 text-xs text-amber-100">
                       Este semestre está bloqueado hasta aprobar el anterior.
                     </div>
                   ) : null}
@@ -1170,14 +1170,14 @@ export function AcademicoClient() {
                         (blockType !== "partial" || editingRecord.blockIndex === blockIndex);
 
                       return (
-                        <section key={key} className="rounded-xl border border-white/20 bg-white/7 p-3">
+                        <section key={key} className="rounded-xl bg-white/[0.05] p-3">
                           <div className="mb-2 flex items-center justify-between">
                             <div className="text-sm font-semibold text-white">{blockLabel(blockType, blockIndex)}</div>
                             <div className="text-[11px] text-white/65">{recordsForBlock.length} registros</div>
                           </div>
 
                           {blockType === "remedial" ? (
-                            <div className="mb-2 space-y-1 rounded-lg border border-rose-300/30 bg-rose-400/15 px-2.5 py-2 text-xs text-rose-100">
+                            <div className="mb-2 space-y-1 rounded-lg bg-rose-400/15 px-2.5 py-2 text-xs text-rose-100">
                               <div className="font-semibold">A recuperar ({remedialFailedOnly.length})</div>
                               {remedialFailedOnly.length ? (
                                 <ul className="space-y-0.5">
@@ -1248,7 +1248,7 @@ export function AcademicoClient() {
                   })()}
                 </div>
 
-                <div className="rounded-xl border border-white/20 bg-white/7 p-3 text-xs text-white/78">
+                <div className="rounded-xl bg-white/[0.05] p-3 text-xs text-white/80">
                   <div className="font-semibold">Desbloqueo</div>
                   <div className="mt-1">
                     Para desbloquear el siguiente semestre necesitas nota final ≥ {snapshot.config.passingGrade.toFixed(1)} (o aprobar remedial).
@@ -1258,21 +1258,21 @@ export function AcademicoClient() {
                 <StudyPlanPanel semester={activeComputed.semester} refreshKey={refreshTick} />
               </>
             ) : (
-              <div className="rounded-xl border border-dashed border-white/20 bg-white/5 p-5 text-sm text-white/65">
+              <div className="rounded-xl bg-white/[0.03] p-5 text-sm text-white/60">
                 Crea un semestre para empezar a registrar parciales, evaluaciones y repaso.
               </div>
             )}
           </div>
         </div>
       ) : (
-        <div className="space-y-4 rounded-2xl border border-white/20 bg-white/6 p-4">
+        <div className="space-y-4 rounded-2xl bg-white/[0.04] p-4">
           <div className="grid gap-2 md:grid-cols-4">
             <label className="space-y-1">
               <div className="text-[11px] uppercase tracking-wider text-white/65">Semestre</div>
               <select
                 value={reviewSemesterFilter}
                 onChange={(event) => setReviewSemesterFilter(event.target.value)}
-                className="h-9 w-full rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+                className="h-9 w-full rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
               >
                 <option value="all">Todos</option>
                 {semestersComputed.map((entry) => (
@@ -1286,7 +1286,7 @@ export function AcademicoClient() {
               <select
                 value={reviewItemTypeFilter}
                 onChange={(event) => setReviewItemTypeFilter(event.target.value as AcademicItemType | "all")}
-                className="h-9 w-full rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+                className="h-9 w-full rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
               >
                 <option value="all">Todos</option>
                 {ITEM_TYPE_OPTIONS.map((option) => (
@@ -1300,7 +1300,7 @@ export function AcademicoClient() {
               <select
                 value={reviewDifficultyFilter}
                 onChange={(event) => setReviewDifficultyFilter(event.target.value as AcademicDifficulty | "all")}
-                className="h-9 w-full rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+                className="h-9 w-full rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
               >
                 <option value="all">Todas</option>
                 {DIFFICULTY_OPTIONS.map((option) => (
@@ -1314,7 +1314,7 @@ export function AcademicoClient() {
               <select
                 value={reviewSort}
                 onChange={(event) => setReviewSort(event.target.value as RecordSort)}
-                className="h-9 w-full rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+                className="h-9 w-full rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
               >
                 <option value="oldest">Más antiguo primero</option>
                 <option value="newest">Más reciente primero</option>
@@ -1322,7 +1322,7 @@ export function AcademicoClient() {
             </label>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/20 bg-white/8 px-3 py-2 text-xs text-white/70">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/[0.06] px-3 py-2 text-xs text-white/70">
             <div>
               <Filter className="mr-1 inline h-3.5 w-3.5" />
               Priorización activa: temas antiguos + dificultad alta.
@@ -1339,13 +1339,13 @@ export function AcademicoClient() {
           </div>
 
           {reviewGrouped.size === 0 ? (
-            <div className="rounded-xl border border-dashed border-white/20 bg-white/5 p-5 text-sm text-white/65">
+            <div className="rounded-xl bg-white/[0.03] p-5 text-sm text-white/60">
               No hay registros con esos filtros en modo repaso.
             </div>
           ) : (
             <div className="space-y-4">
               {[...reviewGrouped.entries()].map(([semesterId, semesterGroup]) => (
-                <section key={semesterId} className="rounded-xl border border-white/20 bg-white/7 p-3">
+                <section key={semesterId} className="rounded-xl bg-white/[0.05] p-3">
                   <div className="mb-2 flex items-center justify-between">
                     <div className="text-sm font-semibold text-white">{semesterGroup.semesterName}</div>
                     <div className="text-[11px] text-white/65">{[...semesterGroup.blocks.values()].flat().length} items</div>
@@ -1355,13 +1355,13 @@ export function AcademicoClient() {
                     {[...semesterGroup.blocks.entries()].map(([key, records]) => {
                       const first = records[0];
                       return (
-                        <div key={key} className="rounded-lg border border-white/20 bg-white/8 p-3">
+                        <div key={key} className="rounded-lg bg-white/[0.06] p-3">
                           <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/65">
                             {blockLabel(first.blockType, first.blockIndex)}
                           </div>
                           <div className="space-y-1.5">
                             {records.map((record) => (
-                              <div key={record.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/15 bg-white/8 px-2.5 py-2">
+                              <div key={record.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white/[0.05] px-2.5 py-2">
                                 <div className="text-xs text-white/85">
                                   <span className="font-semibold">{record.title}</span>
                                   <span className="ml-1 text-white/65">· {record.date} · {itemTypeLabel(record.itemType)} · {difficultyLabel(record.difficulty)}</span>
@@ -1371,19 +1371,19 @@ export function AcademicoClient() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {record.itemType === "flashcard" ? (
-                                    <Link href="/srs" className="inline-flex items-center gap-1 rounded-md border border-cyan-300/30 bg-cyan-400/20 px-2 py-1 text-[11px] text-cyan-100 hover:bg-cyan-400/25">
+                                    <Link href="/srs" className="inline-flex items-center gap-1 rounded-md bg-cyan-400/20 px-2 py-1 text-[11px] text-cyan-100 hover:bg-cyan-400/25">
                                       <Brain className="h-3.5 w-3.5" />
                                       Practicar en SRS
                                     </Link>
                                   ) : null}
                                   {record.blockType === "final" ? (
-                                    <span className="inline-flex items-center gap-1 rounded-md border border-amber-300/35 bg-amber-300/15 px-2 py-1 text-[11px] text-amber-100">
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-400/15 px-2 py-1 text-[11px] text-amber-100">
                                       <BookOpen className="h-3.5 w-3.5" />
                                       Final prioritario
                                     </span>
                                   ) : null}
                                   {record.blockType === "remedial" ? (
-                                    <span className="inline-flex items-center gap-1 rounded-md border border-rose-300/35 bg-rose-300/15 px-2 py-1 text-[11px] text-rose-100">
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-rose-400/15 px-2 py-1 text-[11px] text-rose-100">
                                       <CircleOff className="h-3.5 w-3.5" />
                                       Fallado
                                     </span>
@@ -1402,15 +1402,15 @@ export function AcademicoClient() {
           )}
 
           <div className="grid gap-2 md:grid-cols-3">
-            <div className="rounded-xl border border-white/20 bg-white/8 p-3 text-xs text-white/80">
+            <div className="rounded-xl bg-white/[0.06] p-3 text-xs text-white/80">
               <CheckCircle2 className="mb-1 h-4 w-4 text-emerald-200" />
               Repasa por bloques: Parcial 1 → Parcial 2 → Parcial 3 → Parcial 4 → Final.
             </div>
-            <div className="rounded-xl border border-white/20 bg-white/8 p-3 text-xs text-white/80">
+            <div className="rounded-xl bg-white/[0.06] p-3 text-xs text-white/80">
               <ArrowRight className="mb-1 h-4 w-4 text-cyan-200" />
               Los registros flashcard muestran referencia para ir directo a practicar en SRS.
             </div>
-            <div className="rounded-xl border border-white/20 bg-white/8 p-3 text-xs text-white/80">
+            <div className="rounded-xl bg-white/[0.06] p-3 text-xs text-white/80">
               <CircleOff className="mb-1 h-4 w-4 text-rose-200" />
               Remedial muestra lo fallado + la nota del examen remedial para cerrar el semestre.
             </div>
@@ -1439,10 +1439,10 @@ export function AcademicoClient() {
             </p>
           </ModalBody>
           <ModalFooter>
-            <Button type="button" variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={() => setPendingDeleteRecord(null)}>
+            <Button type="button" variant="outline" className="bg-white/10 text-white hover:bg-white/15" onClick={() => setPendingDeleteRecord(null)}>
               Cancelar
             </Button>
-            <Button type="button" className="border border-rose-400/50 bg-rose-500/80 text-white hover:bg-rose-500" onClick={confirmDeleteRecord}>
+            <Button type="button" className="bg-rose-500/80 text-white hover:bg-rose-500" onClick={confirmDeleteRecord}>
               <Trash2 className="h-4 w-4" />
               Eliminar
             </Button>
@@ -1471,10 +1471,10 @@ export function AcademicoClient() {
             </p>
           </ModalBody>
           <ModalFooter>
-            <Button type="button" variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={() => setPendingDeleteSemesterId(null)}>
+            <Button type="button" variant="outline" className="bg-white/10 text-white hover:bg-white/15" onClick={() => setPendingDeleteSemesterId(null)}>
               Cancelar
             </Button>
-            <Button type="button" className="border border-rose-400/50 bg-rose-500/80 text-white hover:bg-rose-500" onClick={confirmDeleteSemester}>
+            <Button type="button" className="bg-rose-500/80 text-white hover:bg-rose-500" onClick={confirmDeleteSemester}>
               <Trash2 className="h-4 w-4" />
               Eliminar semestre
             </Button>

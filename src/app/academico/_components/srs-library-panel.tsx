@@ -21,7 +21,7 @@ export function SrsLibraryPanel({ subjectSlug, decks, cards }: Props) {
   const subjectCards = cards.filter((card) => card.subjectSlug === subjectSlug);
 
   return (
-    <div className="rounded-2xl border border-white/20 bg-white/6 p-4">
+    <div className="rounded-2xl bg-white/[0.04] p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Library className="h-4 w-4 text-emerald-200" />
@@ -34,7 +34,7 @@ export function SrsLibraryPanel({ subjectSlug, decks, cards }: Props) {
         </div>
         <Link
           href="/srs"
-          className="inline-flex items-center gap-1 rounded-md border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] text-white hover:bg-white/15"
+          className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2.5 py-1 text-[11px] text-white hover:bg-white/15"
         >
           <Brain className="h-3.5 w-3.5" />
           Ir a SRS
@@ -42,7 +42,7 @@ export function SrsLibraryPanel({ subjectSlug, decks, cards }: Props) {
       </div>
 
       {!subjectDecks.length ? (
-        <div className="mt-3 rounded-xl border border-dashed border-white/20 bg-white/5 p-3 text-xs text-white/60">
+        <div className="mt-3 rounded-xl bg-white/[0.03] p-3 text-xs text-white/55">
           Esta materia aún no tiene decks SRS. Crea uno desde <Link href="/srs" className="underline">SRS</Link>.
         </div>
       ) : (
@@ -51,7 +51,7 @@ export function SrsLibraryPanel({ subjectSlug, decks, cards }: Props) {
             const deckCards = subjectCards.filter((card) => card.deckId === deck.id);
             const due = deckCards.filter(isDueToday).length;
             return (
-              <li key={deck.id} className="rounded-xl border border-white/15 bg-white/8 p-3">
+              <li key={deck.id} className="rounded-xl bg-white/[0.06] p-3 transition-colors hover:bg-white/[0.08]">
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <div className="text-sm font-semibold text-white">{deck.name}</div>
@@ -61,7 +61,7 @@ export function SrsLibraryPanel({ subjectSlug, decks, cards }: Props) {
                   </div>
                   <Link
                     href={`/srs?deck=${encodeURIComponent(deck.id)}`}
-                    className="inline-flex items-center gap-1 rounded-md border border-white/25 bg-white/10 px-2 py-1 text-[11px] text-white hover:bg-white/15"
+                    className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-[11px] text-white hover:bg-white/15"
                   >
                     <Brain className="h-3.5 w-3.5" />
                     Practicar

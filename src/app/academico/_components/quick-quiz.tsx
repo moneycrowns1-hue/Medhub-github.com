@@ -61,12 +61,12 @@ export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose, ope
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Título del quiz"
-            className="h-9 rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+            className="h-9 rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
           />
           <select
             value={blockKey}
             onChange={(event) => setBlockKey(event.target.value)}
-            className="h-9 rounded-lg border border-white/25 bg-white/8 px-2.5 text-sm text-white outline-none"
+            className="h-9 rounded-lg bg-white/[0.06] px-2.5 text-sm text-white outline-none focus:bg-white/[0.09]"
           >
             {availableBlocks.map((block) => {
               const key = `${block.blockType}:${block.blockIndex ?? "x"}`;
@@ -77,7 +77,7 @@ export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose, ope
 
         <ul className="mt-3 space-y-2 max-h-[260px] overflow-y-auto pr-1" data-quickquiz-list>
           {questions.map((question, idx) => (
-            <li key={question.id} className="rounded-lg border border-white/15 bg-white/8 p-2.5">
+            <li key={question.id} className="rounded-lg bg-white/[0.06] p-2.5">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-white/60">#{idx + 1}</span>
                 <input
@@ -86,11 +86,11 @@ export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose, ope
                     setQuestions((prev) => prev.map((q) => (q.id === question.id ? { ...q, prompt: event.target.value } : q)))
                   }
                   placeholder="Pregunta"
-                  className="h-8 flex-1 rounded-md border border-white/25 bg-white/6 px-2 text-sm text-white outline-none"
+                  className="h-8 flex-1 rounded-md bg-white/[0.06] px-2 text-sm text-white outline-none focus:bg-white/[0.09]"
                 />
                 <button
                   type="button"
-                  className="rounded-md border border-white/20 bg-black/25 p-1.5 text-white/75 hover:bg-white/15"
+                  className="rounded-md bg-white/[0.06] p-1.5 text-white/75 hover:bg-white/15 hover:text-white"
                   onClick={() => setQuestions((prev) => prev.filter((q) => q.id !== question.id))}
                   title="Eliminar"
                 >
@@ -100,7 +100,7 @@ export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose, ope
               <div className="mt-1.5 flex items-center gap-2 text-[11px]">
                 <button
                   type="button"
-                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 ${question.correct === true ? "border-emerald-300/50 bg-emerald-400/20 text-emerald-100" : "border-white/20 bg-white/8 text-white/75"}`}
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 ${question.correct === true ? "bg-emerald-400/20 text-emerald-100" : "bg-white/[0.06] text-white/75 hover:bg-white/10"}`}
                   onClick={() => setQuestions((prev) => prev.map((q) => (q.id === question.id ? { ...q, correct: true } : q)))}
                 >
                   <CheckCircle2 className="h-3 w-3" />
@@ -108,7 +108,7 @@ export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose, ope
                 </button>
                 <button
                   type="button"
-                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 ${question.correct === false ? "border-rose-300/50 bg-rose-400/20 text-rose-100" : "border-white/20 bg-white/8 text-white/75"}`}
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 ${question.correct === false ? "bg-rose-400/20 text-rose-100" : "bg-white/[0.06] text-white/75 hover:bg-white/10"}`}
                   onClick={() => setQuestions((prev) => prev.map((q) => (q.id === question.id ? { ...q, correct: false } : q)))}
                 >
                   <Target className="h-3 w-3" />
@@ -123,7 +123,7 @@ export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose, ope
           <Button
             type="button"
             variant="outline"
-            className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+            className="bg-white/10 text-white hover:bg-white/15"
             onClick={() => setQuestions((prev) => [...prev, { id: uid(), prompt: "", correct: null }])}
           >
             <Plus className="h-4 w-4" />
@@ -135,18 +135,18 @@ export function QuickQuiz({ subjectSlug, semester, availableBlocks, onClose, ope
         </div>
 
         {savedMessage ? (
-          <div className="mt-3 rounded-md border border-emerald-300/30 bg-emerald-400/10 px-2.5 py-1.5 text-[11px] text-emerald-100">
+          <div className="mt-3 rounded-md bg-emerald-400/10 px-2.5 py-1.5 text-[11px] text-emerald-100">
             {savedMessage}
           </div>
         ) : null}
         </ModalBody>
         <ModalFooter>
-          <Button type="button" variant="outline" className="border-white/25 bg-white/10 text-white hover:bg-white/15" onClick={onClose}>
+          <Button type="button" variant="outline" className="bg-white/10 text-white hover:bg-white/15" onClick={onClose}>
             Cerrar
           </Button>
           <Button
             type="button"
-            className="border border-white/25 bg-white text-black hover:bg-white/90"
+            className="bg-white text-black hover:bg-white/90"
             disabled={answered.length === 0 || !selectedBlock}
             onClick={() => {
               if (!selectedBlock) return;

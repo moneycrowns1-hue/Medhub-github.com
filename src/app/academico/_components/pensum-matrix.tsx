@@ -20,19 +20,19 @@ type CellState = "passed" | "passedRemedial" | "failed" | "remedial" | "inProgre
 function cellClasses(state: CellState): string {
   switch (state) {
     case "passed":
-      return "border-emerald-300/40 bg-emerald-400/15 text-emerald-100";
+      return "bg-emerald-400/15 text-emerald-100";
     case "passedRemedial":
-      return "border-cyan-300/40 bg-cyan-400/15 text-cyan-100";
+      return "bg-cyan-400/15 text-cyan-100";
     case "failed":
-      return "border-rose-300/40 bg-rose-400/15 text-rose-100";
+      return "bg-rose-400/15 text-rose-100";
     case "remedial":
-      return "border-amber-300/40 bg-amber-400/15 text-amber-100";
+      return "bg-amber-400/15 text-amber-100";
     case "inProgress":
-      return "border-white/25 bg-white/10 text-white";
+      return "bg-white/10 text-white";
     case "locked":
-      return "border-white/10 bg-white/3 text-white/45";
+      return "bg-white/[0.03] text-white/45";
     default:
-      return "border-white/10 bg-white/4 text-white/35";
+      return "bg-white/[0.04] text-white/35";
   }
 }
 
@@ -46,7 +46,7 @@ export function PensumMatrix({ semesters, records, passingGrade, onSelect }: Pro
   const columns = Math.max(1, maxOrder);
 
   return (
-    <div className="rounded-2xl border border-white/20 bg-white/6 p-4">
+    <div className="rounded-2xl bg-white/[0.04] p-4">
       <div className="flex items-center justify-between">
         <div>
           <div className="text-xs uppercase tracking-wider text-white/65">Pensum visual</div>
@@ -92,7 +92,7 @@ export function PensumMatrix({ semesters, records, passingGrade, onSelect }: Pro
                           type="button"
                           disabled={!clickable}
                           onClick={() => clickable && onSelect?.(slug, entry!.semester.id)}
-                          className={`flex h-10 w-full items-center justify-center rounded-md border text-[11px] ${cellClasses(state)} ${clickable ? "hover:brightness-110" : "cursor-default"}`}
+                          className={`flex h-10 w-full items-center justify-center rounded-md text-[11px] ${cellClasses(state)} ${clickable ? "hover:brightness-110" : "cursor-default"}`}
                           title={entry ? `${entry.semester.name} — ${label}` : "Sin semestre"}
                         >
                           {label}
@@ -121,7 +121,7 @@ export function PensumMatrix({ semesters, records, passingGrade, onSelect }: Pro
 
 function Legend({ state, label }: { state: CellState; label: string }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${cellClasses(state)}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${cellClasses(state)}`}>
       <span className="h-2 w-2 rounded-full bg-current" />
       {label}
     </span>
