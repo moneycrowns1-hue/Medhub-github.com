@@ -3424,7 +3424,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
   };
 
   return (
-    <div className={immersiveMode ? "relative min-h-dvh bg-black" : "space-y-8 pb-4"}>
+    <div className={immersiveMode ? "relative min-h-dvh bg-black" : "space-y-4 pb-4"}>
       {!immersiveMode ? (
       <div className="space-y-4 rounded-3xl bg-white/[0.04] p-4 backdrop-blur-xl sm:p-5">
         {!workspaceModeLocked ? (
@@ -3668,7 +3668,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
       {loading ? (
         <div className={`grid ${immersiveMode ? "h-dvh" : "gap-4"} ${showLibraryPane ? "xl:grid-cols-[430px,minmax(0,1.2fr)]" : "xl:grid-cols-1"}`}>
           {showLibraryPane ? (
-            <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
+            <div className="rounded-3xl bg-white/[0.04] p-3 backdrop-blur-xl">
               <div className="mb-3 flex items-center justify-between">
                 <div>
                   <div className="text-[11px] uppercase tracking-[0.16em] text-white/55">Biblioteca</div>
@@ -3677,27 +3677,27 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
               </div>
               <div className="space-y-2">
                 {Array.from({ length: 6 }).map((_, idx) => (
-                  <div key={idx} className="rounded-2xl bg-white/8 p-3">
+                  <div key={idx} className="rounded-2xl bg-white/[0.04] p-3">
                     <Skeleton className="h-10 w-full rounded-xl" />
                   </div>
                 ))}
               </div>
             </div>
           ) : null}
-          <div className={`${immersiveMode ? "bg-black" : "rounded-2xl bg-black/35 p-3 backdrop-blur-xl"}`}>
+          <div className={`${immersiveMode ? "bg-black" : "rounded-2xl bg-white/[0.04] p-3 backdrop-blur-xl"}`}>
             <Skeleton className="h-[520px] w-full rounded-lg" />
           </div>
         </div>
       ) : (
         <div className={`grid ${immersiveMode ? "h-dvh" : "gap-4"} ${showLibraryPane ? "xl:grid-cols-[430px,minmax(0,1.2fr)]" : "xl:grid-cols-1"}`}>
           {showLibraryPane ? (
-            <div className="rounded-[24px] bg-black/35 p-3 backdrop-blur-2xl">
+            <div className="rounded-3xl bg-white/[0.04] p-3 backdrop-blur-xl">
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.16em] text-white/55">Biblioteca</div>
                 <div className="text-sm font-semibold text-white/90">Tarjetas PDF</div>
               </div>
-              <div className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] text-white/75">
+              <div className="rounded-full bg-white/[0.08] px-2.5 py-1 text-[10px] text-white/75">
                 {filtered.length}
               </div>
             </div>
@@ -3734,98 +3734,120 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
                       }}
                       role="button"
                       tabIndex={0}
-                      className={`group w-full rounded-2xl ${libraryVisualMode === "grid" ? "p-2.5" : "p-3"} text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/[0.08] ${
-                        i.id === selectedId ? "bg-white/[0.12]" : "bg-white/[0.04]"
+                      className={`group relative flex gap-3 rounded-2xl p-3 text-left transition-colors ${
+                        i.id === selectedId
+                          ? "bg-white/[0.12] ring-1 ring-white/25"
+                          : "bg-white/[0.04] hover:bg-white/[0.07]"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={bulkSelection.has(i.id)}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                toggleBulkSelection(i.id, e.target.checked);
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="h-3.5 w-3.5 rounded border-white/30 bg-black/30"
-                            />
-                            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white/85">
-                              <FileText className="h-4 w-4" />
-                            </span>
-                            {i.starred ? <Star className="h-3.5 w-3.5 fill-current text-amber-300" /> : null}
-                            <div className="truncate text-sm font-medium text-white">{i.title}</div>
+                      <button
+                        type="button"
+                        aria-label={bulkSelection.has(i.id) ? "Deseleccionar PDF" : "Seleccionar PDF para acciones masivas"}
+                        aria-pressed={bulkSelection.has(i.id)}
+                        title={bulkSelection.has(i.id) ? "Quitar de la selección" : "Seleccionar para mover / etiquetar"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleBulkSelection(i.id, !bulkSelection.has(i.id));
+                        }}
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                          bulkSelection.has(i.id)
+                            ? "bg-white text-black hover:bg-white/90"
+                            : "bg-white/10 text-white/80 hover:bg-white/20 hover:text-white"
+                        }`}
+                      >
+                        <FileText className="h-[18px] w-[18px]" />
+                      </button>
+
+                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            {i.starred ? <Star className="h-3.5 w-3.5 shrink-0 fill-current text-amber-300" /> : null}
+                            <div className="truncate text-sm font-medium leading-snug text-white">{i.title}</div>
                           </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/65">
-                            <span>{Math.round(i.sizeBytes / 1024)} KB · pp. {i.pageStart}–{i.pageEnd}</span>
-                            {i.subjectSlug && SUBJECTS[i.subjectSlug as keyof typeof SUBJECTS] ? (
-                              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/90">
-                                {SUBJECTS[i.subjectSlug as keyof typeof SUBJECTS].name}
-                              </span>
-                            ) : (
-                              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/60">
-                                Sin materia
-                              </span>
-                            )}
-                            {i.folderPath ? (
-                              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] text-white/90">{i.folderPath}</span>
+                          <div className="flex items-center gap-1 opacity-60 transition group-hover:opacity-100">
+                            <button
+                              type="button"
+                              aria-label={i.starred ? "Quitar de favoritos" : "Marcar favorito"}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const next = !i.starred;
+                                const updatedAtMs = Date.now();
+                                setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, starred: next, updatedAtMs } : x)));
+                                void updatePdfResourceMeta(i.id, { starred: next });
+                              }}
+                              disabled={busy}
+                            >
+                              <Star className={`h-3.5 w-3.5 ${i.starred ? "fill-current text-amber-300" : ""}`} />
+                            </button>
+                            {!immersiveMode ? (
+                              <button
+                                type="button"
+                                aria-label="Clasificar PDF"
+                                title="Clasificar"
+                                className="inline-flex h-7 items-center rounded-md px-2 text-[10px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedId(i.id);
+                                }}
+                              >
+                                Clasificar
+                              </button>
                             ) : null}
+                            <Link
+                              href={`/lector?openPdf=${encodeURIComponent(i.id)}`}
+                              onClick={(e) => e.stopPropagation()}
+                              title="Abrir en lector"
+                              className="inline-flex h-7 items-center rounded-md px-2 text-[10px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                            >
+                              Abrir
+                            </Link>
+                            <button
+                              type="button"
+                              aria-label="Eliminar PDF"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-white/60 transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:opacity-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void onDelete(i.id);
+                              }}
+                              disabled={busy}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-white/60">
+                          {i.subjectSlug && SUBJECTS[i.subjectSlug as keyof typeof SUBJECTS] ? (
+                            <span className="truncate rounded-full bg-white/[0.08] px-2 py-0.5 text-white/75">
+                              {SUBJECTS[i.subjectSlug as keyof typeof SUBJECTS].name}
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-white/[0.04] px-2 py-0.5 text-white/55">
+                              Sin materia
+                            </span>
+                          )}
+                          {i.folderPath ? (
+                            <span className="rounded-full bg-white/[0.08] px-2 py-0.5 text-white/70">{i.folderPath}</span>
+                          ) : null}
+                          <span className="tabular-nums text-white/55">
+                            {Math.round(i.sizeBytes / 1024)} KB
+                          </span>
+                          <span className="tabular-nums text-white/55">
+                            pp. {i.pageStart}–{i.pageEnd}
+                          </span>
+                        </div>
+                        {i.tags?.length ? (
+                          <div className="flex flex-wrap gap-1 pt-0.5 text-[10px] text-white/55">
                             {i.tags.slice(0, 3).map((tag) => (
-                              <span key={tag} className="rounded-full bg-white/12 px-2 py-0.5 text-[10px] text-white/85">
+                              <span key={tag} className="rounded-full bg-white/[0.06] px-1.5 py-0.5">
                                 #{tag}
                               </span>
                             ))}
+                            {i.tags.length > 3 ? (
+                              <span className="text-white/40">+{i.tags.length - 3}</span>
+                            ) : null}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 opacity-80 transition group-hover:opacity-100">
-                          {!immersiveMode ? (
-                            <button
-                              type="button"
-                              className="inline-flex h-8 items-center rounded-md bg-white/[0.06] px-2 text-[11px] text-white transition-colors hover:bg-white/10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedId(i.id);
-                              }}
-                            >
-                              Clasificar
-                            </button>
-                          ) : null}
-                          <Link
-                            href={`/lector?openPdf=${encodeURIComponent(i.id)}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex h-8 items-center rounded-md bg-white/[0.06] px-2 text-[10px] text-white transition-colors hover:bg-white/10"
-                          >
-                            Abrir
-                          </Link>
-                          <button
-                            type="button"
-                            aria-label={i.starred ? "Quitar de favoritos" : "Marcar favorito"}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.06] text-white transition-colors hover:bg-white/10 disabled:opacity-50"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const next = !i.starred;
-                              const updatedAtMs = Date.now();
-                              setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, starred: next, updatedAtMs } : x)));
-                              void updatePdfResourceMeta(i.id, { starred: next });
-                            }}
-                            disabled={busy}
-                          >
-                            <Star className={`h-4 w-4 ${i.starred ? "fill-current text-amber-300" : ""}`} />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Eliminar PDF"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.06] text-white transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:opacity-50"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void onDelete(i.id);
-                            }}
-                            disabled={busy}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                        ) : null}
                       </div>
                     </div>
                   ))}
