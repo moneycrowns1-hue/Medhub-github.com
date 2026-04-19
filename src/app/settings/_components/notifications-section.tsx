@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import { Bell, BellOff, Check, CircleAlert, Clock, Send } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import {
   DEFAULT_NOTIFICATIONS_PREFS,
@@ -38,7 +37,7 @@ function ToggleRow({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <label className="flex items-start justify-between gap-3 rounded-xl border border-white/15 bg-white/5 p-3">
+    <label className="flex items-start justify-between gap-3 rounded-xl bg-white/[0.04] p-3">
       <div className="min-w-0">
         <div className="text-sm font-medium text-white">{label}</div>
         {desc ? <div className="mt-0.5 text-xs text-white/65">{desc}</div> : null}
@@ -189,12 +188,12 @@ export function NotificationsSection() {
 
   const permClass =
     permission === "granted"
-      ? "border-emerald-300/45 bg-emerald-400/15 text-emerald-100"
+      ? "bg-emerald-400/15 text-emerald-100"
       : permission === "denied"
-      ? "border-rose-300/45 bg-rose-400/15 text-rose-100"
+      ? "bg-rose-400/15 text-rose-100"
       : permission === "unsupported"
-      ? "border-white/20 bg-white/10 text-white/70"
-      : "border-amber-300/45 bg-amber-400/15 text-amber-100";
+      ? "bg-white/[0.08] text-white/70"
+      : "bg-amber-400/15 text-amber-100";
 
   return (
     <section ref={rootRef} className="space-y-4">
@@ -205,7 +204,7 @@ export function NotificationsSection() {
 
       <div
         data-notif-card
-        className="space-y-5 rounded-2xl border border-white/20 bg-white/5 p-6 backdrop-blur-xl"
+        className="space-y-5 rounded-2xl bg-white/[0.04] p-6 backdrop-blur-xl"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -217,7 +216,7 @@ export function NotificationsSection() {
             <span className="text-sm font-medium">Permiso del navegador:</span>
             <span
               ref={permChipRef}
-              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${permClass}`}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${permClass}`}
             >
               {permission === "granted" ? <Check className="h-3 w-3" /> : <CircleAlert className="h-3 w-3" />}
               {permLabel}
@@ -225,25 +224,24 @@ export function NotificationsSection() {
           </div>
           <div className="flex gap-2">
             {permission !== "granted" && permission !== "unsupported" ? (
-              <Button
+              <button
                 type="button"
-                className="border border-white/25 bg-white text-black hover:bg-white/90"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-3 text-xs font-medium text-black transition-colors hover:bg-white/90"
                 onClick={handleRequestPermission}
               >
                 <Bell className="h-4 w-4" />
                 Habilitar
-              </Button>
+              </button>
             ) : null}
-            <Button
+            <button
               type="button"
-              variant="outline"
-              className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white/[0.06] px-3 text-xs text-white transition-colors hover:bg-white/10 disabled:opacity-50"
               onClick={handleTestNotification}
               disabled={permission !== "granted"}
             >
               <Send className="h-4 w-4" />
               Probar
-            </Button>
+            </button>
           </div>
         </div>
 
@@ -257,7 +255,7 @@ export function NotificationsSection() {
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div data-notif-row className="space-y-3 rounded-xl border border-white/15 bg-white/5 p-4">
+          <div data-notif-row className="space-y-3 rounded-xl bg-white/[0.04] p-4">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Clock className="h-4 w-4 text-white/85" />
@@ -279,12 +277,12 @@ export function NotificationsSection() {
                 type="time"
                 value={draft.dailyPlanTime}
                 onChange={(e) => setDraft((p) => ({ ...p, dailyPlanTime: e.target.value }))}
-                className="h-10 w-full rounded-lg border border-white/25 bg-white/8 px-3 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                className="h-10 w-full rounded-lg bg-white/[0.06] px-3 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-white/20"
               />
             </label>
           </div>
 
-          <div data-notif-row className="space-y-3 rounded-xl border border-white/15 bg-white/5 p-4">
+          <div data-notif-row className="space-y-3 rounded-xl bg-white/[0.04] p-4">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <CircleAlert className="h-4 w-4 text-white/85" />
@@ -306,7 +304,7 @@ export function NotificationsSection() {
                 type="time"
                 value={draft.evaluationsTime}
                 onChange={(e) => setDraft((p) => ({ ...p, evaluationsTime: e.target.value }))}
-                className="h-10 w-full rounded-lg border border-white/25 bg-white/8 px-3 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                className="h-10 w-full rounded-lg bg-white/[0.06] px-3 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-white/20"
               />
             </label>
             <div className="space-y-1">
@@ -319,10 +317,10 @@ export function NotificationsSection() {
                       key={day}
                       type="button"
                       onClick={() => toggleDayBefore(day)}
-                      className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
                         active
-                          ? "border-white/45 bg-white text-black"
-                          : "border-white/25 bg-white/10 text-white/80 hover:bg-white/15"
+                          ? "bg-white text-black"
+                          : "bg-white/[0.06] text-white/80 hover:bg-white/10"
                       }`}
                     >
                       {day === 0 ? "El día" : `${day} d antes`}
@@ -335,20 +333,21 @@ export function NotificationsSection() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button
-            className="border border-white/25 bg-white text-black hover:bg-white/90"
+          <button
+            type="button"
+            className="inline-flex h-9 items-center rounded-xl bg-white px-4 text-xs font-medium text-black transition-colors hover:bg-white/90 disabled:opacity-50"
             onClick={handleSave}
             disabled={!dirty}
           >
             Guardar
-          </Button>
-          <Button
-            variant="outline"
-            className="border-white/25 bg-white/10 text-white hover:bg-white/15"
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-9 items-center rounded-xl bg-white/[0.06] px-4 text-xs text-white transition-colors hover:bg-white/10"
             onClick={handleReset}
           >
             Restablecer
-          </Button>
+          </button>
         </div>
       </div>
     </section>

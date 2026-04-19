@@ -3515,15 +3515,6 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
           >
             {listMode === "flat" ? "Lista" : "Carpetas"}
           </button>
-          <button
-            type="button"
-            aria-label="Alternar vista grid/lista"
-            title={libraryVisualMode === "grid" ? "Cambiar a lista" : "Cambiar a grid"}
-            className="inline-flex h-9 items-center rounded-xl bg-white/[0.06] px-3 text-xs text-white transition-colors hover:bg-white/10"
-            onClick={() => setLibraryVisualMode((prev) => (prev === "grid" ? "list" : "grid"))}
-          >
-            {libraryVisualMode === "grid" ? "Grid" : "Lista"}
-          </button>
           <input
             ref={fileRef}
             type="file"
