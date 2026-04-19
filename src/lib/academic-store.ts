@@ -545,7 +545,7 @@ const ACADEMIC_UI_KEY = "somagnus:academic:ui:v1";
 export type AcademicUiContext = {
   lastSubject: AcademicSubjectSlug;
   lastSemesterIdBySubject: Partial<Record<AcademicSubjectSlug, string>>;
-  lastViewMode: "gestion" | "repaso";
+  lastViewMode: "resumen" | "gestion" | "repaso";
 };
 
 function defaultUiContext(): AcademicUiContext {
@@ -559,7 +559,12 @@ function defaultUiContext(): AcademicUiContext {
 export function loadAcademicUiContext(): AcademicUiContext {
   const raw = readStorage<Partial<AcademicUiContext>>(ACADEMIC_UI_KEY, defaultUiContext());
   const lastSubject = raw?.lastSubject && isAcademicSubjectSlug(raw.lastSubject) ? raw.lastSubject : "anatomia";
-  const lastViewMode = raw?.lastViewMode === "repaso" ? "repaso" : "gestion";
+  const lastViewMode =
+    raw?.lastViewMode === "repaso"
+      ? "repaso"
+      : raw?.lastViewMode === "resumen"
+        ? "resumen"
+        : "gestion";
   const lastSemesterIdBySubject: AcademicUiContext["lastSemesterIdBySubject"] = {};
   if (raw?.lastSemesterIdBySubject && typeof raw.lastSemesterIdBySubject === "object") {
     for (const slug of ACADEMIC_MEDICAL_SUBJECTS) {
@@ -576,7 +581,10 @@ export function saveAcademicUiContext(patch: Partial<AcademicUiContext>) {
   const current = loadAcademicUiContext();
   const merged: AcademicUiContext = {
     lastSubject: patch.lastSubject && isAcademicSubjectSlug(patch.lastSubject) ? patch.lastSubject : current.lastSubject,
-    lastViewMode: patch.lastViewMode === "repaso" || patch.lastViewMode === "gestion" ? patch.lastViewMode : current.lastViewMode,
+    lastViewMode:
+      patch.lastViewMode === "repaso" || patch.lastViewMode === "gestion" || patch.lastViewMode === "resumen"
+        ? patch.lastViewMode
+        : current.lastViewMode,
     lastSemesterIdBySubject: {
       ...current.lastSemesterIdBySubject,
       ...(patch.lastSemesterIdBySubject ?? {}),

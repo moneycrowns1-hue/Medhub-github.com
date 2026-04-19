@@ -9,17 +9,20 @@ import {
   Brain,
   CheckCircle2,
   CircleOff,
+  Download,
   Filter,
-  GraduationCap,
   Info,
   Pencil,
   Plus,
   Target,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
+import gsap from "gsap";
 
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ACADEMIC_MEDICAL_SUBJECTS,
   ACADEMIC_UPDATED_EVENT,
@@ -78,7 +81,13 @@ const DIFFICULTY_OPTIONS: Array<{ value: AcademicDifficulty; label: string }> = 
   { value: "alta", label: "Alta" },
 ];
 
-type ViewMode = "gestion" | "repaso";
+type ViewMode = "resumen" | "gestion" | "repaso";
+
+const VIEW_MODE_LABEL: Record<ViewMode, string> = {
+  resumen: "Resumen",
+  gestion: "Semestres",
+  repaso: "Repaso",
+};
 type RecordSort = "oldest" | "newest";
 type SemesterBlockRef = { blockType: AcademicBlockType; blockIndex: number | null };
 
@@ -368,7 +377,7 @@ function RecordForm({
 export function AcademicoClient() {
   const initialUi = useMemo(() => {
     if (typeof window === "undefined") {
-      return { lastSubject: "anatomia" as AcademicSubjectSlug, lastSemesterIdBySubject: {}, lastViewMode: "gestion" as ViewMode };
+      return { lastSubject: "anatomia" as AcademicSubjectSlug, lastSemesterIdBySubject: {}, lastViewMode: "resumen" as ViewMode };
     }
     return loadAcademicUiContext();
   }, []);
@@ -453,7 +462,9 @@ export function AcademicoClient() {
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (isTypingTarget(event.target)) return;
-      if (event.key === "g" || event.key === "G") {
+      if (event.key === "s" || event.key === "S") {
+        setViewMode("resumen");
+      } else if (event.key === "g" || event.key === "G") {
         setViewMode("gestion");
       } else if (event.key === "r" || event.key === "R") {
         setViewMode("repaso");
@@ -762,162 +773,178 @@ export function AcademicoClient() {
     });
   };
 
+  const titleRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    gsap.fromTo(
+      el,
+      { y: 8, opacity: 0, letterSpacing: "0.1em" },
+      { y: 0, opacity: 1, letterSpacing: "0em", duration: 0.45, ease: "power3.out" },
+    );
+  }, [viewMode]);
+
+  const handleImportFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const result = importAcademicData(parsed);
+      if (!result.ok) {
+        toast.error(result.error, "Error al importar");
+      } else {
+        toast.success("Datos importados correctamente.", "Importación");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "JSON inválido", "Error al importar");
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl bg-white/[0.04] p-6 backdrop-blur-xl">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-3 py-1 text-xs text-white/75">
-              <GraduationCap className="h-3.5 w-3.5" />
-              Sección académica
+      <Tabs
+        value={viewMode}
+        onValueChange={(next) => setViewMode(next as ViewMode)}
+        className="w-full space-y-6"
+      >
+        {/* Compact topbar: subject + passing grade · import/export icons · animated title + tabs */}
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="space-y-1">
+                <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">Materia</div>
+                <select
+                  value={subject}
+                  onChange={(event) => {
+                    const nextSubject = event.target.value as AcademicSubjectSlug;
+                    setSubject(nextSubject);
+                    const ui = loadAcademicUiContext();
+                    setSelectedSemesterId(ui.lastSemesterIdBySubject[nextSubject] ?? null);
+                    setReviewSemesterFilter("all");
+                    cancelEditRecord();
+                  }}
+                  className="h-9 rounded-xl bg-white/[0.06] px-3 text-sm text-white outline-none focus:bg-white/[0.09]"
+                  title="Materia académica (cátedra fija)"
+                >
+                  {ACADEMIC_MEDICAL_SUBJECTS.map((slug) => (
+                    <option key={slug} value={slug}>{SUBJECTS[slug].name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">Nota mínima</div>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  step="0.1"
+                  value={passingGradeInput}
+                  onChange={(event) => setPassingGradeDraft(event.target.value)}
+                  onBlur={handlePassingGradeBlur}
+                  className="h-9 w-24 rounded-xl bg-white/[0.06] px-3 text-sm text-white outline-none focus:bg-white/[0.09]"
+                  title="Nota mínima aprobatoria"
+                />
+              </label>
             </div>
-            <h1 className="mt-2 text-2xl font-bold text-white">Académico</h1>
-            <p className="mt-1 text-sm text-white/70">
-              Organiza tus semestres por materia fija de medicina, con parciales, final, remedial condicional y modo repaso.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${viewMode === "gestion" ? "bg-white text-black hover:bg-white/90" : "bg-white/[0.06] text-white hover:bg-white/10"}`}
-              onClick={() => setViewMode("gestion")}
-            >
-              Gestión académica
-            </button>
-            <button
-              type="button"
-              className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${viewMode === "repaso" ? "bg-white text-black hover:bg-white/90" : "bg-white/[0.06] text-white hover:bg-white/10"}`}
-              onClick={() => setViewMode("repaso")}
-            >
-              Modo repaso
-            </button>
-            <button
-              type="button"
-              className="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs text-white hover:bg-white/10"
-              onClick={() => downloadAcademicExport()}
-              title="Exportar datos académicos"
-            >
-              Exportar
-            </button>
-            <label className="cursor-pointer rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs text-white hover:bg-white/10">
-              Importar
-              <input
-                type="file"
-                accept="application/json"
-                className="hidden"
-                onChange={async (event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = "";
-                  if (!file) return;
-                  try {
-                    const text = await file.text();
-                    const parsed = JSON.parse(text);
-                    const result = importAcademicData(parsed);
-                    if (!result.ok) {
-                      toast.error(result.error, "Error al importar");
-                    } else {
-                      toast.success("Datos importados correctamente.", "Importación");
-                    }
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "JSON inválido", "Error al importar");
-                  }
-                }}
-              />
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl bg-white/[0.04] p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Award className="h-4 w-4 text-amber-200" />
-            <div>
-              <div className="text-xs uppercase tracking-wider text-white/65">Índice académico</div>
-              <div className="text-sm font-semibold text-white">
-                Global: {globalGpa.overallAverage !== null ? globalGpa.overallAverage.toFixed(2) : "—"} · Aprobados {globalGpa.passedSemesters}/{globalGpa.totalSemesters}
-              </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => downloadAcademicExport()}
+                title="Exportar datos académicos (JSON)"
+                aria-label="Exportar datos académicos"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <Download className="h-4 w-4" />
+              </button>
+              <label
+                title="Importar datos académicos (JSON)"
+                aria-label="Importar datos académicos"
+                className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-white/[0.06] text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <Upload className="h-4 w-4" />
+                <input
+                  type="file"
+                  accept="application/json"
+                  className="hidden"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (!file) return;
+                    await handleImportFile(file);
+                  }}
+                />
+              </label>
             </div>
           </div>
-        </div>
-        <div className="mt-3 grid gap-2 md:grid-cols-4">
-          {globalGpa.subjects.map((item) => (
-            <div key={item.subjectSlug} className="rounded-xl bg-white/[0.06] px-3 py-2">
-              <div className="text-[11px] uppercase tracking-wider text-white/60">{SUBJECTS[item.subjectSlug].name}</div>
-              <div className="mt-1 text-sm font-semibold text-white">
-                {item.average !== null ? item.average.toFixed(2) : "—"}
-              </div>
-              <div className="text-[11px] text-white/65">
-                {item.semestersCompleted} cerrados · {item.semestersPassed} aprobados
-              </div>
+
+          <div className="grid items-center gap-4 lg:grid-cols-[1fr,auto,1fr]">
+            <div className="hidden lg:block" />
+            <div
+              ref={titleRef}
+              className="hidden min-w-0 truncate text-center text-3xl font-bold tracking-tight text-white/90 lg:block xl:text-4xl"
+            >
+              {VIEW_MODE_LABEL[viewMode]}
             </div>
-          ))}
-        </div>
-      </div>
-
-      <GamificationPanel refreshKey={refreshTick} />
-
-      <div className="grid gap-3 lg:grid-cols-2">
-        <PensumMatrix
-          semesters={snapshot.semesters}
-          records={snapshot.records}
-          passingGrade={snapshot.config.passingGrade}
-          onSelect={(subjectSlug, semesterId) => {
-            setSubject(subjectSlug as AcademicSubjectSlug);
-            setSelectedSemesterId(semesterId);
-            setViewMode("gestion");
-          }}
-        />
-        <AgendaPanel events={upcomingEvaluations} />
-      </div>
-
-      <SrsLibraryPanel subjectSlug={subject} decks={srsLib.decks} cards={srsLib.cards} />
-
-      <div className="grid gap-3 rounded-2xl bg-white/[0.04] p-4 md:grid-cols-3">
-        <label className="space-y-1">
-          <div className="text-xs uppercase tracking-wider text-white/65">Materia (cátedra fija)</div>
-          <select
-            value={subject}
-            onChange={(event) => {
-              const nextSubject = event.target.value as AcademicSubjectSlug;
-              setSubject(nextSubject);
-              const ui = loadAcademicUiContext();
-              setSelectedSemesterId(ui.lastSemesterIdBySubject[nextSubject] ?? null);
-              setReviewSemesterFilter("all");
-              cancelEditRecord();
-            }}
-            className="h-10 w-full rounded-xl bg-white/[0.06] px-3 text-sm text-white outline-none focus:bg-white/[0.09]"
-          >
-            {ACADEMIC_MEDICAL_SUBJECTS.map((slug) => (
-              <option key={slug} value={slug}>{SUBJECTS[slug].name}</option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-1">
-          <div className="text-xs uppercase tracking-wider text-white/65">Nota mínima aprobatoria</div>
-          <input
-            type="number"
-            min={1}
-            max={10}
-            step="0.1"
-            value={passingGradeInput}
-            onChange={(event) => setPassingGradeDraft(event.target.value)}
-            onBlur={handlePassingGradeBlur}
-            className="h-10 w-full rounded-xl bg-white/[0.06] px-3 text-sm text-white outline-none focus:bg-white/[0.09]"
-          />
-        </label>
-
-        <div className="rounded-xl bg-white/[0.06] px-3 py-2">
-          <div className="text-xs uppercase tracking-wider text-white/65">Regla activa</div>
-          <div className="mt-1 text-sm text-white/85">
-            Promedio parciales + final. Si nota final &lt; {snapshot.config.passingGrade.toFixed(1)} aparece remedial.
+            <div className="flex justify-start lg:justify-end">
+              <TabsList className="bg-white/5 backdrop-blur-sm">
+                <TabsTrigger value="resumen">Resumen</TabsTrigger>
+                <TabsTrigger value="gestion">Semestres</TabsTrigger>
+                <TabsTrigger value="repaso">Repaso</TabsTrigger>
+              </TabsList>
+            </div>
           </div>
         </div>
-      </div>
 
-      {viewMode === "gestion" ? (
+        <TabsContent value="resumen" className="space-y-4">
+          <div className="rounded-2xl bg-white/[0.04] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Award className="h-4 w-4 text-amber-200" />
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-white/65">Índice académico</div>
+                  <div className="text-sm font-semibold text-white">
+                    Global: {globalGpa.overallAverage !== null ? globalGpa.overallAverage.toFixed(2) : "—"} · Aprobados {globalGpa.passedSemesters}/{globalGpa.totalSemesters}
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] text-white/70">
+                Regla: promedio parciales + final · si final &lt; {snapshot.config.passingGrade.toFixed(1)} ⇒ remedial
+              </div>
+            </div>
+            <div className="mt-3 grid gap-2 md:grid-cols-4">
+              {globalGpa.subjects.map((item) => (
+                <div key={item.subjectSlug} className="rounded-xl bg-white/[0.06] px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wider text-white/60">{SUBJECTS[item.subjectSlug].name}</div>
+                  <div className="mt-1 text-sm font-semibold text-white">
+                    {item.average !== null ? item.average.toFixed(2) : "—"}
+                  </div>
+                  <div className="text-[11px] text-white/65">
+                    {item.semestersCompleted} cerrados · {item.semestersPassed} aprobados
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <GamificationPanel refreshKey={refreshTick} />
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <PensumMatrix
+              semesters={snapshot.semesters}
+              records={snapshot.records}
+              passingGrade={snapshot.config.passingGrade}
+              onSelect={(subjectSlug, semesterId) => {
+                setSubject(subjectSlug as AcademicSubjectSlug);
+                setSelectedSemesterId(semesterId);
+                setViewMode("gestion");
+              }}
+            />
+            <AgendaPanel events={upcomingEvaluations} />
+          </div>
+
+          <SrsLibraryPanel subjectSlug={subject} decks={srsLib.decks} cards={srsLib.cards} />
+        </TabsContent>
+
+        <TabsContent value="gestion" className="space-y-4">
         <div className="grid gap-4 lg:grid-cols-[360px,1fr]">
           <div className="space-y-3 rounded-2xl bg-white/[0.04] p-4">
             <div className="flex items-center justify-between">
@@ -1264,7 +1291,9 @@ export function AcademicoClient() {
             )}
           </div>
         </div>
-      ) : (
+        </TabsContent>
+
+        <TabsContent value="repaso" className="space-y-4">
         <div className="space-y-4 rounded-2xl bg-white/[0.04] p-4">
           <div className="grid gap-2 md:grid-cols-4">
             <label className="space-y-1">
@@ -1416,7 +1445,8 @@ export function AcademicoClient() {
             </div>
           </div>
         </div>
-      )}
+        </TabsContent>
+      </Tabs>
 
       <Modal
         open={!!pendingDeleteRecord}
