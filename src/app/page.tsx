@@ -4,8 +4,6 @@ import {
   BookOpen,
   Brain,
   CalendarDays,
-  GraduationCap,
-  Layers,
   Settings,
   Sparkles,
 } from "lucide-react";
@@ -16,6 +14,7 @@ import { StartStudyLink } from "@/components/start-study-link";
 import { HomeStatsChips } from "@/app/home-stats-chips";
 import { HomeNextEvalCard } from "@/app/home-next-eval-card";
 import { HomeMotion } from "@/app/home-motion";
+import { HomeTodayDashboard } from "@/app/home-today-dashboard";
 import { isoDate } from "@/lib/dates";
 import { getPlanForDate, formatPlanSummary } from "@/lib/schedule";
 
@@ -104,98 +103,20 @@ export default function Home() {
         <HomeNextEvalCard />
       </section>
 
-      {/* ── MÓDULOS DEL DÍA ── */}
-      <section className="space-y-6">
-        <div className="space-y-1">
-          <div className="text-xs font-medium uppercase tracking-widest text-white/70">Módulos</div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">Estudio del día</h2>
-          <p className="text-sm text-muted-foreground">
-            Las materias programadas y tus herramientas de productividad.
-          </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            {
-              icon: <GraduationCap className="h-7 w-7" />,
-              title: summary.primaryName,
-              desc: "Materia principal del día",
-              badge: "Principal",
-              href: `/study/${plan.primary}`,
-            },
-            {
-              icon: <Layers className="h-7 w-7" />,
-              title: summary.secondaryName,
-              desc: "Materia complementaria",
-              badge: "Secundaria",
-              href: `/study/${plan.secondary}`,
-            },
-            {
-              icon: <Brain className="h-7 w-7" />,
-              title: "Repetición espaciada",
-              desc: "Flashcards y cloze del día",
-              badge: "SRS",
-              href: "/srs",
-            },
-          ]
-            .filter((mod) => (summary.isRestDay ? mod.badge === "SRS" : true))
-            .map((mod) => (
-            <Link
-              key={mod.title}
-              href={mod.href}
-              data-home-module
-              className="group relative flex flex-col gap-4 overflow-hidden rounded-2xl bg-white/[0.04] p-6 text-white backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.07]"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.1] text-white">
-                  {mod.icon}
-                </div>
-                <span className="rounded-full bg-white/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/85">
-                  {mod.badge}
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                <div className="text-2xl font-bold leading-tight tracking-tight text-white">{mod.title}</div>
-                <div className="flex items-center gap-1.5 text-xs text-white/60">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  {mod.desc}
-                </div>
-              </div>
-              <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-3">
-                <span className="text-xs font-medium text-white/80">Abrir</span>
-                <ArrowRight className="h-4 w-4 text-white/70 transition-transform group-hover:translate-x-1 group-hover:text-white" />
-              </div>
-            </Link>
-            ))}
-        </div>
-      </section>
+      {/* ── RESUMEN DE HOY (dashboard compacto) ── */}
+      <HomeTodayDashboard
+        primaryHref={`/study/${plan.primary}`}
+        primaryName={summary.primaryName}
+        secondaryHref={`/study/${plan.secondary}`}
+        secondaryName={summary.secondaryName}
+        reading={summary.reading}
+        isRestDay={summary.isRestDay}
+      />
 
       {/* ── TABLERO + POMODORO ── */}
       <section id="pomodoro" className="grid gap-6 lg:grid-cols-[1fr,340px]">
         <div className="space-y-6">
           <ClinicalBoard date={todayIso} />
-
-          {/* ── LECTURA ── */}
-          <div className="rounded-2xl bg-white/[0.04] p-6 text-white backdrop-blur-xl">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.1] text-white">
-                <BookOpen className="h-7 w-7" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-medium uppercase tracking-wider text-white/60">Lectura del día</div>
-                <div className="text-2xl font-bold leading-tight tracking-tight text-white">{summary.reading}</div>
-              </div>
-            </div>
-            <div className="mt-4 text-sm text-white/70">
-              20–40 min de lectura enfocada. Sin multitarea. Subrayá y generá flashcards después.
-            </div>
-            <Link
-              href="/biblioteca"
-              className="group mt-4 inline-flex items-center gap-2 text-sm font-medium text-white transition-colors hover:text-white/85"
-            >
-              Ir a Biblioteca <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
         </div>
 
         <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
