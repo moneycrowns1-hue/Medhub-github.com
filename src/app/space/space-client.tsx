@@ -459,17 +459,39 @@ export function SpaceClient() {
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const menuCardRef = useRef<HTMLDivElement | null>(null);
   const menuItemsRef = useRef<Array<HTMLButtonElement | null>>([]);
+  const menuBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (!headerMenuOpen) {
+      setMenuPos(null);
+      return;
+    }
+    const update = () => {
+      const btn = menuBtnRef.current;
+      if (!btn) return;
+      const rect = btn.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 12, right: Math.max(8, window.innerWidth - rect.right) });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, { passive: true });
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update);
+    };
+  }, [headerMenuOpen]);
 
   useEffect(() => {
     if (!headerMenuOpen) return;
     const card = menuCardRef.current;
     const items = menuItemsRef.current.filter(Boolean) as HTMLButtonElement[];
     if (!card) return;
-    const tl = gsap.timeline();
+    const tl = gsap.timeline({ defaults: { force3D: true } });
     tl.fromTo(
       card,
       { y: -8, opacity: 0, transformOrigin: "top right" },
-      { y: 0, opacity: 1, duration: 0.5, ease: "power2.out", clearProps: "transform" },
+      { y: 0, opacity: 1, duration: 0.5, ease: "power2.out", clearProps: "transform,willChange" },
     );
     if (items.length) {
       tl.fromTo(
@@ -479,9 +501,9 @@ export function SpaceClient() {
           y: 0,
           opacity: 1,
           duration: 0.45,
-          stagger: 0.07,
+          stagger: 0.06,
           ease: "power2.out",
-          clearProps: "transform",
+          clearProps: "transform,willChange",
         },
         "-=0.3",
       );
@@ -1006,9 +1028,9 @@ export function SpaceClient() {
         <Cloud className="absolute left-[38%] bottom-[200px]" size={100} opacity={0.55} />
         <Cloud className="absolute right-[28%] bottom-[260px]" size={120} opacity={0.6} />
       </div>
-      <div className="fixed left-1/2 top-3 z-30 w-[min(96vw,1200px)] -translate-x-1/2">
+      <div className="fixed left-1/2 top-3 z-30 w-[min(94vw,550px)] -translate-x-1/2">
         <div
-          className={`flex items-center justify-between gap-3 rounded-full px-3 py-2 transition-all duration-300 sm:px-4 ${
+          className={`flex items-center justify-between gap-3 rounded-full px-4 py-3 transition-[background-color,box-shadow] duration-300 sm:px-5 ${
             stickyHeaderSolid
               ? "border border-white/70 bg-white/75 shadow-[0_10px_30px_-18px_rgba(27,43,68,0.35)] backdrop-blur-md"
               : "border border-white/50 bg-white/50 backdrop-blur-md"
@@ -1017,12 +1039,11 @@ export function SpaceClient() {
           <Link
             href="/"
             aria-label="Volver a inicio"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/70 text-[#1B2B44] transition hover:border-[#8B82C9]/50 hover:bg-white/90"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/70 text-[#1B2B44] transition hover:bg-white"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 text-base font-semibold tracking-tight text-[#1B2B44] sm:text-lg md:text-xl">
-            <Sparkles className="hidden h-4 w-4 text-[#8B82C9] sm:inline-block" />
+          <div className="inline-flex min-w-0 flex-1 items-center justify-center text-xl font-semibold tracking-tight text-[#1B2B44] sm:text-2xl">
             <span className="truncate">
               Entra en{" "}
               <span className={`${cinzelDisplay} font-bold tracking-[0.08em] text-[#6FB08A]`}>
@@ -1030,79 +1051,82 @@ export function SpaceClient() {
               </span>
             </span>
           </div>
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => setHeaderMenuOpen((prev) => !prev)}
-              aria-expanded={headerMenuOpen}
-              aria-haspopup="menu"
-              aria-label="Secciones"
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition active:scale-95 ${
-                headerMenuOpen
-                  ? "border-white/90 bg-white text-[#1B2B44] shadow-[0_6px_18px_-8px_rgba(27,43,68,0.35)]"
-                  : "border-white/70 bg-white/75 text-[#1B2B44] hover:border-white/90 hover:bg-white"
-              }`}
-            >
-              {headerMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-            </button>
-
-            {headerMenuOpen ? (
-              <>
-                <button
-                  type="button"
-                  aria-label="Cerrar menú"
-                  onClick={() => setHeaderMenuOpen(false)}
-                  className="fixed inset-0 -z-10 cursor-default"
-                />
-                <div
-                  ref={menuCardRef}
-                  role="menu"
-                  className="absolute right-0 top-full z-40 mt-3 w-[min(92vw,320px)] overflow-hidden rounded-3xl border border-white/80 bg-white/95 p-3 shadow-[0_28px_70px_-22px_rgba(27,43,68,0.45)]"
-                >
-                  {/* decorative gradient orb */}
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-gradient-to-br from-[#CFE6FF] to-[#C8E6D2] opacity-70 blur-2xl"
-                  />
-                  <div className="relative flex items-center justify-between px-2 pb-2 pt-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5B6B86]">
-                      Navega
-                    </span>
-                    <span className="inline-flex h-6 items-center rounded-full bg-[#6FB08A]/15 px-2 text-[10px] font-semibold uppercase tracking-widest text-[#3F8A60]">
-                      {SPACE_SECTIONS.length}
-                    </span>
-                  </div>
-                  <ul className="relative space-y-1.5">
-                    {SPACE_SECTIONS.map((s, idx) => (
-                      <li key={s.id}>
-                        <button
-                          ref={(el) => {
-                            menuItemsRef.current[idx] = el;
-                          }}
-                          type="button"
-                          role="menuitem"
-                          onClick={() => scrollToSection(s.id)}
-                          className="group flex w-full items-center gap-3 rounded-2xl border border-transparent bg-white/60 px-3 py-3 text-left text-base font-medium text-[#1B2B44] transition hover:-translate-y-0.5 hover:border-white/80 hover:bg-white hover:shadow-[0_10px_24px_-14px_rgba(27,43,68,0.35)]"
-                        >
-                          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-white to-[#EAF4FF] text-[#1B2B44] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-white/80">
-                            <span className="text-xs font-bold tracking-widest text-[#5B6B86]">
-                              {String(idx + 1).padStart(2, "0")}
-                            </span>
-                          </span>
-                          <span className="flex-1 truncate">{s.label}</span>
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#EAF4FF] text-[#5B6B86] transition group-hover:bg-[#6FB08A] group-hover:text-white">
-                            <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </>
-            ) : null}
-          </div>
+          <button
+            ref={menuBtnRef}
+            type="button"
+            onClick={() => setHeaderMenuOpen((prev) => !prev)}
+            aria-expanded={headerMenuOpen}
+            aria-haspopup="menu"
+            aria-label="Secciones"
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-[background-color,box-shadow] active:scale-95 ${
+              headerMenuOpen
+                ? "border-white/90 bg-white text-[#1B2B44] shadow-[0_6px_18px_-8px_rgba(27,43,68,0.35)]"
+                : "border-white/70 bg-white/75 text-[#1B2B44] hover:bg-white"
+            }`}
+          >
+            {headerMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
+
+      {headerMenuOpen && menuPos && typeof document !== "undefined"
+        ? createPortal(
+            <>
+              <button
+                type="button"
+                aria-label="Cerrar menú"
+                onClick={() => setHeaderMenuOpen(false)}
+                className="fixed inset-0 z-[60] cursor-default bg-transparent"
+              />
+              <div
+                ref={menuCardRef}
+                role="menu"
+                className="fixed z-[61] w-[min(92vw,320px)] overflow-hidden rounded-3xl border border-white/80 bg-white p-3 shadow-[0_28px_70px_-22px_rgba(27,43,68,0.45)]"
+                style={{ top: menuPos.top, right: menuPos.right, willChange: "transform, opacity" }}
+              >
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-gradient-to-br from-[#CFE6FF] to-[#C8E6D2] opacity-70 blur-2xl"
+                />
+                <div className="relative flex items-center justify-between px-2 pb-2 pt-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5B6B86]">
+                    Navega
+                  </span>
+                  <span className="inline-flex h-6 items-center rounded-full bg-[#6FB08A]/15 px-2 text-[10px] font-semibold uppercase tracking-widest text-[#3F8A60]">
+                    {SPACE_SECTIONS.length}
+                  </span>
+                </div>
+                <ul className="relative space-y-1.5">
+                  {SPACE_SECTIONS.map((s, idx) => (
+                    <li key={s.id}>
+                      <button
+                        ref={(el) => {
+                          menuItemsRef.current[idx] = el;
+                        }}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => scrollToSection(s.id)}
+                        className="group flex w-full items-center gap-3 rounded-2xl border border-transparent bg-white px-3 py-3 text-left text-base font-medium text-[#1B2B44] transition-colors [@media(hover:hover)]:hover:bg-[#F4F7FB]"
+                        style={{ willChange: "transform, opacity" }}
+                      >
+                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-white to-[#EAF4FF] text-[#1B2B44] ring-1 ring-white/80">
+                          <span className="text-xs font-bold tracking-widest text-[#5B6B86]">
+                            {String(idx + 1).padStart(2, "0")}
+                          </span>
+                        </span>
+                        <span className="flex-1 truncate">{s.label}</span>
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#EAF4FF] text-[#5B6B86] transition-colors [@media(hover:hover)]:group-hover:bg-[#6FB08A] [@media(hover:hover)]:group-hover:text-white">
+                          <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>,
+            document.body,
+          )
+        : null}
 
       {/* Minimal spacer so search sits right under the floating header */}
       <div id="space-top" data-reveal-id="hero" className="h-12 md:h-14" />
@@ -1268,16 +1292,14 @@ export function SpaceClient() {
       {showDockPlayer ? (
         <section className="fixed inset-x-0 bottom-0 z-40 px-3 pb-4 sm:px-6 sm:pb-6">
           <div className="mx-auto w-full max-w-5xl">
-            <div className={`relative isolate overflow-hidden rounded-[28px] border shadow-[0_20px_60px_-28px_rgba(27,43,68,0.35)] backdrop-blur-md ${modeStyle.border} ${modeStyle.surface}`}>
-              <div className="pointer-events-none absolute -left-10 -top-10 h-28 w-28 rounded-full bg-[#C8E6D2]/50 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-16 right-8 h-32 w-32 rounded-full bg-[#D9D4F2]/50 blur-3xl" />
+            <div className="relative isolate overflow-hidden rounded-[28px] border border-slate-200 bg-white text-[#1B2B44] shadow-[0_20px_60px_-28px_rgba(27,43,68,0.35)]">
               {playing ? (
                 <div key={playPulseToken} className="pointer-events-none absolute inset-0 rounded-[28px] border border-[#6FB08A]/45 animate-[ping_900ms_ease-out_1]" />
               ) : null}
 
               <div className="px-4 pt-3 sm:px-6 sm:pt-4">
-                <div className={`h-1.5 overflow-hidden rounded-full ${modeStyle.progressTrack}`}>
-                  <div className={`h-full rounded-full transition-all ${modeStyle.progressFill}`} style={{ width: `${progress}%` }} />
+                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full rounded-full bg-[#6FB08A] transition-all" style={{ width: `${progress}%` }} />
                 </div>
               </div>
 
@@ -1286,15 +1308,15 @@ export function SpaceClient() {
                   type="button"
                   onClick={() => setPlayerExpanded((prev) => !prev)}
                   aria-expanded={playerExpanded}
-                  className={`flex min-w-0 flex-1 items-center gap-3 rounded-3xl border px-3 py-2 text-left transition ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:bg-slate-100"
                 >
-                  <span className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+                  <span className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                     <span className={`absolute inset-0 bg-gradient-to-br ${activeCoverTone} ${playing ? "animate-pulse" : ""}`} />
-                    <Music2 className="relative z-10 h-5 w-5" />
+                    <Music2 className="relative z-10 h-5 w-5 text-[#1B2B44]" />
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold sm:text-base">{activeSession?.title ?? "Sin sesión"}</span>
-                    <span className={`inline-flex items-center gap-2 truncate text-xs ${modeStyle.textSoft}`}>
+                    <span className="block truncate text-sm font-semibold text-[#1B2B44] sm:text-base">{activeSession?.title ?? "Sin sesión"}</span>
+                    <span className="inline-flex items-center gap-2 truncate text-xs text-[#5B6B86]">
                       {activeSession?.type}
                       <span className="inline-flex items-end gap-0.5">
                         <span
@@ -1312,7 +1334,7 @@ export function SpaceClient() {
                       </span>
                     </span>
                   </span>
-                  <span className={`ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full border ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+                  <span className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1B2B44]">
                     {playerExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                   </span>
                 </button>
@@ -1322,7 +1344,7 @@ export function SpaceClient() {
                     type="button"
                     onClick={playPrev}
                     disabled={!canPlayPrev}
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1B2B44] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label="Anterior"
                   >
                     <SkipBack className="h-4 w-4" />
@@ -1330,7 +1352,7 @@ export function SpaceClient() {
                   <button
                     type="button"
                     onClick={togglePlayback}
-                    className={`inline-flex h-11 w-11 items-center justify-center rounded-full border transition ${modeStyle.primaryButton}`}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-transparent bg-[#6FB08A] text-white shadow-[0_8px_20px_-10px_rgba(111,176,138,0.7)] transition hover:bg-[#5FA079]"
                     aria-label={playing ? "Pausar" : "Reproducir"}
                   >
                     {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
@@ -1339,7 +1361,7 @@ export function SpaceClient() {
                     type="button"
                     onClick={playNext}
                     disabled={!canPlayNext}
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-40 ${modeStyle.secondaryButton}`}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1B2B44] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label="Siguiente"
                   >
                     <SkipForward className="h-4 w-4" />
@@ -1348,21 +1370,21 @@ export function SpaceClient() {
               </div>
 
               <div
-                className={`overflow-hidden border-t transition-all duration-300 ease-out ${modeStyle.border} ${
+                className={`overflow-hidden border-t border-slate-200 transition-all duration-300 ease-out ${
                   playerExpanded ? "max-h-[560px] translate-y-0 opacity-100" : "max-h-0 -translate-y-1 opacity-0"
                 }`}
                 aria-hidden={!playerExpanded}
               >
                 <div className="space-y-4 px-4 pb-4 pt-3 sm:px-6 sm:pb-6">
-                  <div className={`relative overflow-hidden rounded-2xl border p-4 ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
-                    <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${activeCoverTone}`} />
+                  <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className={`pointer-events-none absolute inset-0 opacity-60 bg-gradient-to-br ${activeCoverTone}`} />
                     <div className="relative z-10 flex items-center gap-3">
-                      <span className={`inline-flex h-14 w-14 items-center justify-center rounded-xl border ${modeStyle.border} ${modeStyle.softSurface}`}>
-                        <Music2 className="h-6 w-6" />
+                      <span className="inline-flex h-14 w-14 items-center justify-center rounded-xl border border-slate-200 bg-white">
+                        <Music2 className="h-6 w-6 text-[#1B2B44]" />
                       </span>
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold sm:text-base">{activeSession?.title ?? "Sin sesión"}</div>
-                        <div className={`truncate text-xs ${modeStyle.textSoft}`}>{activeSession?.desc}</div>
+                        <div className="truncate text-sm font-semibold text-[#1B2B44] sm:text-base">{activeSession?.title ?? "Sin sesión"}</div>
+                        <div className="truncate text-xs text-[#5B6B86]">{activeSession?.desc}</div>
                       </div>
                     </div>
                   </div>
@@ -1382,9 +1404,9 @@ export function SpaceClient() {
                   </label>
 
                   <div className="flex items-center justify-between gap-3">
-                    <div className={`text-xs ${modeStyle.textSoft}`}>{fmt(elapsedSec)} / {fmt(durationSec)}</div>
+                    <div className="text-xs text-[#5B6B86]">{fmt(elapsedSec)} / {fmt(durationSec)}</div>
                     {activeUsesArchiveSource ? (
-                      <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`}>
+                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-[#5B6B86]">
                         <Headphones className="h-3 w-3" />
                         Source: Archive
                       </span>
@@ -1392,7 +1414,7 @@ export function SpaceClient() {
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-[1fr_180px_160px]">
-                    <label className={`space-y-1 rounded-2xl border px-3 py-2.5 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
+                    <label className="space-y-1 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-[#5B6B86]">
                       <span className="inline-flex items-center gap-1">
                         <Volume2 className="h-3.5 w-3.5" />
                         Volumen ({Math.round(volume * 100)}%)
@@ -1409,14 +1431,14 @@ export function SpaceClient() {
                       />
                     </label>
 
-                    <label className={`space-y-1 rounded-2xl border px-3 py-2.5 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
+                    <label className="space-y-1 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-[#5B6B86]">
                       <span>Velocidad</span>
                       <select
                         value={String(playbackRate)}
                         onChange={(event) => {
                           setPlaybackRate(Number(event.target.value));
                         }}
-                        className={`w-full rounded-xl px-3 py-2 text-xs outline-none ${modeStyle.softSurfaceAlt}`}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-[#1B2B44] outline-none"
                       >
                         <option value="0.8">0.8x</option>
                         <option value="1">1.0x</option>
@@ -1425,7 +1447,7 @@ export function SpaceClient() {
                       </select>
                     </label>
 
-                    <label className={`inline-flex items-center gap-2 self-end rounded-2xl border px-3 py-2.5 text-xs ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+                    <label className="inline-flex items-center gap-2 self-end rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-[#5B6B86]">
                       <input
                         type="checkbox"
                         checked={autoAdvance}
@@ -1446,7 +1468,7 @@ export function SpaceClient() {
                           onClick={() => {
                             window.open(SPACE_ARCHIVE_EXTERNAL_URL, "_blank", "noopener,noreferrer");
                           }}
-                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${modeStyle.secondaryButton}`}
+                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#1B2B44] transition hover:bg-slate-100"
                         >
                           Abrir fuente en Archive
                         </button>
