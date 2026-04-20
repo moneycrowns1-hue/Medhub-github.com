@@ -1,20 +1,11 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  BookOpen,
-  Brain,
-  CalendarDays,
-  Settings,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 
-import { ClinicalBoard } from "@/components/clinical-board";
-import { PomodoroControls } from "@/components/pomodoro-controls";
 import { StartStudyLink } from "@/components/start-study-link";
 import { HomeStatsChips } from "@/app/home-stats-chips";
 import { HomeNextEvalCard } from "@/app/home-next-eval-card";
 import { HomeMotion } from "@/app/home-motion";
-import { HomeTodayDashboard } from "@/app/home-today-dashboard";
+import { HomeDisclosuresBlock } from "@/app/home-disclosures-block";
 import { isoDate } from "@/lib/dates";
 import { getPlanForDate, formatPlanSummary } from "@/lib/schedule";
 
@@ -100,8 +91,9 @@ export default function Home() {
         <HomeNextEvalCard />
       </section>
 
-      {/* ── RESUMEN DE HOY (dashboard compacto) ── */}
-      <HomeTodayDashboard
+      {/* ── SUBSECCIONES COLAPSABLES (dashboard + tablero + atajos) ── */}
+      <HomeDisclosuresBlock
+        todayIso={todayIso}
         primaryHref={`/study/${plan.primary}`}
         primaryName={summary.primaryName}
         secondaryHref={`/study/${plan.secondary}`}
@@ -109,48 +101,6 @@ export default function Home() {
         reading={summary.reading}
         isRestDay={summary.isRestDay}
       />
-
-      {/* ── TABLERO + POMODORO ── */}
-      <section id="pomodoro" className="space-y-4">
-        <div className="space-y-1">
-          <div className="text-xs font-medium uppercase tracking-widest text-primary">Ahora</div>
-          <h2 className="text-xl font-bold tracking-tight">Tablero & Pomodoro</h2>
-        </div>
-        <div className="grid gap-6 lg:grid-cols-[1fr,340px]">
-          <div className="space-y-6">
-            <ClinicalBoard date={todayIso} />
-          </div>
-          <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-            <PomodoroControls />
-          </div>
-        </div>
-      </section>
-
-      {/* ── ACCESO RÁPIDO ── */}
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <div className="text-xs font-medium uppercase tracking-widest text-primary">Atajos</div>
-          <h2 className="text-xl font-bold tracking-tight">Acceso rápido</h2>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { icon: <Brain className="h-4 w-4" />, label: "Empezar SRS", href: "/srs" },
-            { icon: <BookOpen className="h-4 w-4" />, label: "Recursos PDF", href: "/biblioteca" },
-            { icon: <CalendarDays className="h-4 w-4" />, label: "Plan semanal", href: "/day" },
-            { icon: <Settings className="h-4 w-4" />, label: "Ajustes", href: "/settings" },
-          ].map((q) => (
-            <Link
-              key={q.href}
-              href={q.href}
-              data-home-quick
-              className="group flex items-center gap-3 rounded-xl bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/90 backdrop-blur-xl transition-all hover:bg-white/[0.07]"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.08] text-white/85 transition-colors group-hover:bg-white/[0.12] group-hover:text-white">{q.icon}</div>
-              {q.label}
-            </Link>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

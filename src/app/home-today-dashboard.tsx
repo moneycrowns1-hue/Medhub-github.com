@@ -23,35 +23,25 @@ import {
   getTasksForDate,
 } from "@/lib/clinical-store";
 import { isoDate } from "@/lib/dates";
+import { PreviewPill } from "@/app/home-disclosure";
 
-type Props = {
-  primaryHref: string;
-  primaryName: string;
-  secondaryHref: string;
-  secondaryName: string;
-  reading: string;
-  isRestDay: boolean;
+export type TodaySnapshot = {
+  routine: { pct: number; done: number; total: number };
+  srsDue: number;
+  focusMinutes: number;
+  blocksCompleted: number;
+  clinicalToday: number;
 };
 
-type KpiItem = {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  hint?: string;
-  href: string;
-  iconBg: string;
-  /** Optional custom bottom content (progress bar). */
-  footer?: React.ReactNode;
+const EMPTY: TodaySnapshot = {
+  routine: { pct: 0, done: 0, total: 0 },
+  srsDue: 0,
+  focusMinutes: 0,
+  blocksCompleted: 0,
+  clinicalToday: 0,
 };
 
-export function HomeTodayDashboard({
-  primaryHref,
-  primaryName,
-  secondaryHref,
-  secondaryName,
-  reading,
-  isRestDay,
-}: Props) {
+export function useHomeTodayData(): TodaySnapshot {
   const [mounted, setMounted] = useState(false);
   const [tick, setTick] = useState(0);
 
@@ -80,16 +70,8 @@ export function HomeTodayDashboard({
     };
   }, []);
 
-  const data = useMemo(() => {
-    if (!mounted) {
-      return {
-        routine: { pct: 0, done: 0, total: 0 },
-        srsDue: 0,
-        focusMinutes: 0,
-        blocksCompleted: 0,
-        clinicalToday: 0,
-      };
-    }
+  return useMemo(() => {
+    if (!mounted) return EMPTY;
     void tick;
     const routine = routineProgress(getCheckedSteps());
     const srsDue = algoStats(loadSrsLibrary().cards).dueToday;
@@ -103,8 +85,39 @@ export function HomeTodayDashboard({
       clinicalToday,
     };
   }, [mounted, tick]);
+}
 
-  const kpis: KpiItem[] = [
+/* ─────────────────────────────────────── Indicadores (KPIs) ─────────────────────────────────────── */
+
+export function HomeKpisPreview({ data }: { data: TodaySnapshot }) {
+  return (
+    <>
+      <PreviewPill
+        icon={<CalendarDays className="h-3 w-3" />}
+        value={`${data.routine.pct}%`}
+        tone="emerald"
+      />
+      <PreviewPill
+        icon={<Brain className="h-3 w-3" />}
+        value={`${data.srsDue} due`}
+        tone={data.srsDue > 0 ? "violet" : "neutral"}
+      />
+      <PreviewPill
+        icon={<Timer className="h-3 w-3" />}
+        value={`${data.focusMinutes}m`}
+        tone="blue"
+      />
+      <PreviewPill
+        icon={<ClipboardList className="h-3 w-3" />}
+        value={`${data.clinicalToday}`}
+        tone={data.clinicalToday > 0 ? "rose" : "neutral"}
+      />
+    </>
+  );
+}
+
+export function HomeKpisContent({ data }: { data: TodaySnapshot }) {
+  const kpis = [
     {
       icon: <CalendarDays className="h-5 w-5" />,
       label: "Plan del día",
@@ -112,14 +125,7 @@ export function HomeTodayDashboard({
       hint: `${data.routine.done}/${data.routine.total} pasos`,
       href: "/day",
       iconBg: "bg-emerald-500/10 text-emerald-400",
-      footer: (
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-          <div
-            className="h-full rounded-full bg-emerald-400/70 transition-all duration-500"
-            style={{ width: `${data.routine.pct}%` }}
-          />
-        </div>
-      ),
+      progress: data.routine.pct,
     },
     {
       icon: <Brain className="h-5 w-5" />,
@@ -147,7 +153,52 @@ export function HomeTodayDashboard({
     },
   ];
 
-  const modules: KpiItem[] = isRestDay
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {kpis.map((kpi) => (
+        <KpiCard key={kpi.label} {...kpi} />
+      ))}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────── Módulos del día ─────────────────────────────────────── */
+
+export type ModulesProps = {
+  primaryHref: string;
+  primaryName: string;
+  secondaryHref: string;
+  secondaryName: string;
+  reading: string;
+  isRestDay: boolean;
+};
+
+export function HomeModulesPreview({ primaryName, reading, isRestDay }: ModulesProps) {
+  if (isRestDay) {
+    return (
+      <>
+        <PreviewPill value="Descanso" tone="neutral" />
+        <PreviewPill icon={<BookOpen className="h-3 w-3" />} value={reading} tone="blue" />
+      </>
+    );
+  }
+  return (
+    <>
+      <PreviewPill icon={<GraduationCap className="h-3 w-3" />} value={primaryName} tone="amber" />
+      <PreviewPill icon={<BookOpen className="h-3 w-3" />} value={reading} tone="blue" />
+    </>
+  );
+}
+
+export function HomeModulesContent({
+  primaryHref,
+  primaryName,
+  secondaryHref,
+  secondaryName,
+  reading,
+  isRestDay,
+}: ModulesProps) {
+  const modules = isRestDay
     ? [
         {
           icon: <BookOpen className="h-5 w-5" />,
@@ -202,70 +253,64 @@ export function HomeTodayDashboard({
       ];
 
   return (
-    <div className="space-y-6">
-      {/* Indicadores de hoy (KPIs) */}
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <div className="text-xs font-medium uppercase tracking-widest text-primary">Resumen</div>
-          <h2 className="text-xl font-bold tracking-tight">Indicadores de hoy</h2>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {kpis.map((kpi) => (
-            <KpiCard key={kpi.label} kpi={kpi} />
-          ))}
-        </div>
-      </section>
-
-      {/* Módulos del día */}
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <div className="text-xs font-medium uppercase tracking-widest text-primary">Módulos</div>
-          <h2 className="text-xl font-bold tracking-tight">Estudio del día</h2>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {modules.map((kpi) => (
-            <KpiCard key={kpi.label} kpi={kpi} />
-          ))}
-        </div>
-      </section>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {modules.map((m) => (
+        <KpiCard key={m.label} {...m} />
+      ))}
     </div>
   );
 }
 
-function KpiCard({ kpi }: { kpi: KpiItem }) {
-  const isAnchor = kpi.href.startsWith("#");
+/* ─────────────────────────────────────── KpiCard (shared) ─────────────────────────────────────── */
+
+type KpiCardProps = {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint?: string;
+  href: string;
+  iconBg: string;
+  progress?: number;
+};
+
+function KpiCard({ icon, label, value, hint, href, iconBg, progress }: KpiCardProps) {
+  const isAnchor = href.startsWith("#");
   const className =
-    "group relative block rounded-2xl bg-white/[0.04] p-5 backdrop-blur-xl transition-colors hover:bg-white/[0.07]";
+    "group relative block overflow-hidden rounded-2xl bg-white/[0.03] p-5 transition-all hover:bg-white/[0.06]";
   const content = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${kpi.iconBg}`}>
-          {kpi.icon}
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconBg}`}>
+          {icon}
         </div>
         <ArrowRight className="h-4 w-4 text-foreground/35 transition-all group-hover:translate-x-0.5 group-hover:text-foreground/80" />
       </div>
       <div className="mt-3 space-y-0.5">
         <div className="text-[11px] font-medium uppercase tracking-wider text-foreground/65">
-          {kpi.label}
+          {label}
         </div>
-        <div className="truncate text-2xl font-bold tabular-nums leading-tight">{kpi.value}</div>
-        {kpi.hint ? <div className="truncate text-xs text-foreground/60">{kpi.hint}</div> : null}
+        <div className="truncate text-2xl font-bold tabular-nums leading-tight">{value}</div>
+        {hint ? <div className="truncate text-xs text-foreground/60">{hint}</div> : null}
       </div>
-      {kpi.footer}
+      {typeof progress === "number" ? (
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+          <div
+            className="h-full rounded-full bg-emerald-400/70 transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      ) : null}
     </>
   );
-
   if (isAnchor) {
     return (
-      <a href={kpi.href} className={className}>
+      <a href={href} className={className}>
         {content}
       </a>
     );
   }
   return (
-    <Link href={kpi.href} className={className}>
+    <Link href={href} className={className}>
       {content}
     </Link>
   );
