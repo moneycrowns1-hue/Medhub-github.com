@@ -1,5 +1,4 @@
 import { HomeMotion } from "@/app/home-motion";
-import { HomeHero } from "@/app/home-hero";
 import { HomeTabsSection } from "@/app/home-tabs-section";
 import { isoDate } from "@/lib/dates";
 import { getPlanForDate, formatPlanSummary } from "@/lib/schedule";
@@ -10,24 +9,14 @@ export default function Home() {
   const summary = formatPlanSummary(plan);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <HomeMotion />
 
-      {/* ── HERO compacto: saludo + día + CTAs directos ── */}
-      <HomeHero
-        dayLabel={summary.dayLabel}
-        focusNote={summary.focusNote}
-        isRestDay={summary.isRestDay}
-        primaryName={summary.primaryName}
-        primarySlug={plan.primary}
-        secondaryName={summary.secondaryName}
-        reading={summary.reading}
-      />
-
-      {/* ── Tabs principales (Resumen · Herramientas · Atajos) — la agenda ahora es un popover dentro del topbar ── */}
-      <div id="hoy-tabs" className="scroll-mt-24" />
       <HomeTabsSection
         todayIso={todayIso}
+        dayLabel={summary.dayLabel}
+        focusNote={summary.focusNote}
+        primarySlug={plan.primary}
         primaryHref={`/study/${plan.primary}`}
         primaryName={summary.primaryName}
         secondaryHref={`/study/${plan.secondary}`}
