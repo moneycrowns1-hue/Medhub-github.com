@@ -5,7 +5,7 @@ import { StartStudyLink } from "@/components/start-study-link";
 import { HomeStatsChips } from "@/app/home-stats-chips";
 import { HomeNextEvalCard } from "@/app/home-next-eval-card";
 import { HomeMotion } from "@/app/home-motion";
-import { HomeDisclosuresBlock } from "@/app/home-disclosures-block";
+import { HomeTabsSection } from "@/app/home-tabs-section";
 import { isoDate } from "@/lib/dates";
 import { getPlanForDate, formatPlanSummary } from "@/lib/schedule";
 
@@ -91,8 +91,8 @@ export default function Home() {
         <HomeNextEvalCard />
       </section>
 
-      {/* ── SUBSECCIONES COLAPSABLES (dashboard + tablero + atajos) ── */}
-      <HomeDisclosuresBlock
+      {/* ── Tabs principales (Resumen · Herramientas · Atajos) ── */}
+      <HomeTabsSection
         todayIso={todayIso}
         primaryHref={`/study/${plan.primary}`}
         primaryName={summary.primaryName}
