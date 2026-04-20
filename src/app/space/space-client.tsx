@@ -1738,7 +1738,7 @@ function BreathIntro() {
       <Cloud className="absolute left-[18%] top-[28%]" size={45} opacity={0.4} />
       <Cloud className="absolute right-[14%] top-[36%]" size={70} opacity={0.55} />
 
-      {/* BOTTOM HALF — dark earth horizon (breathing) */}
+      {/* BOTTOM HALF — orange sun dome (breathing) with face */}
       <div
         ref={sunRef}
         className="absolute inset-x-0 bottom-0 h-1/2"
@@ -1748,31 +1748,61 @@ function BreathIntro() {
           willChange: "transform",
         }}
       >
-        {/* Soft glow on the horizon */}
+        {/* Warm halo around the dome peak */}
         <div
           className="absolute inset-x-0"
           style={{
-            top: "-40px",
-            height: "80px",
+            top: "-60px",
+            height: "120px",
             background:
-              "radial-gradient(ellipse 60% 100% at 50% 100%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 70%)",
+              "radial-gradient(ellipse 60% 100% at 50% 100%, rgba(255,180,90,0.5) 0%, rgba(255,180,90,0) 70%)",
             pointerEvents: "none",
           }}
         />
-        {/* Dark earth dome anchored to bottom edge */}
+        {/* Sun dome anchored to bottom edge */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(180deg, #0B1A3A 0%, #050B1F 60%, #020616 100%)",
-            borderRadius: "50% 50% 0 0 / 22% 22% 0 0",
-            boxShadow: "0 -2px 0 rgba(255,255,255,0.08), 0 -24px 60px rgba(0,0,0,0.25)",
+              "radial-gradient(ellipse 70% 90% at 50% 100%, #FFD28A 0%, #FFB266 40%, #FF8A3D 75%, #F97316 100%)",
+            borderRadius: "50% 50% 0 0 / 100% 100% 0 0",
+            boxShadow: "0 -20px 60px rgba(249,115,22,0.35)",
           }}
         />
+        {/* Face near the dome peak */}
+        <svg
+          aria-hidden="true"
+          className="absolute left-1/2 -translate-x-1/2"
+          style={{ top: "18%", width: "min(42vw, 420px)", height: "auto", overflow: "visible" }}
+          viewBox="0 0 400 140"
+          fill="none"
+        >
+          <path
+            d="M70 50 Q110 18 150 50"
+            stroke="#2B1810"
+            strokeWidth="10"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d="M250 50 Q290 18 330 50"
+            stroke="#2B1810"
+            strokeWidth="10"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d="M150 95 Q200 130 250 95"
+            stroke="#2B1810"
+            strokeWidth="10"
+            strokeLinecap="round"
+            fill="none"
+          />
+        </svg>
       </div>
 
-      {/* Foreground clouds near the horizon (like reference) */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-[42%]">
+      {/* Foreground clouds flanking the horizon (like reference) */}
+      <div className="pointer-events-none absolute inset-x-0" style={{ bottom: "46%" }}>
         <Cloud className="absolute left-[-3%] bottom-0" size={220} opacity={1} />
         <Cloud className="absolute right-[-4%] bottom-0" size={240} opacity={1} />
       </div>
