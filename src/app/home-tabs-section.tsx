@@ -436,16 +436,14 @@ function InicioPanel({
             <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </button>
         </div>
-
-        {/* Stats redesign: 3 centered elevated cards */}
-        <div ref={statsRef} className="w-full pt-2">
-          <InicioStatsRow />
-        </div>
       </div>
 
-      {/* Right column: mini calendar */}
-      <div className="w-full">
+      {/* Right column: mini calendar + stats under it */}
+      <div className="flex w-full flex-col gap-3">
         <MiniCalendar />
+        <div ref={statsRef}>
+          <InicioStatsRow />
+        </div>
       </div>
       </div>
     </div>
@@ -539,29 +537,29 @@ function InicioStatsRow() {
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="grid grid-cols-3 gap-2">
       {items.map((it) => (
         <div
           key={it.key}
           data-inicio-stat
-          className="group relative overflow-hidden rounded-2xl bg-white/[0.04] px-5 py-4 text-left transition-colors hover:bg-white/[0.07]"
+          className="group relative overflow-hidden rounded-xl bg-white/[0.04] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.07]"
         >
-          <div className="flex items-center gap-3">
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${it.tone}`}>
+          <div className="flex items-center gap-2">
+            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${it.tone}`}>
               {it.icon}
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] font-medium uppercase tracking-widest text-white/50">
+              <div className="text-[9px] font-medium uppercase tracking-widest text-white/50">
                 {it.label}
               </div>
-              <div className="text-2xl font-bold leading-tight tabular-nums text-white">
+              <div className="text-base font-bold leading-tight tabular-nums text-white">
                 {it.value}
               </div>
-              <div className="truncate text-[11px] text-white/55">{it.sub}</div>
             </div>
           </div>
+          <div className="mt-1.5 truncate text-[10px] text-white/50">{it.sub}</div>
           {typeof it.bar === "number" ? (
-            <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
+            <div className="mt-1.5 h-0.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
               <div
                 className={`h-full rounded-full ${it.barTone ?? "bg-white/50"} transition-all duration-500`}
                 style={{ width: `${it.bar}%` }}
