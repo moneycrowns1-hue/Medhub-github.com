@@ -457,6 +457,39 @@ export function SpaceClient() {
   });
   const [playerExpanded, setPlayerExpanded] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const menuCardRef = useRef<HTMLDivElement | null>(null);
+  const menuItemsRef = useRef<Array<HTMLButtonElement | null>>([]);
+
+  useEffect(() => {
+    if (!headerMenuOpen) return;
+    const card = menuCardRef.current;
+    const items = menuItemsRef.current.filter(Boolean) as HTMLButtonElement[];
+    if (!card) return;
+    const tl = gsap.timeline();
+    tl.fromTo(
+      card,
+      { y: -10, scale: 0.9, opacity: 0, transformOrigin: "top right" },
+      { y: 0, scale: 1, opacity: 1, duration: 0.38, ease: "back.out(1.7)" },
+    );
+    if (items.length) {
+      tl.fromTo(
+        items,
+        { x: 22, opacity: 0, filter: "blur(6px)" },
+        {
+          x: 0,
+          opacity: 1,
+          filter: "blur(0px)",
+          duration: 0.32,
+          stagger: 0.06,
+          ease: "power3.out",
+        },
+        "-=0.2",
+      );
+    }
+    return () => {
+      tl.kill();
+    };
+  }, [headerMenuOpen]);
 
   const SPACE_SECTIONS: { id: string; label: string }[] = useMemo(
     () => [
@@ -1011,10 +1044,10 @@ export function SpaceClient() {
               aria-expanded={headerMenuOpen}
               aria-haspopup="menu"
               aria-label="Secciones"
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition active:scale-95 ${
                 headerMenuOpen
-                  ? "border-[#8B82C9]/60 bg-[#D9D4F2]/60 text-[#1B2B44]"
-                  : "border-white/70 bg-white/70 text-[#1B2B44] hover:border-[#8B82C9]/50 hover:bg-white/90"
+                  ? "border-white/90 bg-white text-[#1B2B44] shadow-[0_6px_18px_-8px_rgba(27,43,68,0.35)]"
+                  : "border-white/70 bg-white/75 text-[#1B2B44] hover:border-white/90 hover:bg-white"
               }`}
             >
               {headerMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -1028,30 +1061,43 @@ export function SpaceClient() {
                   onClick={() => setHeaderMenuOpen(false)}
                   className="fixed inset-0 -z-10 cursor-default"
                 />
-                {/* Speech-bubble tail */}
-                <span
-                  aria-hidden="true"
-                  className="absolute right-4 top-full h-4 w-4 translate-y-[-8px] rotate-45 rounded-[6px] border border-white/80 bg-white/90 shadow-[0_4px_14px_-6px_rgba(27,43,68,0.25)] backdrop-blur-md"
-                />
                 <div
+                  ref={menuCardRef}
                   role="menu"
-                  className="absolute right-0 top-full z-40 mt-3 w-[min(88vw,300px)] origin-top-right overflow-hidden rounded-[28px] border border-white/80 bg-white/90 p-2 shadow-[0_24px_60px_-18px_rgba(27,43,68,0.35),inset_0_1px_0_0_rgba(255,255,255,0.9)] backdrop-blur-md"
-                  style={{ animation: "headerMenuPop 260ms cubic-bezier(0.22,1.6,0.36,1)" }}
+                  className="absolute right-0 top-full z-40 mt-3 w-[min(92vw,320px)] overflow-hidden rounded-3xl border border-white/80 bg-white/95 p-3 shadow-[0_28px_70px_-22px_rgba(27,43,68,0.45)] backdrop-blur-xl"
                 >
-                  <div className="px-4 pb-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5B6B86]">
-                    Secciones
+                  {/* decorative gradient orb */}
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-gradient-to-br from-[#CFE6FF] to-[#C8E6D2] opacity-70 blur-2xl"
+                  />
+                  <div className="relative flex items-center justify-between px-2 pb-2 pt-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5B6B86]">
+                      Navega
+                    </span>
+                    <span className="inline-flex h-6 items-center rounded-full bg-[#6FB08A]/15 px-2 text-[10px] font-semibold uppercase tracking-widest text-[#3F8A60]">
+                      {SPACE_SECTIONS.length}
+                    </span>
                   </div>
-                  <ul className="space-y-1">
-                    {SPACE_SECTIONS.map((s) => (
+                  <ul className="relative space-y-1.5">
+                    {SPACE_SECTIONS.map((s, idx) => (
                       <li key={s.id}>
                         <button
+                          ref={(el) => {
+                            menuItemsRef.current[idx] = el;
+                          }}
                           type="button"
                           role="menuitem"
                           onClick={() => scrollToSection(s.id)}
-                          className="group flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-base font-medium text-[#1B2B44] transition hover:bg-[#CFE6FF]/70 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)]"
+                          className="group flex w-full items-center gap-3 rounded-2xl border border-transparent bg-white/60 px-3 py-3 text-left text-base font-medium text-[#1B2B44] transition hover:-translate-y-0.5 hover:border-white/80 hover:bg-white hover:shadow-[0_10px_24px_-14px_rgba(27,43,68,0.35)]"
                         >
-                          <span>{s.label}</span>
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/70 text-[#8B82C9] transition group-hover:bg-[#D9D4F2]/70">
+                          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-white to-[#EAF4FF] text-[#1B2B44] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-white/80">
+                            <span className="text-xs font-bold tracking-widest text-[#5B6B86]">
+                              {String(idx + 1).padStart(2, "0")}
+                            </span>
+                          </span>
+                          <span className="flex-1 truncate">{s.label}</span>
+                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#EAF4FF] text-[#5B6B86] transition group-hover:bg-[#6FB08A] group-hover:text-white">
                             <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
                           </span>
                         </button>
@@ -1059,13 +1105,6 @@ export function SpaceClient() {
                     ))}
                   </ul>
                 </div>
-                <style jsx>{`
-                  @keyframes headerMenuPop {
-                    0% { transform: translateY(-6px) scale(0.92); opacity: 0; }
-                    60% { transform: translateY(0) scale(1.02); opacity: 1; }
-                    100% { transform: translateY(0) scale(1); opacity: 1; }
-                  }
-                `}</style>
               </>
             ) : null}
           </div>
@@ -1129,7 +1168,7 @@ export function SpaceClient() {
       >
         <h3 className="text-2xl font-semibold text-white drop-shadow-[0_2px_12px_rgba(10,30,70,0.35)] sm:text-3xl">Recientes</h3>
         {recentSessions.length === 0 ? (
-          <div className="rounded-2xl border border-white/60 bg-white/55 px-4 py-3 text-sm text-[#5B6B86] backdrop-blur-md">
+          <div className="rounded-2xl border border-white/40 bg-white/15 px-4 py-3 text-sm text-white/85 backdrop-blur-md">
             Todavía no hay sesiones recientes.
           </div>
         ) : (
@@ -1141,10 +1180,10 @@ export function SpaceClient() {
                 onClick={() => startSession(session.id, { autoplay: true })}
                 className="group min-w-[88px] text-center"
               >
-                <span className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full border border-white/70 bg-white/65 text-[#5B6B86] backdrop-blur-md transition group-hover:border-[#6FB08A]/60 group-hover:text-[#6FB08A]">
+                <span className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full border border-white/40 bg-white/15 text-white/90 backdrop-blur-md transition group-hover:border-white/70 group-hover:bg-white/25 group-hover:text-white">
                   <Music2 className="h-6 w-6" />
                 </span>
-                <span className="mt-2 line-clamp-2 block text-xs leading-tight text-[#1B2B44]">{session.title}</span>
+                <span className="mt-2 line-clamp-2 block text-xs leading-tight text-white drop-shadow-[0_1px_6px_rgba(10,30,70,0.45)]">{session.title}</span>
               </button>
             ))}
           </div>
@@ -1158,14 +1197,14 @@ export function SpaceClient() {
         style={{ transitionDelay: "120ms" }}
       >
         {groupedVisibleSessions.length === 0 ? (
-          <div className="rounded-2xl border border-white/60 bg-white/55 px-4 py-4 text-sm text-[#5B6B86] backdrop-blur-md">
+          <div className="rounded-2xl border border-white/40 bg-white/15 px-4 py-4 text-sm text-white/85 backdrop-blur-md">
             No hay sesiones que coincidan con tu búsqueda/filtro.
           </div>
         ) : null}
         <div className="space-y-6">
           {groupedVisibleSessions.map((group) => (
             <div key={group.id} className="space-y-3">
-              <h3 className={`text-3xl font-semibold text-white drop-shadow-[0_2px_12px_rgba(10,30,70,0.35)] sm:text-4xl ${cinzelDisplay}`}>{group.title}</h3>
+              <h3 className="text-3xl font-semibold text-white drop-shadow-[0_2px_12px_rgba(10,30,70,0.35)] sm:text-4xl">{group.title}</h3>
               <div className="flex gap-4 overflow-x-auto pb-2">
                 {group.items.map((session) => {
                   const isFav = favoriteIds.includes(session.id);
@@ -1174,11 +1213,11 @@ export function SpaceClient() {
                   return (
                     <article
                       key={session.id}
-                      className="relative min-w-[240px] overflow-hidden rounded-2xl border border-white/60 bg-white/65 shadow-[0_14px_40px_-26px_rgba(27,43,68,0.35)] backdrop-blur-md"
+                      className="relative min-w-[240px] overflow-hidden rounded-2xl border border-white/30 bg-white/15 shadow-[0_14px_40px_-26px_rgba(10,30,70,0.45)] backdrop-blur-md"
                     >
-                      <div className="absolute inset-x-0 top-0 h-[90px] bg-[radial-gradient(ellipse_at_50%_0%,rgba(159,211,255,0.55),transparent_70%)]" />
+                      <div className="absolute inset-x-0 top-0 h-[90px] bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.4),transparent_70%)]" />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Music2 className="h-16 w-16 text-[#1B2B44]/10" />
+                        <Music2 className="h-16 w-16 text-white/20" />
                       </div>
 
                       <div className="relative z-10 flex items-start justify-between p-3">
@@ -1193,7 +1232,7 @@ export function SpaceClient() {
                               Play
                             </button>
                           ) : (
-                            <span className="inline-flex items-center rounded-full border border-white/70 bg-white/60 px-2.5 py-1 text-[10px] font-semibold text-[#5B6B86]">
+                            <span className="inline-flex items-center rounded-full border border-white/40 bg-white/15 px-2.5 py-1 text-[10px] font-semibold text-white/90">
                               Próximamente
                             </span>
                           )}
@@ -1203,8 +1242,8 @@ export function SpaceClient() {
                           onClick={() => toggleFavorite(session.id)}
                           className={`rounded-full border p-2 transition ${
                             isFav
-                              ? "border-[#E8A583]/60 bg-[#F7D9C4]/60 text-[#8C4A2A]"
-                              : "border-white/70 bg-white/55 text-[#5B6B86] hover:bg-white/75"
+                              ? "border-[#E8A583]/70 bg-[#E8A583]/30 text-white"
+                              : "border-white/40 bg-white/15 text-white/90 hover:bg-white/25"
                           }`}
                           aria-label="Favorito"
                         >
@@ -1220,10 +1259,10 @@ export function SpaceClient() {
                         aria-label={`Seleccionar ${session.title}`}
                       />
 
-                      <div className="relative z-10 mt-24 border-t border-white/60 bg-white/70 p-4 backdrop-blur-md">
-                        <div className="text-[11px] uppercase tracking-[0.14em] text-[#5B6B86]">{session.type}</div>
-                        <div className="mt-1 text-lg font-semibold leading-tight text-[#1B2B44]">{session.title}</div>
-                        <div className="mt-1 text-xs text-[#5B6B86]">{displayDurationForSession(session)}</div>
+                      <div className="relative z-10 mt-24 border-t border-white/25 bg-gradient-to-t from-[rgba(10,30,70,0.55)] via-[rgba(10,30,70,0.3)] to-transparent p-4 backdrop-blur-md">
+                        <div className="text-[11px] uppercase tracking-[0.14em] text-white/75">{session.type}</div>
+                        <div className="mt-1 text-lg font-semibold leading-tight text-white drop-shadow-[0_1px_6px_rgba(10,30,70,0.45)]">{session.title}</div>
+                        <div className="mt-1 text-xs text-white/80">{displayDurationForSession(session)}</div>
                       </div>
                     </article>
                   );

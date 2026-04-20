@@ -98,6 +98,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const integratedAtTop = pathname === "/" && !isScrolledOnHome;
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const SKY = "linear-gradient(180deg, #9FD3FF 0%, #6AB7F2 35%, #3C8CE0 70%, #1E5DB0 100%)";
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = {
+      htmlBg: html.style.background,
+      htmlAttach: html.style.backgroundAttachment,
+      bodyBg: body.style.background,
+      bodyAttach: body.style.backgroundAttachment,
+    };
+    if (isSpaceRoute) {
+      html.style.background = SKY;
+      html.style.backgroundAttachment = "fixed";
+      body.style.background = SKY;
+      body.style.backgroundAttachment = "fixed";
+    } else {
+      html.style.background = prev.htmlBg;
+      html.style.backgroundAttachment = prev.htmlAttach;
+      body.style.background = prev.bodyBg;
+      body.style.backgroundAttachment = prev.bodyAttach;
+    }
+    return () => {
+      html.style.background = prev.htmlBg;
+      html.style.backgroundAttachment = prev.htmlAttach;
+      body.style.background = prev.bodyBg;
+      body.style.backgroundAttachment = prev.bodyAttach;
+    };
+  }, [isSpaceRoute]);
+
   return (
     <div
       className={cn("min-h-dvh", isSpaceRoute ? "" : "bg-background")}
