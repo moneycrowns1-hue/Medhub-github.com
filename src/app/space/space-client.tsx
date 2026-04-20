@@ -468,21 +468,22 @@ export function SpaceClient() {
     const tl = gsap.timeline();
     tl.fromTo(
       card,
-      { y: -10, scale: 0.9, opacity: 0, transformOrigin: "top right" },
-      { y: 0, scale: 1, opacity: 1, duration: 0.38, ease: "back.out(1.7)" },
+      { y: -8, opacity: 0, transformOrigin: "top right" },
+      { y: 0, opacity: 1, duration: 0.5, ease: "power2.out", clearProps: "transform" },
     );
     if (items.length) {
       tl.fromTo(
         items,
-        { x: 18, opacity: 0 },
+        { y: 6, opacity: 0 },
         {
-          x: 0,
+          y: 0,
           opacity: 1,
-          duration: 0.28,
-          stagger: 0.05,
+          duration: 0.45,
+          stagger: 0.07,
           ease: "power2.out",
+          clearProps: "transform",
         },
-        "-=0.18",
+        "-=0.3",
       );
     }
     return () => {
@@ -1000,10 +1001,10 @@ export function SpaceClient() {
       <BreathIntro />
       {/* Decorative clouds over the shared sky bg (rendered by AppShell) */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-40">
-        <Cloud className="absolute left-[4%] top-[90px]" size={140} opacity={0.85} />
-        <Cloud className="absolute right-[6%] top-[140px]" size={170} opacity={0.85} />
-        <Cloud className="absolute left-[42%] top-[220px]" size={90} opacity={0.55} />
-        <Cloud className="absolute right-[30%] top-[380px]" size={110} opacity={0.6} />
+        <Cloud className="absolute left-[4%] bottom-[120px]" size={150} opacity={0.85} />
+        <Cloud className="absolute right-[6%] bottom-[60px]" size={180} opacity={0.9} />
+        <Cloud className="absolute left-[38%] bottom-[200px]" size={100} opacity={0.55} />
+        <Cloud className="absolute right-[28%] bottom-[260px]" size={120} opacity={0.6} />
       </div>
       <div className="fixed left-1/2 top-3 z-30 w-[min(96vw,1200px)] -translate-x-1/2">
         <div
