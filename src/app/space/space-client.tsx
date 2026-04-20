@@ -1639,7 +1639,7 @@ function BreathIntro() {
     if (!overlay || !sun || !inhale || !hold || !exhale) return;
 
     gsap.set(overlay, { opacity: 0 });
-    gsap.set(sun, { scale: 0.95, y: 0 });
+    gsap.set(sun, { scale: 0.97, y: 0, transformOrigin: "50% 100%" });
     gsap.set([inhale, hold, exhale], { opacity: 0, y: 8 });
 
     const tl = gsap.timeline({
@@ -1666,7 +1666,7 @@ function BreathIntro() {
 
       // Inhale (4s) — sun grows
       .to(inhale, { opacity: 1, y: 0, duration: 0.5 }, "+=0.2")
-      .to(sun, { scale: 1.15, duration: 4 }, "<")
+      .to(sun, { scale: 1.06, duration: 4 }, "<")
       .to(inhale, { opacity: 0, y: -8, duration: 0.5 })
 
       // Hold (1.5s)
@@ -1676,7 +1676,7 @@ function BreathIntro() {
 
       // Exhale (5s) — sun shrinks
       .to(exhale, { opacity: 1, y: 0, duration: 0.5 })
-      .to(sun, { scale: 0.95, duration: 5 }, "<")
+      .to(sun, { scale: 0.97, duration: 5 }, "<")
       .to(exhale, { opacity: 0, y: -8, duration: 0.5 });
 
     const onKey = (e: KeyboardEvent) => {
@@ -1693,6 +1693,16 @@ function BreathIntro() {
 
   if (!visible || !mounted || typeof document === "undefined") return null;
 
+  const labelClass =
+    "absolute whitespace-nowrap font-extrabold uppercase tracking-[0.28em] text-[#2B1810] text-5xl sm:text-7xl md:text-8xl lg:text-9xl";
+  const labelStyle: React.CSSProperties = {
+    opacity: 0,
+    fontFamily:
+      '"Nunito", "Quicksand", ui-rounded, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    fontWeight: 900,
+    textShadow: "0 2px 0 rgba(0,0,0,0.04)",
+  };
+
   const scene = (
     <div
       ref={overlayRef}
@@ -1705,103 +1715,75 @@ function BreathIntro() {
         background: "linear-gradient(180deg, #FFF6DC 0%, #FDE7B3 55%, #FBD38D 100%)",
       }}
     >
-      {/* Breath label (big & bold) */}
-      <div className="pointer-events-none absolute inset-x-0 top-[10%] flex items-center justify-center">
-        <div
-          ref={inhaleRef}
-          className="absolute whitespace-nowrap text-6xl font-bold tracking-[0.12em] text-[#5B2A0A] sm:text-7xl md:text-8xl"
-          style={{ opacity: 0 }}
-        >
+      {/* TOP HALF — breath label */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 flex items-center justify-center">
+        <div ref={inhaleRef} className={labelClass} style={labelStyle}>
           Inhala
         </div>
-        <div
-          ref={holdRef}
-          className="absolute whitespace-nowrap text-6xl font-bold tracking-[0.12em] text-[#5B2A0A] sm:text-7xl md:text-8xl"
-          style={{ opacity: 0 }}
-        >
+        <div ref={holdRef} className={labelClass} style={labelStyle}>
           Sostén
         </div>
-        <div
-          ref={exhaleRef}
-          className="absolute whitespace-nowrap text-6xl font-bold tracking-[0.12em] text-[#5B2A0A] sm:text-7xl md:text-8xl"
-          style={{ opacity: 0 }}
-        >
+        <div ref={exhaleRef} className={labelClass} style={labelStyle}>
           Exhala
         </div>
       </div>
 
-      {/* Floating clouds */}
-      <Cloud className="absolute left-[6%] bottom-[22%]" size={90} opacity={0.95} />
-      <Cloud className="absolute right-[8%] bottom-[30%]" size={70} opacity={0.9} />
-      <Cloud className="absolute left-[20%] bottom-[6%]" size={110} opacity={1} />
-      <Cloud className="absolute right-[4%] bottom-[10%]" size={95} opacity={1} />
+      {/* BOTTOM HALF — sun dome + clouds */}
+      <div className="absolute inset-x-0 bottom-0 h-1/2">
+        {/* Clouds */}
+        <Cloud className="absolute left-[6%] top-[10%]" size={90} opacity={0.95} />
+        <Cloud className="absolute right-[8%] top-[22%]" size={75} opacity={0.9} />
+        <Cloud className="absolute left-[22%] top-[2%]" size={60} opacity={0.85} />
+        <Cloud className="absolute right-[26%] top-[6%]" size={70} opacity={0.9} />
 
-      {/* Big sun anchored at the base (≈80% visible) */}
-      <div
-        ref={sunRef}
-        className="absolute left-1/2"
-        style={{
-          bottom: 0,
-          width: "min(140vmin, 1100px)",
-          height: "min(140vmin, 1100px)",
-          transform: "translate(-50%, 20%) scale(0.95)",
-          transformOrigin: "50% 50%",
-          willChange: "transform",
-        }}
-      >
-        <div className="relative h-full w-full">
-          {/* Sun body */}
+        {/* Sun dome — semicircle anchored to bottom edge */}
+        <div
+          ref={sunRef}
+          className="absolute inset-0"
+          style={{
+            transformOrigin: "50% 100%",
+            transform: "scale(0.97)",
+            willChange: "transform",
+          }}
+        >
           <div
-            className="absolute inset-0 rounded-full"
+            className="absolute inset-0"
             style={{
               background:
-                "radial-gradient(circle at 50% 45%, #FFB266 0%, #FF8A3D 55%, #F97316 92%)",
-              boxShadow: "0 -24px 80px rgba(249,115,22,0.3)",
+                "radial-gradient(ellipse 70% 90% at 50% 100%, #FFD28A 0%, #FFB266 40%, #FF8A3D 75%, #F97316 100%)",
+              borderRadius: "50% 50% 0 0 / 100% 100% 0 0",
+              boxShadow: "0 -20px 60px rgba(249,115,22,0.25)",
             }}
           />
-          {/* Sleepy closed eyes (two downward arcs) */}
-          <svg
-            aria-hidden="true"
-            className="absolute"
-            style={{ top: "14%", left: "32%", width: "10%", height: "6%", overflow: "visible" }}
-            viewBox="0 0 100 40"
-            fill="none"
-          >
-            <path
-              d="M8 28 Q50 -6 92 28"
-              stroke="#5B2A0A"
-              strokeWidth="10"
-              strokeLinecap="round"
-              fill="none"
-            />
-          </svg>
-          <svg
-            aria-hidden="true"
-            className="absolute"
-            style={{ top: "14%", right: "32%", width: "10%", height: "6%", overflow: "visible" }}
-            viewBox="0 0 100 40"
-            fill="none"
-          >
-            <path
-              d="M8 28 Q50 -6 92 28"
-              stroke="#5B2A0A"
-              strokeWidth="10"
-              strokeLinecap="round"
-              fill="none"
-            />
-          </svg>
-          {/* Smile */}
+          {/* Face — eyes + smile near the dome peak */}
           <svg
             aria-hidden="true"
             className="absolute left-1/2 -translate-x-1/2"
-            style={{ top: "20%", width: "32%", height: "10%", overflow: "visible" }}
-            viewBox="0 0 100 30"
+            style={{ top: "20%", width: "min(42vw, 420px)", height: "auto", overflow: "visible" }}
+            viewBox="0 0 400 140"
             fill="none"
           >
+            {/* Left eye (sleepy arc) */}
             <path
-              d="M6 4 Q50 38 94 4"
-              stroke="#5B2A0A"
-              strokeWidth="7"
+              d="M70 50 Q110 18 150 50"
+              stroke="#2B1810"
+              strokeWidth="10"
+              strokeLinecap="round"
+              fill="none"
+            />
+            {/* Right eye */}
+            <path
+              d="M250 50 Q290 18 330 50"
+              stroke="#2B1810"
+              strokeWidth="10"
+              strokeLinecap="round"
+              fill="none"
+            />
+            {/* Smile */}
+            <path
+              d="M150 95 Q200 130 250 95"
+              stroke="#2B1810"
+              strokeWidth="10"
               strokeLinecap="round"
               fill="none"
             />
