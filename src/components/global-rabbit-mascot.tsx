@@ -17,6 +17,7 @@ import {
   type RabbitGuideSpeechPayload,
 } from "@/lib/rabbit-guide";
 import { getTasksForDate, updateTask } from "@/lib/clinical-store";
+import { RABBIT_VOICE_QUEUE_EVENT, type VoiceQueueEntry } from "@/lib/global-notifier";
 
 type RabbitFrame = number[][];
 
@@ -330,6 +331,8 @@ export function GlobalRabbitMascot({ compact = false, suppressSpeech = false }: 
     let cornerPauseRemainingMs = 0;
     let speakUntilTs = 0;
     let speechVisible = false;
+    const voiceQueue: VoiceQueueEntry[] = [];
+    const seenKeys = new Set<string>();
     let behaviorMode: RabbitBehaviorMode = "patrol";
     let commandedVisualState: RabbitVisualState | null = null;
     let controlPauseUntilTs = 0;
@@ -530,6 +533,11 @@ export function GlobalRabbitMascot({ compact = false, suppressSpeech = false }: 
       if (!isSpeaking && speechVisible) {
         speechVisible = false;
         setSpeech(null);
+        // Consume next in queue (FIFO, no interruption).
+        const next = voiceQueue.shift();
+        if (next) {
+          speakEntry(next);
+        }
       }
 
       if (isPausedOnCorner) {
@@ -649,11 +657,8 @@ export function GlobalRabbitMascot({ compact = false, suppressSpeech = false }: 
       }
     };
 
-    const onGuideSpeak = (event: Event) => {
-      const custom = event as CustomEvent<RabbitGuideSpeechPayload>;
-      const detail = custom.detail;
-      if (!detail || typeof detail !== "object") return;
-
+    const speakEntry = (entry: VoiceQueueEntry) => {
+      const detail = entry.payload;
       speechVisible = true;
       setSpeech({
         title: detail.title,
@@ -668,12 +673,53 @@ export function GlobalRabbitMascot({ compact = false, suppressSpeech = false }: 
       speakUntilTs = performance.now() + Math.max(1400, detail.durationMs ?? 4800);
     };
 
+    const enqueueOrSpeak = (entry: VoiceQueueEntry) => {
+      if (!entry || typeof entry !== "object") return;
+      if (entry.key && seenKeys.has(entry.key)) return;
+      if (entry.key) seenKeys.add(entry.key);
+      if (!speechVisible) {
+        speakEntry(entry);
+      } else {
+        voiceQueue.push(entry);
+      }
+    };
+
+    const onGuideSpeak = (event: Event) => {
+      const custom = event as CustomEvent<RabbitGuideSpeechPayload>;
+      const detail = custom.detail;
+      if (!detail || typeof detail !== "object") return;
+      // Guide speech coming from the engine: not dedup-keyed (always fresh context).
+      const entry: VoiceQueueEntry = {
+        key: `guide:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+        priority: "guide",
+        payload: {
+          title: detail.title,
+          message: detail.message,
+          status: detail.status,
+          actions: detail.actions,
+          durationMs: detail.durationMs,
+        },
+      };
+      // Guide messages replace any pending guide queue (stale engine outputs), keep notifies/milestones.
+      for (let i = voiceQueue.length - 1; i >= 0; i -= 1) {
+        if (voiceQueue[i].priority === "guide") voiceQueue.splice(i, 1);
+      }
+      enqueueOrSpeak(entry);
+    };
+
+    const onVoiceQueue = (event: Event) => {
+      const custom = event as CustomEvent<VoiceQueueEntry>;
+      const entry = custom.detail;
+      enqueueOrSpeak(entry);
+    };
+
     window.addEventListener("resize", onResize);
     window.addEventListener("storage", onPersonalityChange);
     window.addEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, onPersonalityChange);
     window.addEventListener(RABBIT_GUIDE_PROMPT_EVENT, onGuidePrompt);
     window.addEventListener(RABBIT_ASSISTANT_CONTROL_EVENT, onAssistantControl as EventListener);
     window.addEventListener(RABBIT_GUIDE_SPEAK_EVENT, onGuideSpeak as EventListener);
+    window.addEventListener(RABBIT_VOICE_QUEUE_EVENT, onVoiceQueue as EventListener);
 
     return () => {
       window.cancelAnimationFrame(rafId);
@@ -683,6 +729,7 @@ export function GlobalRabbitMascot({ compact = false, suppressSpeech = false }: 
       window.removeEventListener(RABBIT_GUIDE_PROMPT_EVENT, onGuidePrompt);
       window.removeEventListener(RABBIT_ASSISTANT_CONTROL_EVENT, onAssistantControl as EventListener);
       window.removeEventListener(RABBIT_GUIDE_SPEAK_EVENT, onGuideSpeak as EventListener);
+      window.removeEventListener(RABBIT_VOICE_QUEUE_EVENT, onVoiceQueue as EventListener);
     };
   }, []);
 

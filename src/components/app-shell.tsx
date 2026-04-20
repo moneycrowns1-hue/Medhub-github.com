@@ -22,6 +22,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { PomodoroOverlay } from "@/components/pomodoro-overlay";
+import { PomodoroMilestones } from "@/components/pomodoro-milestones";
 import { GlobalRabbitMascot } from "@/components/global-rabbit-mascot";
 import { RabbitGuidePanel } from "@/components/rabbit-guide-panel";
 import { SpaceGlobalPlayer } from "@/components/space-global-player";
@@ -333,6 +334,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
       <PomodoroOverlay />
+      {!isImmersiveReaderRoute ? <PomodoroMilestones /> : null}
       <GlobalRabbitMascot compact={isImmersiveReaderRoute} suppressSpeech={isImmersiveReaderRoute} />
       {!isImmersiveReaderRoute ? <RabbitGuidePanel /> : null}
       {!isImmersiveReaderRoute && !isSpaceRoute ? (

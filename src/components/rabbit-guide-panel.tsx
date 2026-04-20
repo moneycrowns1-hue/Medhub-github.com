@@ -9,6 +9,17 @@ import { CLINICAL_TASKS_UPDATED_EVENT, getTasksForDate } from "@/lib/clinical-st
 import { algoStats } from "@/lib/srs-algo";
 import { loadSrsLibrary, SRS_UPDATED_EVENT } from "@/lib/srs-storage";
 import {
+  ACADEMIC_UPDATED_EVENT,
+  listUpcomingEvaluations,
+} from "@/lib/academic-store";
+import { SUBJECTS, type SubjectSlug as SlugForLookup } from "@/lib/subjects";
+import { getCurrentStreak } from "@/lib/stats-store";
+import {
+  loadNotificationsPrefs,
+  NOTIFICATIONS_PREFS_UPDATED_EVENT,
+} from "@/lib/notifications-store";
+import { notifyGlobal } from "@/lib/global-notifier";
+import {
   loadPomodoroState,
   POMODORO_STATE_UPDATED_EVENT,
   type PomodoroState,
@@ -67,6 +78,12 @@ export function RabbitGuidePanel() {
   const [clinicalPendingTasks, setClinicalPendingTasks] = useState(0);
   const [clinicalReminderTick, setClinicalReminderTick] = useState(0);
   const [personality, setPersonality] = useState<RabbitPersonality>(() => loadRabbitPersonality());
+  const [upcomingEvals, setUpcomingEvals] = useState<
+    Array<{ title: string; subjectName: string; daysUntil: number }>
+  >([]);
+  const [srsTopDeck, setSrsTopDeck] = useState<{ name: string; due: number } | null>(null);
+  const [streakDays, setStreakDays] = useState<number>(0);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [showDebug, setShowDebug] = useState(false);
   const [replayIndex, setReplayIndex] = useState(0);
   const [isReplayPlaying, setIsReplayPlaying] = useState(false);
@@ -127,10 +144,50 @@ export function RabbitGuidePanel() {
       const guidedSubjectSlug = nextGuide.activeSubjectSlug ?? nextGuide.lastStudySubjectSlug ?? todayPlan.primary;
       const srs = loadSrsLibrary();
       const clinicalTasks = getTasksForDate(todayIsoDate());
-      setSrsDueToday(algoStats(srs.cards).dueToday);
+      const overall = algoStats(srs.cards);
+      setSrsDueToday(overall.dueToday);
       setSrsDueForGuidedSubject(algoStats(srs.cards.filter((card) => card.subjectSlug === guidedSubjectSlug)).dueToday);
       setClinicalTodayTasks(clinicalTasks.filter((task) => task.status === "TODAY").length);
       setClinicalPendingTasks(clinicalTasks.filter((task) => task.status === "PENDING").length);
+
+      // Top SRS deck by dueToday
+      let topDeck: { name: string; due: number } | null = null;
+      for (const deck of srs.decks) {
+        const deckDue = algoStats(srs.cards.filter((c) => c.deckId === deck.id)).dueToday;
+        if (deckDue > 0 && (!topDeck || deckDue > topDeck.due)) {
+          topDeck = { name: deck.name, due: deckDue };
+        }
+      }
+      setSrsTopDeck(topDeck);
+
+      // Upcoming evaluations (14-day horizon)
+      try {
+        const upcoming = listUpcomingEvaluations({ horizonDays: 14 }).slice(0, 5).map((e) => ({
+          title: e.record.title,
+          subjectName: SUBJECTS[e.record.subjectSlug as SlugForLookup]?.name ?? e.record.subjectSlug,
+          daysUntil: e.daysUntil,
+        }));
+        setUpcomingEvals(upcoming);
+      } catch {
+        setUpcomingEvals([]);
+      }
+
+      // Streak + notifs
+      try {
+        setStreakDays(getCurrentStreak());
+      } catch {
+        setStreakDays(0);
+      }
+      try {
+        const prefs = loadNotificationsPrefs();
+        const permOk =
+          typeof window !== "undefined" && "Notification" in window
+            ? Notification.permission !== "denied"
+            : true;
+        setNotificationsEnabled(Boolean(prefs.enabled) && permOk);
+      } catch {
+        setNotificationsEnabled(true);
+      }
     };
 
     syncAll();
@@ -141,6 +198,8 @@ export function RabbitGuidePanel() {
     window.addEventListener(SRS_UPDATED_EVENT, syncAll);
     window.addEventListener(CLINICAL_TASKS_UPDATED_EVENT, syncAll);
     window.addEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, syncAll);
+    window.addEventListener(ACADEMIC_UPDATED_EVENT, syncAll);
+    window.addEventListener(NOTIFICATIONS_PREFS_UPDATED_EVENT, syncAll);
 
     return () => {
       window.removeEventListener("storage", syncAll);
@@ -150,8 +209,39 @@ export function RabbitGuidePanel() {
       window.removeEventListener(SRS_UPDATED_EVENT, syncAll);
       window.removeEventListener(CLINICAL_TASKS_UPDATED_EVENT, syncAll);
       window.removeEventListener(RABBIT_PERSONALITY_UPDATED_EVENT, syncAll);
+      window.removeEventListener(ACADEMIC_UPDATED_EVENT, syncAll);
+      window.removeEventListener(NOTIFICATIONS_PREFS_UPDATED_EVENT, syncAll);
     };
   }, []);
+
+  // Daily evaluations greeting: speak once per day if there are evals within 7 days.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!upcomingEvals.length) return;
+    const near = upcomingEvals.filter((e) => e.daysUntil <= 7);
+    if (!near.length) return;
+    const iso = todayIsoDate();
+    const key = `somagnus:rabbit:daily-greeting:${iso}`;
+    try {
+      if (window.localStorage.getItem(key)) return;
+      const next = near[0];
+      const whenLabel = next.daysUntil === 0 ? "hoy" : next.daysUntil === 1 ? "mañana" : `en ${next.daysUntil} días`;
+      notifyGlobal({
+        title: `Evaluaciones en tu horizonte (${near.length})`,
+        body: `Próxima: "${next.title}" de ${next.subjectName} ${whenLabel}. Si tenés SRS de ese tema, buen momento para repasar.`,
+        status: "Saludo diario",
+        tag: key,
+        durationMs: 6200,
+        actions: [
+          { href: "/academico", label: "Ver calendario", primary: true },
+          { href: "/srs", label: "Repasar SRS" },
+        ],
+      });
+      window.localStorage.setItem(key, String(Date.now()));
+    } catch {
+      // ignore
+    }
+  }, [upcomingEvals]);
 
   useEffect(() => {
     if (!pathname.startsWith("/day")) return;
@@ -214,6 +304,10 @@ export function RabbitGuidePanel() {
         clinicalPendingTasks,
         clinicalReminderTick,
         personality,
+        upcomingEvals,
+        srsTopDeck,
+        streakDays,
+        notificationsEnabled,
       }),
     [
       state,
@@ -226,6 +320,10 @@ export function RabbitGuidePanel() {
       clinicalPendingTasks,
       clinicalReminderTick,
       personality,
+      upcomingEvals,
+      srsTopDeck,
+      streakDays,
+      notificationsEnabled,
     ],
   );
 

@@ -4,10 +4,11 @@ import Link from "next/link";
 import type { SubjectSlug } from "@/lib/subjects";
 import {
   RABBIT_ASSISTANT_CONTROL_EVENT,
-  RABBIT_GUIDE_SPEAK_EVENT,
   startStudyGuidance,
 } from "@/lib/rabbit-guide";
 import { SUBJECTS } from "@/lib/subjects";
+import { loadPomodoroSettings } from "@/lib/pomodoro-settings";
+import { notifyGlobal } from "@/lib/global-notifier";
 
 type Props = {
   href: string;
@@ -33,17 +34,19 @@ export function StartStudyLink({ href, subjectSlug, className, children }: Props
           }),
         );
         const subject = SUBJECTS[subjectSlug];
-        window.dispatchEvent(
-          new CustomEvent(RABBIT_GUIDE_SPEAK_EVENT, {
-            detail: {
-              title: "Empezamos",
-              message: `Perfecto, vamos con ${subject.name}. Primero activo modo guía y luego seguimos el bloque paso a paso.`,
-              status: "Conejo en pausa · Preparando ruta",
-              actions: [{ href: "/#pomodoro", label: "Ir a Pomodoro", primary: true }],
-              durationMs: 4200,
-            },
-          }),
-        );
+        const settings = loadPomodoroSettings();
+        notifyGlobal({
+          title: "Empezamos la rutina",
+          body: `Tu primera materia es ${subject.name}. Activa Pomodoro (bloque 1: ${settings.focus1Min} min). Te voy indicando inicio, mitad y cierre de cada bloque; al terminar te sugiero el siguiente paso.`,
+          status: "Conejo guía · Preparando ruta",
+          actions: [
+            { href: "/#pomodoro", label: "Activar Pomodoro", primary: true },
+            { href, label: `Abrir ${subject.name}` },
+          ],
+          durationMs: 6200,
+          tag: `start-routine:${subjectSlug}:${Date.now()}`,
+          inAppOnly: true,
+        });
       }}
     >
       {children}

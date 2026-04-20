@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 
 import {
-  canShowNotifications,
   loadNotificationsPrefs,
   markNotificationSent,
   NOTIFICATIONS_PREFS_UPDATED_EVENT,
@@ -16,6 +15,7 @@ import {
 } from "@/lib/academic-store";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 import { getPlanForDate, formatPlanSummary } from "@/lib/schedule";
+import { notifyGlobal } from "@/lib/global-notifier";
 
 const CHECK_INTERVAL_MS = 60_000;
 
@@ -37,18 +37,8 @@ function targetMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
-function fireNotification(title: string, body: string, tag: string) {
-  if (!canShowNotifications()) return;
-  try {
-    new Notification(title, { body, tag });
-  } catch {
-    // ignore
-  }
-}
-
 function tick(prefs: NotificationsPrefs) {
   if (!prefs.enabled) return;
-  if (!canShowNotifications()) return;
 
   const now = new Date();
   const today = isoDateOnly(now);
@@ -57,7 +47,6 @@ function tick(prefs: NotificationsPrefs) {
   // Daily plan reminder
   if (prefs.dailyPlanEnabled) {
     const target = targetMinutes(prefs.dailyPlanTime);
-    // Fire within a 5-minute window after target to absorb laptop wake/tab focus
     if (currentMin >= target && currentMin <= target + 5) {
       const key = `daily-plan:${today}`;
       if (!wasNotificationSent(key)) {
@@ -67,7 +56,19 @@ function tick(prefs: NotificationsPrefs) {
         const body = summary.isRestDay
           ? "Hoy toca descansar. Recuperá energía."
           : `Principal: ${summary.primaryName}. Secundaria: ${summary.secondaryName}. Lectura: ${summary.reading}.`;
-        fireNotification(title, body, key);
+        notifyGlobal({
+          title,
+          body,
+          tag: key,
+          status: "Plan del día",
+          actions: summary.isRestDay
+            ? [{ href: "/day", label: "Ver plan", primary: true }]
+            : [
+                { href: "/day", label: "Abrir plan", primary: true },
+                { href: "/", label: "Ir a Hoy" },
+              ],
+          durationMs: 5400,
+        });
         markNotificationSent(key);
       }
     }
@@ -92,7 +93,17 @@ function tick(prefs: NotificationsPrefs) {
             : `En ${entry.daysUntil} días`;
         const title = `${when}: ${entry.record.title}`;
         const body = `${subjectName} · ${entry.semester.name} (${entry.record.date})`;
-        fireNotification(title, body, key);
+        notifyGlobal({
+          title,
+          body,
+          tag: key,
+          status: `Evaluación · ${when}`,
+          actions: [
+            { href: "/academico", label: "Ver calendario", primary: true },
+            { href: "/srs", label: "Repasar" },
+          ],
+          durationMs: 5400,
+        });
         markNotificationSent(key);
       }
     }

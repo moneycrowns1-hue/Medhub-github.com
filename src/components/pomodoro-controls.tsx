@@ -97,19 +97,6 @@ export function PomodoroControls() {
     }
   };
 
-  const notifyPhaseComplete = async (phase: PomodoroPhase) => {
-    try {
-      if (typeof window === "undefined") return;
-      if ("Notification" in window && Notification.permission === "granted") {
-        const title = isBreakPhase(phase) ? "Break terminado" : "Bloque completado";
-        const body = isBreakPhase(phase) ? "Volvé al enfoque." : "Buen trabajo. Pasá al descanso.";
-        new Notification(title, { body });
-      }
-    } catch {
-      // ignore
-    }
-  };
-
   useEffect(() => {
     if (!running && state.phase !== "idle" && state.startedAtMs) {
       const completedKey = `${state.phase}:${state.startedAtMs}`;
@@ -120,7 +107,6 @@ export function PomodoroControls() {
           incrementStat("focusMinutes", durationMin);
           incrementStat("blocksCompleted", 1);
         }
-        void notifyPhaseComplete(state.phase);
         void playChime();
       }
       const np = nextPhase(state.phase);

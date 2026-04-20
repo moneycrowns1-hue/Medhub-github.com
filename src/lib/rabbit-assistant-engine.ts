@@ -23,6 +23,10 @@ export type RabbitAssistantContext = {
   clinicalPendingTasks: number;
   clinicalReminderTick: number;
   personality: RabbitPersonality;
+  upcomingEvals?: Array<{ title: string; subjectName: string; daysUntil: number }>;
+  srsTopDeck?: { name: string; due: number } | null;
+  streakDays?: number;
+  notificationsEnabled?: boolean;
 };
 
 export type RabbitGuideCard = {
@@ -185,14 +189,116 @@ function buildGuideCard(ctx: RabbitAssistantContext): RabbitGuideCard {
 
   if (pathname.startsWith("/space")) {
     return {
-      title: "Conejo blanco: guía Space",
+      title: "Calma · pausa guiada",
       message:
-        "Guía rápida: 1) Reproduce Dormir mejor. 2) Elige mood para enfocarte o descargar. 3) Guarda favoritos para volver en un toque. Próximos ajustes en esta sección: volumen, velocidad y auto-avance; y luego completamos la biblioteca personalizada en public/audio/space.",
+        "Tres moods para recalibrar: Respira para bajar revoluciones, Enfócate para entrar en flujo, y Descarga para soltar tensión. El tema cambia día/noche automáticamente según tu horario.",
       status: `${pomodoroText} · ${phaseStatus} · Relax guiado`,
       actions: [
-        { href: "/space", label: "Seguir en Space", primary: true },
-        { href: "/biblioteca", label: "Ir a Biblioteca" },
+        { href: "/space", label: "Elegir mood", primary: true },
+        { href: "/biblioteca", label: "Lectura suave" },
       ],
+    };
+  }
+
+  if (pathname.startsWith("/academico")) {
+    const evals = (ctx.upcomingEvals ?? []).slice(0, 3);
+    if (evals.length === 0) {
+      return {
+        title: "Calendario académico",
+        message: "No hay evaluaciones registradas. Agrega las fechas del semestre para que te avise con 7, 3 y 1 días de anticipación.",
+        status: `${pomodoroText} · ${phaseStatus} · Evaluaciones`,
+        actions: [
+          { href: "/academico", label: "Agregar evaluación", primary: true },
+          { href: "/settings", label: "Ajustar recordatorios" },
+        ],
+      };
+    }
+    const next = evals[0];
+    const whenLabel = next.daysUntil === 0 ? "hoy" : next.daysUntil === 1 ? "mañana" : `en ${next.daysUntil} días`;
+    return {
+      title: `Evaluaciones próximas (${evals.length})`,
+      message: `La siguiente es "${next.title}" de ${next.subjectName} ${whenLabel}. Si tienes SRS de ese tema, te recomiendo repasar.`,
+      status: `${pomodoroText} · ${phaseStatus} · Próxima: ${whenLabel}`,
+      actions: [
+        { href: "/academico", label: "Ver calendario", primary: true },
+        { href: "/srs", label: "Repasar SRS" },
+      ],
+    };
+  }
+
+  if (pathname.startsWith("/stats")) {
+    const streak = ctx.streakDays ?? 0;
+    const focusMin = todayStats.focusMinutes;
+    const blocks = todayStats.blocksCompleted;
+    return {
+      title: "Tu progreso",
+      message:
+        streak > 0
+          ? `Racha actual: ${streak} día(s). Hoy llevas ${focusMin} min de foco en ${blocks} bloque(s). Mantén el ritmo.`
+          : `Hoy llevas ${focusMin} min de foco en ${blocks} bloque(s). Un día completo suma racha.`,
+      status: `${pomodoroText} · ${phaseStatus} · Stats`,
+      actions: [
+        { href: "/", label: "Seguir el día", primary: true },
+        { href: "/day", label: "Ver plan" },
+      ],
+    };
+  }
+
+  if (pathname.startsWith("/settings")) {
+    if (ctx.notificationsEnabled === false) {
+      return {
+        title: "Activa notificaciones",
+        message: "Sin notificaciones no puedo avisarte de evaluaciones ni del plan diario cuando tengas la app cerrada. Habilítalas en esta misma pantalla.",
+        status: `${pomodoroText} · ${phaseStatus} · Ajustes`,
+        actions: [
+          { href: "/settings", label: "Habilitar notificaciones", primary: true },
+          { href: "/", label: "Volver a Hoy" },
+        ],
+      };
+    }
+    return {
+      title: "Ajustes del sistema",
+      message: "Puedes afinar personalidad del conejo, duración de los bloques Pomodoro, recordatorios y tema. Todo se guarda local.",
+      status: `${pomodoroText} · ${phaseStatus} · Ajustes`,
+      actions: [
+        { href: "/settings", label: "Revisar ajustes", primary: true },
+        { href: "/", label: "Volver a Hoy" },
+      ],
+    };
+  }
+
+  if (pathname.startsWith("/srs")) {
+    const top = ctx.srsTopDeck ?? null;
+    if (srsDueToday === 0) {
+      return {
+        title: "SRS al día",
+        message: "Hoy no hay tarjetas vencidas. Usa el hueco para crear mazos nuevos o revisar formativas.",
+        status: `${pomodoroText} · ${phaseStatus} · Sin due`,
+        actions: [
+          { href: "/srs", label: "Crear mazo", primary: true },
+          { href: "/biblioteca", label: "Material de apoyo" },
+        ],
+      };
+    }
+    return {
+      title: "Repaso espaciado",
+      message: top
+        ? `Te esperan ${srsDueToday} tarjetas. Te sugiero empezar por "${top.name}" (${top.due} vencidas).`
+        : `Te esperan ${srsDueToday} tarjetas. Arranca por el mazo más vencido para bajar presión.`,
+      status: `${pomodoroText} · ${phaseStatus} · Due: ${srsDueToday}`,
+      actions: [
+        { href: "/srs", label: "Iniciar repaso", primary: true },
+        { href: "/biblioteca", label: "Material de apoyo" },
+      ],
+    };
+  }
+
+  if (pathname.startsWith("/lector")) {
+    return {
+      title: "Lectura inmersiva",
+      message: "Activo lectura a pantalla completa. Al salir guardo tu página automáticamente.",
+      status: `${pomodoroText} · ${phaseStatus} · Lector`,
+      actions: [{ href: "/biblioteca", label: "Volver a biblioteca", primary: true }],
     };
   }
 
