@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Outfit, Pixelify_Sans } from "next/font/google";
+import { Outfit } from "next/font/google";
 import { ChevronDown, ChevronUp, Headphones, Heart, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Volume2 } from "lucide-react";
 import gsap from "gsap";
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
@@ -31,7 +31,6 @@ type SpaceSession = {
 
 const FAVORITES_STORAGE_KEY = "somagnus:space:favorites:v1";
 const PROGRESS_STORAGE_KEY = "somagnus:space:progress:v1";
-const VISUAL_MODE_STORAGE_KEY = "somagnus:space:visual-mode:v1";
 const DAILY_MASCOT_GUIDE_STORAGE_KEY = "somagnus:space:mascot-daily-checkin:v1";
 const ACTIVE_SESSION_STORAGE_KEY = "somagnus:space:active-session:v1";
 const VOLUME_STORAGE_KEY = "somagnus:space:volume:v1";
@@ -42,22 +41,8 @@ const SPACE_ARCHIVE_STREAM_URL = "https://archive.org/download/entregate-al-suen
 const SPACE_ARCHIVE_EMBED_URL = "https://archive.org/embed/entregate-al-sueno";
 const SPACE_ARCHIVE_EXTERNAL_URL = "https://archive.org/details/entregate-al-sueno";
 
-type VisualModeId = "aurora" | "deep-night" | "soft-glass";
-
-type VisualMode = {
-  id: VisualModeId;
-  label: string;
-  desc: string;
-};
-
-const visualModes: VisualMode[] = [
-  { id: "aurora", label: "Aurora minimal", desc: "Limpio + menos saturación" },
-  { id: "deep-night", label: "Deep night", desc: "Oscuro inmersivo + brillo sutil" },
-  { id: "soft-glass", label: "Soft glass", desc: "Translúcido premium bienestar" },
-];
-
 const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
-const pixelify = Pixelify_Sans({ subsets: ["latin"], weight: ["500", "700"] });
+const cinzelDisplay = "[font-family:var(--font-display),'Cinzel_Decorative',serif]";
 
 const moods: Mood[] = [
   {
@@ -205,16 +190,6 @@ function loadInitialRevealState() {
   const shouldReduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!shouldReduceMotion) return {} as Record<string, boolean>;
   return Object.fromEntries(revealIds.map((id) => [id, true])) as Record<string, boolean>;
-}
-
-function loadVisualMode() {
-  if (typeof window === "undefined") return "aurora" as VisualModeId;
-  try {
-    const raw = window.localStorage.getItem(VISUAL_MODE_STORAGE_KEY);
-    return visualModes.some((mode) => mode.id === raw) ? (raw as VisualModeId) : "aurora";
-  } catch {
-    return "aurora" as VisualModeId;
-  }
 }
 
 function getScrollY() {
@@ -465,7 +440,6 @@ export function SpaceClient() {
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => loadFavorites());
   const [sessionProgress, setSessionProgress] = useState<Record<string, number>>(() => loadProgress());
   const [revealedSections, setRevealedSections] = useState<Record<string, boolean>>(() => loadInitialRevealState());
-  const [visualMode] = useState<VisualModeId>(() => loadVisualMode());
   const [parallaxY, setParallaxY] = useState<number>(() => getScrollY());
   const [playPulseToken, setPlayPulseToken] = useState(0);
   const [dailyMascotCheckinDone, setDailyMascotCheckinDone] = useState<boolean>(() => loadDailyMascotCheckinDone());
@@ -482,65 +456,30 @@ export function SpaceClient() {
   });
   const [playerExpanded, setPlayerExpanded] = useState(false);
 
-  const modeStyle = useMemo(() => {
-    if (visualMode === "deep-night") {
-      return {
-        pageText: "text-slate-100",
-        pageGlow: "bg-[radial-gradient(circle_at_22%_20%,rgba(113,130,255,0.2),transparent_48%),radial-gradient(circle_at_82%_14%,rgba(70,204,255,0.12),transparent_52%)]",
-        heroBg: "bg-[linear-gradient(160deg,#080d1f_0%,#111834_45%,#05070f_100%)]",
-        heroShadow: "shadow-[0_35px_80px_-45px_rgba(74,136,255,0.35)]",
-        surface: "bg-slate-950/45",
-        softSurface: "bg-slate-900/45",
-        softSurfaceAlt: "bg-slate-900/35",
-        border: "border-indigo-100/20",
-        borderStrong: "border-indigo-100/35",
-        textMuted: "text-slate-300/80",
-        textSoft: "text-slate-200/70",
-        primaryButton: "border-indigo-50/40 bg-indigo-100 text-slate-950 hover:bg-indigo-50",
-        secondaryButton: "border-indigo-100/30 bg-indigo-100/10 text-slate-100 hover:bg-indigo-100/15",
-        progressTrack: "bg-indigo-100/20",
-        progressFill: "bg-indigo-100",
-      };
-    }
-
-    if (visualMode === "soft-glass") {
-      return {
-        pageText: "text-slate-100",
-        pageGlow: "bg-[radial-gradient(circle_at_20%_18%,rgba(184,244,255,0.28),transparent_48%),radial-gradient(circle_at_82%_12%,rgba(195,218,255,0.24),transparent_54%)]",
-        heroBg: "bg-[linear-gradient(160deg,rgba(17,63,92,0.72)_0%,rgba(41,72,122,0.58)_48%,rgba(30,42,71,0.78)_100%)]",
-        heroShadow: "shadow-[0_35px_80px_-45px_rgba(156,217,255,0.52)]",
-        surface: "bg-white/12",
-        softSurface: "bg-white/10",
-        softSurfaceAlt: "bg-white/8",
-        border: "border-cyan-50/30",
-        borderStrong: "border-cyan-50/45",
-        textMuted: "text-cyan-50/90",
-        textSoft: "text-cyan-50/75",
-        primaryButton: "border-cyan-50/40 bg-cyan-50 text-slate-950 hover:bg-cyan-100",
-        secondaryButton: "border-cyan-50/30 bg-cyan-50/15 text-cyan-50 hover:bg-cyan-50/20",
-        progressTrack: "bg-cyan-50/20",
-        progressFill: "bg-cyan-50",
-      };
-    }
-
-    return {
-      pageText: "text-slate-100",
-      pageGlow: "bg-[radial-gradient(circle_at_25%_20%,rgba(154,229,255,0.2),transparent_46%),radial-gradient(circle_at_80%_15%,rgba(180,195,255,0.16),transparent_50%)]",
-      heroBg: "bg-[linear-gradient(155deg,#0b3444_0%,#162847_44%,#12152a_100%)]",
-      heroShadow: "shadow-[0_35px_80px_-45px_rgba(125,212,255,0.55)]",
-      surface: "bg-slate-950/30",
-      softSurface: "bg-cyan-50/5",
-      softSurfaceAlt: "bg-cyan-50/10",
-      border: "border-cyan-100/20",
-      borderStrong: "border-cyan-100/45",
-      textMuted: "text-cyan-50/90",
-      textSoft: "text-cyan-50/75",
-      primaryButton: "border-cyan-50/40 bg-cyan-50 text-slate-950 hover:bg-cyan-100",
-      secondaryButton: "border-cyan-100/25 bg-cyan-50/10 text-cyan-50/90 hover:bg-cyan-50/15",
-      progressTrack: "bg-cyan-50/15",
-      progressFill: "bg-cyan-50",
-    };
-  }, [visualMode]);
+  // Cielo Calma — paleta única (baja saturación, azul cielo + salvia + lavanda + durazno)
+  // ink #1B2B44, ink-soft #5B6B86, sage #6FB08A, lavender #8B82C9, peach #E8A583
+  const modeStyle = useMemo(
+    () => ({
+      pageText: "text-[#1B2B44]",
+      pageGlow: "",
+      heroBg: "",
+      heroShadow: "shadow-[0_18px_40px_-24px_rgba(27,43,68,0.18)]",
+      surface: "bg-white/70",
+      softSurface: "bg-white/55",
+      softSurfaceAlt: "bg-white/65",
+      border: "border-white/60",
+      borderStrong: "border-[#8B82C9]/50",
+      textMuted: "text-[#1B2B44]/80",
+      textSoft: "text-[#5B6B86]",
+      primaryButton:
+        "border-transparent bg-[#6FB08A] text-white hover:bg-[#5FA079] shadow-[0_6px_18px_-8px_rgba(111,176,138,0.6)]",
+      secondaryButton:
+        "border-white/70 bg-white/55 text-[#1B2B44] hover:bg-white/75",
+      progressTrack: "bg-[#1B2B44]/15",
+      progressFill: "bg-[#6FB08A]",
+    }),
+    [],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -599,14 +538,6 @@ export function SpaceClient() {
       window.clearInterval(intervalId);
     };
   }, []);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(VISUAL_MODE_STORAGE_KEY, visualMode);
-    } catch {
-      return;
-    }
-  }, [visualMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1030,20 +961,25 @@ export function SpaceClient() {
       </div>
       <div className="fixed left-1/2 top-3 z-30 w-[min(96vw,1200px)] -translate-x-1/2">
         <div
-          className={`space-y-2 rounded-3xl p-4 transition-all duration-300 ${
+          className={`flex items-center justify-between gap-4 rounded-full px-5 py-2.5 transition-all duration-300 ${
             stickyHeaderSolid
-              ? "border border-white/20 bg-slate-950/70 shadow-[0_14px_40px_-24px_rgba(0,0,0,0.8)] backdrop-blur-xl"
-              : "border border-transparent bg-transparent"
+              ? "border border-white/70 bg-white/70 shadow-[0_10px_30px_-18px_rgba(27,43,68,0.35)] backdrop-blur-md"
+              : "border border-white/50 bg-white/45 backdrop-blur-md"
           }`}
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-medium text-white">
-            <Sparkles className="h-3.5 w-3.5" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-medium text-[#1B2B44]">
+            <Sparkles className="h-3.5 w-3.5 text-[#8B82C9]" />
             Hoy en Space
           </div>
-          <div className="text-3xl font-extrabold leading-[0.95] tracking-tight text-white drop-shadow-[0_2px_14px_rgba(10,30,70,0.35)] sm:text-4xl md:text-5xl">
-            Entra en
-            <span className={`${pixelify.className} ml-3 text-cyan-50`}>MODO FLOW</span>
+          <div className="text-lg font-semibold tracking-tight text-[#1B2B44] sm:text-xl md:text-2xl">
+            Entra en{" "}
+            <span className={`${cinzelDisplay} font-bold tracking-[0.08em] text-[#6FB08A]`}>
+              FLOW
+            </span>
           </div>
+          <span className="hidden h-7 w-7 items-center justify-center rounded-full bg-white/60 md:inline-flex">
+            <Music2 className="h-3.5 w-3.5 text-[#5B6B86]" />
+          </span>
         </div>
       </div>
 
@@ -1056,19 +992,19 @@ export function SpaceClient() {
         style={{ transitionDelay: "70ms" }}
       >
         <div className="grid gap-3 md:grid-cols-[1fr_220px_170px]">
-          <label className={`flex items-center gap-3 rounded-2xl px-4 py-3 ${modeStyle.softSurfaceAlt}`}>
-            <Search className={`h-4 w-4 ${modeStyle.textSoft}`} />
+          <label className="flex items-center gap-3 rounded-2xl border border-white/60 bg-white/65 px-4 py-3 backdrop-blur-md">
+            <Search className="h-4 w-4 text-[#5B6B86]" />
             <input
               value={sessionQuery}
               onChange={(event) => setSessionQuery(event.target.value)}
               placeholder="Buscar sesión..."
-              className="w-full bg-transparent text-base outline-none placeholder:text-slate-300/50"
+              className="w-full bg-transparent text-base text-[#1B2B44] outline-none placeholder:text-[#5B6B86]/70"
             />
           </label>
           <select
             value={selectedMood}
             onChange={(event) => setSelectedMood(event.target.value)}
-            className={`rounded-2xl px-4 py-3 text-base outline-none ${modeStyle.softSurfaceAlt}`}
+            className="rounded-2xl border border-white/60 bg-white/65 px-4 py-3 text-base text-[#1B2B44] outline-none backdrop-blur-md"
           >
             <option value="all">Todos</option>
             {moods.map((mood) => (
@@ -1078,11 +1014,13 @@ export function SpaceClient() {
           <button
             type="button"
             onClick={() => setFavoritesOnly((prev) => !prev)}
-            className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-base font-semibold transition ${
-              favoritesOnly ? `${modeStyle.softSurfaceAlt}` : `${modeStyle.softSurface}`
+            className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-base font-semibold backdrop-blur-md transition ${
+              favoritesOnly
+                ? "border-[#E8A583]/60 bg-[#F7D9C4]/60 text-[#8C4A2A]"
+                : "border-white/60 bg-white/55 text-[#1B2B44] hover:bg-white/70"
             }`}
           >
-            <Heart className={`h-4 w-4 ${favoritesOnly ? "fill-current" : ""}`} />
+            <Heart className={`h-4 w-4 ${favoritesOnly ? "fill-[#E8A583] text-[#E8A583]" : ""}`} />
             Favoritos
           </button>
         </div>
@@ -1098,9 +1036,9 @@ export function SpaceClient() {
         className={`space-y-3 transition-all duration-700 ease-out ${revealClass("favorites")}`}
         style={{ transitionDelay: "95ms" }}
       >
-        <h3 className="text-xl font-semibold">Recientes</h3>
+        <h3 className="text-xl font-semibold text-[#1B2B44]">Recientes</h3>
         {recentSessions.length === 0 ? (
-          <div className={`rounded-2xl border px-4 py-3 text-sm ${modeStyle.border} ${modeStyle.softSurface} ${modeStyle.textSoft}`}>
+          <div className="rounded-2xl border border-white/60 bg-white/55 px-4 py-3 text-sm text-[#5B6B86] backdrop-blur-md">
             Todavía no hay sesiones recientes.
           </div>
         ) : (
@@ -1112,10 +1050,10 @@ export function SpaceClient() {
                 onClick={() => startSession(session.id, { autoplay: true })}
                 className="group min-w-[88px] text-center"
               >
-                <span className={`mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full border ${modeStyle.border} ${modeStyle.softSurfaceAlt}`}>
+                <span className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full border border-white/70 bg-white/65 text-[#5B6B86] backdrop-blur-md transition group-hover:border-[#6FB08A]/60 group-hover:text-[#6FB08A]">
                   <Music2 className="h-6 w-6" />
                 </span>
-                <span className="mt-2 line-clamp-2 block text-xs leading-tight text-cyan-50/90">{session.title}</span>
+                <span className="mt-2 line-clamp-2 block text-xs leading-tight text-[#1B2B44]">{session.title}</span>
               </button>
             ))}
           </div>
@@ -1128,14 +1066,14 @@ export function SpaceClient() {
         style={{ transitionDelay: "120ms" }}
       >
         {groupedVisibleSessions.length === 0 ? (
-          <div className={`rounded-2xl border px-4 py-4 text-sm ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
+          <div className="rounded-2xl border border-white/60 bg-white/55 px-4 py-4 text-sm text-[#5B6B86] backdrop-blur-md">
             No hay sesiones que coincidan con tu búsqueda/filtro.
           </div>
         ) : null}
         <div className="space-y-6">
           {groupedVisibleSessions.map((group) => (
             <div key={group.id} className="space-y-3">
-              <h3 className="text-2xl font-semibold">{group.title}</h3>
+              <h3 className={`text-2xl font-semibold text-[#1B2B44] ${cinzelDisplay}`}>{group.title}</h3>
               <div className="flex gap-4 overflow-x-auto pb-2">
                 {group.items.map((session) => {
                   const isFav = favoriteIds.includes(session.id);
@@ -1144,11 +1082,11 @@ export function SpaceClient() {
                   return (
                     <article
                       key={session.id}
-                      className={`relative min-w-[220px] overflow-hidden rounded-3xl ${modeStyle.softSurface}`}
+                      className="relative min-w-[240px] overflow-hidden rounded-2xl border border-white/60 bg-white/65 shadow-[0_14px_40px_-26px_rgba(27,43,68,0.35)] backdrop-blur-md"
                     >
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.24),transparent_58%)]" />
+                      <div className="absolute inset-x-0 top-0 h-[90px] bg-[radial-gradient(ellipse_at_50%_0%,rgba(159,211,255,0.55),transparent_70%)]" />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Music2 className="h-16 w-16 text-cyan-50/45" />
+                        <Music2 className="h-16 w-16 text-[#1B2B44]/10" />
                       </div>
 
                       <div className="relative z-10 flex items-start justify-between p-3">
@@ -1157,13 +1095,13 @@ export function SpaceClient() {
                             <button
                               type="button"
                               onClick={() => startSession(session.id, { autoplay: true })}
-                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${modeStyle.primaryButton}`}
+                              className="inline-flex items-center gap-1 rounded-full bg-[#6FB08A] px-3 py-1 text-[11px] font-semibold text-white shadow-[0_6px_16px_-8px_rgba(111,176,138,0.7)] transition hover:bg-[#5FA079]"
                             >
                               <Play className="h-3 w-3" />
                               Play
                             </button>
                           ) : (
-                            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
+                            <span className="inline-flex items-center rounded-full border border-white/70 bg-white/60 px-2.5 py-1 text-[10px] font-semibold text-[#5B6B86]">
                               Próximamente
                             </span>
                           )}
@@ -1172,11 +1110,13 @@ export function SpaceClient() {
                           type="button"
                           onClick={() => toggleFavorite(session.id)}
                           className={`rounded-full border p-2 transition ${
-                            isFav ? "border-rose-300/70 bg-rose-300/20 text-rose-100" : `${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`
+                            isFav
+                              ? "border-[#E8A583]/60 bg-[#F7D9C4]/60 text-[#8C4A2A]"
+                              : "border-white/70 bg-white/55 text-[#5B6B86] hover:bg-white/75"
                           }`}
                           aria-label="Favorito"
                         >
-                          <Heart className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
+                          <Heart className={`h-4 w-4 ${isFav ? "fill-[#E8A583] text-[#E8A583]" : ""}`} />
                         </button>
                       </div>
 
@@ -1188,10 +1128,10 @@ export function SpaceClient() {
                         aria-label={`Seleccionar ${session.title}`}
                       />
 
-                      <div className="relative z-10 mt-24 bg-gradient-to-t from-slate-950/95 via-slate-950/72 to-transparent p-4">
-                        <div className="text-[11px] uppercase tracking-wide text-cyan-50/70">{session.type}</div>
-                        <div className="mt-1 text-xl font-semibold leading-tight">{session.title}</div>
-                        <div className="mt-1 text-xs text-cyan-50/75">{displayDurationForSession(session)}</div>
+                      <div className="relative z-10 mt-24 border-t border-white/60 bg-white/70 p-4 backdrop-blur-md">
+                        <div className="text-[11px] uppercase tracking-[0.14em] text-[#5B6B86]">{session.type}</div>
+                        <div className="mt-1 text-lg font-semibold leading-tight text-[#1B2B44]">{session.title}</div>
+                        <div className="mt-1 text-xs text-[#5B6B86]">{displayDurationForSession(session)}</div>
                       </div>
                     </article>
                   );
@@ -1204,11 +1144,11 @@ export function SpaceClient() {
       {showDockPlayer ? (
         <section className="fixed inset-x-0 bottom-0 z-40 px-3 pb-4 sm:px-6 sm:pb-6">
           <div className="mx-auto w-full max-w-5xl">
-            <div className={`relative isolate overflow-hidden rounded-[30px] border shadow-[0_30px_120px_-44px_rgba(0,0,0,0.98)] backdrop-blur-2xl ${modeStyle.border} ${modeStyle.surface}`}>
-              <div className="pointer-events-none absolute -left-10 -top-10 h-28 w-28 rounded-full bg-cyan-200/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-16 right-8 h-32 w-32 rounded-full bg-indigo-200/10 blur-3xl" />
+            <div className={`relative isolate overflow-hidden rounded-[28px] border shadow-[0_20px_60px_-28px_rgba(27,43,68,0.35)] backdrop-blur-md ${modeStyle.border} ${modeStyle.surface}`}>
+              <div className="pointer-events-none absolute -left-10 -top-10 h-28 w-28 rounded-full bg-[#C8E6D2]/50 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-16 right-8 h-32 w-32 rounded-full bg-[#D9D4F2]/50 blur-3xl" />
               {playing ? (
-                <div key={playPulseToken} className="pointer-events-none absolute inset-0 rounded-[30px] border border-cyan-200/35 animate-[ping_900ms_ease-out_1]" />
+                <div key={playPulseToken} className="pointer-events-none absolute inset-0 rounded-[28px] border border-[#6FB08A]/45 animate-[ping_900ms_ease-out_1]" />
               ) : null}
 
               <div className="px-4 pt-3 sm:px-6 sm:pt-4">
@@ -1234,15 +1174,15 @@ export function SpaceClient() {
                       {activeSession?.type}
                       <span className="inline-flex items-end gap-0.5">
                         <span
-                          className={`w-0.5 rounded-full bg-cyan-100/80 ${playing ? "animate-pulse" : "opacity-40"}`}
+                          className={`w-0.5 rounded-full bg-[#6FB08A] ${playing ? "animate-pulse" : "opacity-40"}`}
                           style={{ height: "8px", animationDelay: "0ms" }}
                         />
                         <span
-                          className={`w-0.5 rounded-full bg-cyan-100/80 ${playing ? "animate-pulse" : "opacity-40"}`}
+                          className={`w-0.5 rounded-full bg-[#6FB08A] ${playing ? "animate-pulse" : "opacity-40"}`}
                           style={{ height: "11px", animationDelay: "140ms" }}
                         />
                         <span
-                          className={`w-0.5 rounded-full bg-cyan-100/80 ${playing ? "animate-pulse" : "opacity-40"}`}
+                          className={`w-0.5 rounded-full bg-[#6FB08A] ${playing ? "animate-pulse" : "opacity-40"}`}
                           style={{ height: "7px", animationDelay: "260ms" }}
                         />
                       </span>
@@ -1375,7 +1315,7 @@ export function SpaceClient() {
 
                   {playerExpanded && playbackError ? (
                     <div className="space-y-2">
-                      <div className="text-xs text-amber-200/90">{playbackError}</div>
+                      <div className="text-xs text-[#B4590F]">{playbackError}</div>
                       {activeUsesArchiveSource ? (
                         <button
                           type="button"
@@ -1419,9 +1359,9 @@ const MOOD_THEMES: MoodTheme[] = [
     subtitle: "Todas las sesiones",
     iconPath: "M12 3v3M12 18v3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M3 12h3M18 12h3M5.64 18.36l2.12-2.12M16.24 7.76l2.12-2.12",
     aurora:
-      "bg-[conic-gradient(from_200deg_at_50%_50%,rgba(16,185,129,0.35),rgba(59,130,246,0.35),rgba(168,85,247,0.35),rgba(236,72,153,0.3),rgba(16,185,129,0.35))]",
-    ringFrom: "from-emerald-300/30",
-    ringTo: "to-fuchsia-300/30",
+      "bg-[radial-gradient(ellipse_at_30%_20%,rgba(207,230,255,0.9),transparent_60%),radial-gradient(ellipse_at_70%_80%,rgba(251,248,243,0.9),transparent_60%),linear-gradient(135deg,#EAF4FF,#FBF8F3)]",
+    ringFrom: "from-[#CFE6FF]",
+    ringTo: "to-[#FBF8F3]",
   },
   {
     id: "respira",
@@ -1429,9 +1369,9 @@ const MOOD_THEMES: MoodTheme[] = [
     subtitle: "2 min para volver al centro",
     iconPath: "M12 2v20M2 12h20M4 12a8 8 0 0 1 16 0M4 12a8 8 0 0 0 16 0",
     aurora:
-      "bg-[radial-gradient(ellipse_at_30%_20%,rgba(45,212,191,0.5),transparent_55%),radial-gradient(ellipse_at_70%_90%,rgba(16,185,129,0.4),transparent_55%),linear-gradient(135deg,rgba(14,165,233,0.25),rgba(20,184,166,0.25))]",
-    ringFrom: "from-teal-300/40",
-    ringTo: "to-emerald-300/30",
+      "bg-[radial-gradient(ellipse_at_30%_20%,rgba(200,230,210,0.95),transparent_60%),radial-gradient(ellipse_at_75%_85%,rgba(234,244,255,0.9),transparent_60%),linear-gradient(135deg,#EAF4FF,#C8E6D2)]",
+    ringFrom: "from-[#C8E6D2]",
+    ringTo: "to-[#EAF4FF]",
   },
   {
     id: "enfocate",
@@ -1439,9 +1379,9 @@ const MOOD_THEMES: MoodTheme[] = [
     subtitle: "Prep mental antes de estudiar",
     iconPath: "M12 2L4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4zM9 12l2 2 4-4",
     aurora:
-      "bg-[radial-gradient(ellipse_at_20%_80%,rgba(99,102,241,0.5),transparent_55%),radial-gradient(ellipse_at_80%_20%,rgba(59,130,246,0.45),transparent_55%),linear-gradient(135deg,rgba(79,70,229,0.25),rgba(14,165,233,0.2))]",
-    ringFrom: "from-indigo-300/40",
-    ringTo: "to-sky-300/30",
+      "bg-[radial-gradient(ellipse_at_20%_80%,rgba(217,212,242,0.95),transparent_60%),radial-gradient(ellipse_at_80%_20%,rgba(207,230,255,0.85),transparent_60%),linear-gradient(135deg,#CFE6FF,#D9D4F2)]",
+    ringFrom: "from-[#D9D4F2]",
+    ringTo: "to-[#CFE6FF]",
   },
   {
     id: "descarga",
@@ -1449,9 +1389,9 @@ const MOOD_THEMES: MoodTheme[] = [
     subtitle: "Cerrar el día sin ruido mental",
     iconPath: "M12 3a6 6 0 0 0-6 6c0 2 1 3 1 5h10c0-2 1-3 1-5a6 6 0 0 0-6-6zM9 18h6M10 21h4",
     aurora:
-      "bg-[radial-gradient(ellipse_at_30%_30%,rgba(236,72,153,0.45),transparent_55%),radial-gradient(ellipse_at_70%_70%,rgba(168,85,247,0.5),transparent_55%),linear-gradient(135deg,rgba(147,51,234,0.3),rgba(219,39,119,0.2))]",
-    ringFrom: "from-fuchsia-300/40",
-    ringTo: "to-violet-300/30",
+      "bg-[radial-gradient(ellipse_at_30%_30%,rgba(247,217,196,0.95),transparent_60%),radial-gradient(ellipse_at_70%_70%,rgba(251,248,243,0.9),transparent_60%),linear-gradient(135deg,#FBF8F3,#F7D9C4)]",
+    ringFrom: "from-[#F7D9C4]",
+    ringTo: "to-[#FBF8F3]",
   },
 ];
 
@@ -1472,58 +1412,43 @@ function MoodAuroraGrid({
             type="button"
             onClick={() => setSelectedMood(m.id)}
             aria-pressed={active}
-            className={`group relative isolate overflow-hidden rounded-3xl p-5 text-left transition-all duration-500 ${
+            className={`group relative isolate overflow-hidden rounded-3xl p-5 text-left transition-all duration-300 ${
               active
-                ? "ring-2 ring-white/40 shadow-[0_20px_60px_-20px_rgba(125,211,252,0.35)]"
-                : "ring-1 ring-white/10 hover:ring-white/25"
+                ? "ring-2 ring-[#8B82C9]/60 shadow-[0_18px_50px_-24px_rgba(139,130,201,0.35)]"
+                : "ring-1 ring-white/50 hover:ring-[#8B82C9]/40"
             }`}
             style={{ minHeight: 150 }}
           >
-            {/* Aurora layer (animated) */}
+            {/* Watercolor layer */}
             <span
               aria-hidden="true"
-              className={`pointer-events-none absolute inset-0 -z-10 ${m.aurora} opacity-80 transition-opacity duration-500 group-hover:opacity-100`}
-              style={{ animation: "auroraShift 14s ease-in-out infinite alternate", filter: "blur(2px)" }}
+              className={`pointer-events-none absolute inset-0 -z-10 ${m.aurora}`}
             />
-            {/* Dark scrim for readability */}
+            {/* Soft orb */}
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-slate-950/55 via-slate-950/35 to-slate-950/60"
-            />
-            {/* Soft orbs */}
-            <span
-              aria-hidden="true"
-              className={`pointer-events-none absolute -left-6 -top-8 -z-10 h-28 w-28 rounded-full bg-gradient-to-br ${m.ringFrom} ${m.ringTo} blur-2xl opacity-70`}
-            />
-            <span
-              aria-hidden="true"
-              className={`pointer-events-none absolute -right-10 -bottom-10 -z-10 h-32 w-32 rounded-full bg-gradient-to-br ${m.ringTo} ${m.ringFrom} blur-3xl opacity-60`}
-            />
-            {/* Grain-like shimmer on top */}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_55%)] opacity-70"
+              className={`pointer-events-none absolute -right-10 -bottom-10 -z-10 h-32 w-32 rounded-full bg-gradient-to-br ${m.ringFrom} ${m.ringTo} blur-2xl opacity-60 transition-opacity duration-300 group-hover:opacity-90`}
             />
 
             {/* Content */}
             <div className="flex items-start justify-between gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.12] text-white/90 backdrop-blur-sm ring-1 ring-white/15">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/70 text-[#1B2B44] ring-1 ring-white/60">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                   <path d={m.iconPath} />
                 </svg>
               </div>
               {active ? (
-                <span className="inline-flex h-6 items-center rounded-full bg-white/15 px-2 text-[10px] font-semibold uppercase tracking-widest text-white/90 backdrop-blur-sm ring-1 ring-white/20">
+                <span className="inline-flex h-6 items-center rounded-full bg-white/70 px-2 text-[10px] font-semibold uppercase tracking-widest text-[#1B2B44] ring-1 ring-white/60">
                   En foco
                 </span>
               ) : null}
             </div>
 
             <div className="mt-8">
-              <div className="text-[17px] font-semibold leading-tight text-white drop-shadow-[0_1px_12px_rgba(0,0,0,0.35)]">
+              <div className="text-[17px] font-semibold leading-tight text-[#1B2B44]">
                 {m.title}
               </div>
-              <div className="mt-0.5 text-[12px] text-white/75">{m.subtitle}</div>
+              <div className="mt-0.5 text-[12px] text-[#5B6B86]">{m.subtitle}</div>
             </div>
           </button>
         );
