@@ -231,73 +231,65 @@ function NextEvalCard({
   return (
     <div
       data-home-eval-card
-      className={`relative overflow-hidden rounded-2xl ${style.bg} p-5 text-white backdrop-blur-xl`}
+      className={`relative overflow-hidden rounded-2xl ${style.bg} px-4 py-3 text-white backdrop-blur-xl`}
     >
-      <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-white/70">
-            <div data-home-eval-pulse className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.12]">
-              <CalendarClock className="h-4 w-4 text-white/90" />
-            </div>
-            Próxima evaluación
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${style.chip}`}>
-                {style.label}
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.08] px-2.5 py-0.5 text-[11px] text-white/85">
-                <GraduationCap className="h-3 w-3" />
-                {subjectLabel(next.record.subjectSlug)}
-              </span>
-            </div>
-            <div className="text-2xl font-bold leading-tight tracking-tight text-white">{next.record.title}</div>
-            <div className="text-xs text-white/70">
-              {next.semester.name} · {dateLabel}
-            </div>
-          </div>
+      <div className="relative z-10 flex flex-wrap items-center gap-3">
+        <div
+          data-home-eval-pulse
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.1]"
+        >
+          <CalendarClock className="h-4 w-4 text-white/90" />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${style.chip}`}>
+            {style.label}
+          </span>
+          <span className="min-w-0 truncate text-sm font-semibold text-white">{next.record.title}</span>
+          <span className="hidden shrink-0 items-center gap-1 text-[11px] text-white/60 sm:inline-flex">
+            <GraduationCap className="h-3 w-3" />
+            {subjectLabel(next.record.subjectSlug)} · {dateLabel}
+          </span>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-4 text-xs font-semibold text-black transition-colors hover:bg-white/90"
+            className="inline-flex h-8 items-center gap-1 rounded-lg bg-white px-2.5 text-[11px] font-semibold text-black transition-colors hover:bg-white/90"
             onClick={onQuickQuiz}
+            title="Quiz rápido"
           >
-            <Sparkles className="h-4 w-4" />
-            Quiz rápido
+            <Sparkles className="h-3.5 w-3.5" />
+            Quiz
           </button>
           <Link
             href="/academico"
-            className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/[0.08] px-3 text-xs font-medium text-white/90 transition-colors hover:bg-white/[0.12]"
+            title="Ver agenda"
+            aria-label="Ver agenda"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.08] text-white/85 transition-colors hover:bg-white/[0.14] hover:text-white"
           >
-            Ver agenda
+            <CalendarClock className="h-3.5 w-3.5" />
           </Link>
         </div>
       </div>
 
       {others.length ? (
-        <div className="relative z-10 mt-4 grid gap-2 sm:grid-cols-2">
+        <div className="relative z-10 mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-medium uppercase tracking-widest text-white/45">Luego</span>
           {others.map((entry) => {
             const s = urgencyStyle(entry.daysUntil);
-            const d = new Date(entry.record.date);
-            const label = Number.isFinite(d.getTime()) ? dateFmt.format(d) : entry.record.date;
             return (
-              <div
+              <span
                 key={entry.record.id}
                 data-home-eval-item
-                className={`rounded-xl px-3 py-2 text-xs text-white/85 ${s.bg}`}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.05] px-2 py-0.5 text-[11px] text-white/80"
+                title={`${subjectLabel(entry.record.subjectSlug)} · ${entry.record.date}`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate font-medium text-white">{entry.record.title}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${s.chip}`}>
-                    {s.label}
-                  </span>
-                </div>
-                <div className="mt-0.5 text-[11px] text-white/65">
-                  {subjectLabel(entry.record.subjectSlug)} · {label}
-                </div>
-              </div>
+                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${s.chip}`}>
+                  {s.label}
+                </span>
+                <span className="max-w-[180px] truncate">{entry.record.title}</span>
+              </span>
             );
           })}
         </div>
@@ -310,26 +302,26 @@ function EmptyEvalCard({ onQuickQuiz }: { onQuickQuiz: () => void }) {
   return (
     <div
       data-home-eval-card
-      className="relative overflow-hidden rounded-2xl bg-white/[0.04] p-5 text-white backdrop-blur-xl"
+      className="relative overflow-hidden rounded-2xl bg-white/[0.04] px-4 py-3 text-white backdrop-blur-xl"
     >
-      <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-white/70">
-            <CalendarClock className="h-3.5 w-3.5" />
-            Próxima evaluación
-          </div>
-          <div className="text-2xl font-bold leading-tight tracking-tight text-white">Sin evaluaciones cercanas</div>
-          <div className="text-xs text-white/70">
-            Cargá fechas en <Link href="/academico" className="underline underline-offset-2 hover:text-white">Académico</Link> para ver la agenda aquí, o practicá ahora con un quiz rápido.
-          </div>
+      <div className="relative z-10 flex flex-wrap items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.08]">
+          <CalendarClock className="h-4 w-4 text-white/80" />
+        </div>
+        <div className="min-w-0 flex-1 text-sm text-white/85">
+          <span className="font-semibold text-white">Sin evaluaciones cercanas.</span>{" "}
+          <span className="text-white/60">
+            Cargá fechas en{" "}
+            <Link href="/academico" className="underline underline-offset-2 hover:text-white">Académico</Link>.
+          </span>
         </div>
         <button
           type="button"
-          className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-4 text-xs font-semibold text-black transition-colors hover:bg-white/90"
+          className="inline-flex h-8 items-center gap-1 rounded-lg bg-white px-2.5 text-[11px] font-semibold text-black transition-colors hover:bg-white/90"
           onClick={onQuickQuiz}
         >
-          <ClipboardCheck className="h-4 w-4" />
-          Quiz rápido
+          <ClipboardCheck className="h-3.5 w-3.5" />
+          Quiz
         </button>
       </div>
     </div>

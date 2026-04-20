@@ -57,39 +57,35 @@ export function HomeStatsChips({ plannedBlocks = 3 }: { plannedBlocks?: number }
 
   const chips = [
     {
-      icon: <Flame className="h-4 w-4" />,
+      icon: <Flame className="h-3.5 w-3.5" />,
       label: "Racha",
-      value: `${streak} ${streak === 1 ? "día" : "días"}`,
-      accent: "from-white/20 via-white/5 to-transparent",
+      value: `${streak}${streak === 1 ? "d" : "d"}`,
+      tone: "text-orange-200",
     },
     {
-      icon: <Timer className="h-4 w-4" />,
+      icon: <Timer className="h-3.5 w-3.5" />,
       label: "Bloques",
-      value: `${today.blocksCompleted} / ${plannedBlocks}`,
-      accent: "from-white/20 via-white/5 to-transparent",
+      value: `${today.blocksCompleted}/${plannedBlocks}`,
+      tone: "text-emerald-200",
     },
     {
-      icon: <Brain className="h-4 w-4" />,
-      label: "SRS pendientes",
+      icon: <Brain className="h-3.5 w-3.5" />,
+      label: "SRS",
       value: `${srsDue}`,
-      accent: "from-white/20 via-white/5 to-transparent",
+      tone: "text-violet-200",
     },
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="flex flex-wrap items-center gap-1.5">
       {chips.map((s) => (
         <div
           key={s.label}
-          className="relative flex items-center gap-3 overflow-hidden rounded-2xl bg-white/[0.08] px-5 py-4 text-white backdrop-blur-xl"
+          className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-white/85 backdrop-blur-sm"
         >
-          <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.12] text-white">
-            {s.icon}
-          </div>
-          <div className="relative">
-            <div className="text-[11px] font-medium uppercase tracking-wider text-white/70">{s.label}</div>
-            <div className="text-xl font-semibold tabular-nums text-white">{s.value}</div>
-          </div>
+          <span className={s.tone}>{s.icon}</span>
+          <span className="text-white/60">{s.label}</span>
+          <span className="tabular-nums text-white">{s.value}</span>
         </div>
       ))}
     </div>

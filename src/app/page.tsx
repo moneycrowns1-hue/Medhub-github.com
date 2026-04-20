@@ -25,14 +25,8 @@ export default function Home() {
         reading={summary.reading}
       />
 
-      {/* ── PRÓXIMA EVALUACIÓN + QUIZ RÁPIDO ── */}
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <div className="text-xs font-medium uppercase tracking-widest text-primary">Agenda</div>
-          <h2 className="text-xl font-bold tracking-tight">Próxima evaluación</h2>
-        </div>
-        <HomeNextEvalCard />
-      </section>
+      {/* ── PRÓXIMA EVALUACIÓN (compacta, inline) ── */}
+      <HomeNextEvalCard />
 
       {/* ── Tabs principales (Resumen · Herramientas · Atajos) ── */}
       <div id="hoy-tabs" className="scroll-mt-24" />
