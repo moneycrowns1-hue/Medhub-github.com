@@ -351,8 +351,8 @@ function InicioPanel({
       {/* Soft ambient glows */}
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.04),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(120,119,198,0.06),transparent_60%)]" />
 
-      <div className="mx-auto grid w-full max-w-6xl items-start gap-8 lg:grid-cols-[minmax(0,3fr),minmax(0,2fr)]">
-      <div className="flex w-full flex-col items-center gap-7 text-center lg:items-start lg:text-left">
+      <div className="mx-auto grid w-full max-w-6xl items-start gap-6 md:grid-cols-2">
+      <div className="flex w-full flex-col items-center gap-7 text-center md:items-start md:text-left">
         {/* Greeting + day pills */}
         <div className="flex flex-wrap items-center justify-center gap-2">
           {greeting ? (
@@ -662,52 +662,49 @@ function MiniCalendar() {
   const todayLabel = mounted ? todayFmt.format(today) : "";
 
   return (
-    <div className="rounded-2xl bg-white/[0.04] p-4">
-      {/* Today row */}
-      <div className="flex items-center justify-between gap-2 pb-3">
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium uppercase tracking-widest text-white/50">Hoy</div>
-          <div className="truncate text-sm font-semibold capitalize text-white/90">{todayLabel}</div>
+    <div className="rounded-xl bg-white/[0.04] p-3">
+      {/* Today + month nav in a single compact row */}
+      <div className="flex items-center gap-2 pb-2">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[11px] font-medium capitalize text-white/85">{todayLabel}</div>
         </div>
-        <button
-          type="button"
-          onClick={goToday}
-          className="inline-flex h-7 items-center rounded-lg bg-white/[0.06] px-2.5 text-[11px] font-medium text-white/80 transition-colors hover:bg-white/[0.12] hover:text-white"
-        >
-          Hoy
-        </button>
-      </div>
-
-      {/* Month header */}
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={prev}
-          aria-label="Mes anterior"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.06] text-white/75 transition-colors hover:bg-white/[0.12] hover:text-white"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-        </button>
-        <div className="text-[13px] font-semibold capitalize text-white/90">{monthLabel}</div>
-        <button
-          type="button"
-          onClick={next}
-          aria-label="Mes siguiente"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.06] text-white/75 transition-colors hover:bg-white/[0.12] hover:text-white"
-        >
-          <ChevronRight className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={prev}
+            aria-label="Mes anterior"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.06] text-white/70 transition-colors hover:bg-white/[0.12] hover:text-white"
+          >
+            <ChevronLeft className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            onClick={goToday}
+            className="inline-flex h-6 items-center rounded-md bg-white/[0.06] px-1.5 text-[10px] font-semibold capitalize text-white/80 transition-colors hover:bg-white/[0.12] hover:text-white"
+            title="Ir al mes actual"
+          >
+            {monthLabel}
+          </button>
+          <button
+            type="button"
+            onClick={next}
+            aria-label="Mes siguiente"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.06] text-white/70 transition-colors hover:bg-white/[0.12] hover:text-white"
+          >
+            <ChevronRight className="h-3 w-3" />
+          </button>
+        </div>
       </div>
 
       {/* Weekdays */}
-      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-medium uppercase tracking-wider text-white/45">
+      <div className="grid grid-cols-7 gap-0.5 text-center text-[9px] font-medium uppercase tracking-wider text-white/40">
         {WEEK_LABELS.map((w) => (
           <div key={w}>{w}</div>
         ))}
       </div>
 
       {/* Days grid */}
-      <div className="mt-1 grid grid-cols-7 gap-1">
+      <div className="mt-0.5 grid grid-cols-7 gap-0.5">
         {cells.map((c, idx) => {
           const key = ymd(c.date);
           const isToday = key === todayKey;
@@ -715,19 +712,19 @@ function MiniCalendar() {
           return (
             <div
               key={`${key}-${idx}`}
-              className={`relative flex aspect-square flex-col items-center justify-center rounded-lg text-[12px] transition-colors ${
+              className={`relative flex h-7 items-center justify-center rounded-md text-[11px] transition-colors ${
                 isToday
-                  ? "bg-white text-black font-semibold"
+                  ? "bg-white font-semibold text-black"
                   : c.inMonth
                     ? "text-white/85 hover:bg-white/[0.05]"
-                    : "text-white/25"
+                    : "text-white/20"
               }`}
               title={count > 0 ? `${count} evaluación${count === 1 ? "" : "es"}` : undefined}
             >
               <span>{c.day}</span>
               {count > 0 ? (
                 <span
-                  className={`absolute bottom-1 h-1 w-1 rounded-full ${
+                  className={`absolute bottom-0.5 h-1 w-1 rounded-full ${
                     isToday ? "bg-black/60" : "bg-violet-400"
                   }`}
                 />
@@ -735,21 +732,6 @@ function MiniCalendar() {
             </div>
           );
         })}
-      </div>
-
-      {/* Footer link */}
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
-        <div className="flex items-center gap-1.5 text-[10px] text-white/50">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-violet-400" />
-          Evaluación
-        </div>
-        <Link
-          href="/academico"
-          className="inline-flex items-center gap-1 text-[11px] font-medium text-white/70 transition-colors hover:text-white"
-        >
-          Ver agenda
-          <ChevronRight className="h-3 w-3" />
-        </Link>
       </div>
     </div>
   );
