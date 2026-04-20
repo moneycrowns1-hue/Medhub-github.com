@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Outfit, Pixelify_Sans } from "next/font/google";
 import { ChevronDown, ChevronUp, Headphones, Heart, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Volume2 } from "lucide-react";
 import gsap from "gsap";
@@ -1560,11 +1561,12 @@ const BREATH_INTRO_SESSION_KEY = "somagnus:space:breath-intro:v1";
 
 function BreathIntro() {
   const overlayRef = useRef<HTMLDivElement | null>(null);
-  const coreRef = useRef<HTMLDivElement | null>(null);
+  const sunRef = useRef<HTMLDivElement | null>(null);
   const inhaleRef = useRef<HTMLDivElement | null>(null);
   const holdRef = useRef<HTMLDivElement | null>(null);
   const exhaleRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
+  const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -1575,6 +1577,10 @@ function BreathIntro() {
     }
     return true;
   });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const dismiss = () => {
     try {
@@ -1597,16 +1603,16 @@ function BreathIntro() {
   };
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !mounted) return;
     const overlay = overlayRef.current;
-    const core = coreRef.current;
+    const sun = sunRef.current;
     const inhale = inhaleRef.current;
     const hold = holdRef.current;
     const exhale = exhaleRef.current;
-    if (!overlay || !core || !inhale || !hold || !exhale) return;
+    if (!overlay || !sun || !inhale || !hold || !exhale) return;
 
     gsap.set(overlay, { opacity: 0 });
-    gsap.set(core, { scale: 0.6, opacity: 0 });
+    gsap.set(sun, { scale: 0.95, y: 0 });
     gsap.set([inhale, hold, exhale], { opacity: 0, y: 8 });
 
     const tl = gsap.timeline({
@@ -1630,11 +1636,10 @@ function BreathIntro() {
     tl
       // Fade in
       .to(overlay, { opacity: 1, duration: 0.8, ease: "power2.out" })
-      .to(core, { scale: 0.6, opacity: 1, duration: 0.8 }, "-=0.4")
 
-      // Inhale (4s)
+      // Inhale (4s) — sun grows
       .to(inhale, { opacity: 1, y: 0, duration: 0.5 }, "+=0.2")
-      .to(core, { scale: 1.2, duration: 4 }, "<")
+      .to(sun, { scale: 1.15, duration: 4 }, "<")
       .to(inhale, { opacity: 0, y: -8, duration: 0.5 })
 
       // Hold (1.5s)
@@ -1642,12 +1647,11 @@ function BreathIntro() {
       .to({}, { duration: 1 })
       .to(hold, { opacity: 0, y: -8, duration: 0.4 })
 
-      // Exhale (5s)
+      // Exhale (5s) — sun shrinks
       .to(exhale, { opacity: 1, y: 0, duration: 0.5 })
-      .to(core, { scale: 0.6, duration: 5 }, "<")
+      .to(sun, { scale: 0.95, duration: 5 }, "<")
       .to(exhale, { opacity: 0, y: -8, duration: 0.5 });
 
-    // Silent ESC dismiss for a11y
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") dismiss();
     };
@@ -1658,53 +1662,146 @@ function BreathIntro() {
       tl.kill();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible, mounted]);
 
-  if (!visible) return null;
+  if (!visible || !mounted || typeof document === "undefined") return null;
 
-  return (
+  const scene = (
     <div
       ref={overlayRef}
       role="presentation"
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#0a0f1a]"
-      style={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] overflow-hidden"
+      style={{
+        opacity: 0,
+        width: "100vw",
+        height: "100vh",
+        background: "linear-gradient(180deg, #FFF6DC 0%, #FDE7B3 55%, #FBD38D 100%)",
+      }}
     >
-      {/* Soft single breath orb */}
-      <div className="relative flex h-80 w-80 items-center justify-center">
+      {/* Breath label */}
+      <div className="pointer-events-none absolute inset-x-0 top-[16%] flex items-center justify-center">
         <div
-          ref={coreRef}
-          className="h-56 w-56 rounded-full bg-white/90"
-          style={{
-            boxShadow: "0 0 60px rgba(255,255,255,0.25)",
-            willChange: "transform, opacity",
-          }}
-        />
+          ref={inhaleRef}
+          className="absolute text-5xl font-light tracking-[0.3em] text-amber-900/85 sm:text-6xl md:text-7xl"
+          style={{ opacity: 0 }}
+        >
+          Inhala
+        </div>
+        <div
+          ref={holdRef}
+          className="absolute text-5xl font-light tracking-[0.35em] text-amber-900/75 sm:text-6xl md:text-7xl"
+          style={{ opacity: 0 }}
+        >
+          Sostén
+        </div>
+        <div
+          ref={exhaleRef}
+          className="absolute text-5xl font-light tracking-[0.3em] text-amber-900/85 sm:text-6xl md:text-7xl"
+          style={{ opacity: 0 }}
+        >
+          Exhala
+        </div>
+      </div>
 
-        {/* Breath labels */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      {/* Half-sun rising from bottom */}
+      <div
+        ref={sunRef}
+        className="absolute left-1/2"
+        style={{
+          bottom: 0,
+          width: "min(90vmin, 780px)",
+          height: "min(90vmin, 780px)",
+          transform: "translate(-50%, 50%) scale(0.95)",
+          transformOrigin: "50% 50%",
+          willChange: "transform",
+        }}
+      >
+        <div className="relative h-full w-full">
+          {/* Soft outer glow */}
           <div
-            ref={inhaleRef}
-            className="absolute text-[22px] font-light tracking-[0.35em] text-slate-900/80 md:text-[26px]"
-            style={{ opacity: 0 }}
-          >
-            Inhala
-          </div>
+            aria-hidden="true"
+            className="absolute inset-[-6%] rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(251,146,60,0.35) 0%, rgba(251,146,60,0) 65%)",
+            }}
+          />
+          {/* Sun body */}
           <div
-            ref={holdRef}
-            className="absolute text-[20px] font-light tracking-[0.4em] text-slate-900/70 md:text-[22px]"
-            style={{ opacity: 0 }}
-          >
-            Sostén
-          </div>
+            className="absolute inset-0 rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle at 50% 40%, #FFD27F 0%, #FFA94D 45%, #F97316 90%)",
+              boxShadow: "0 -18px 60px rgba(249,115,22,0.35)",
+            }}
+          />
+          {/* Happy face (centered on the visible top-half) */}
+          {/* Eyes */}
           <div
-            ref={exhaleRef}
-            className="absolute text-[22px] font-light tracking-[0.35em] text-slate-900/80 md:text-[26px]"
-            style={{ opacity: 0 }}
+            aria-hidden="true"
+            className="absolute rounded-full bg-[#5B2A0A]"
+            style={{
+              width: "5%",
+              height: "5%",
+              top: "24%",
+              left: "34%",
+            }}
+          />
+          <div
+            aria-hidden="true"
+            className="absolute rounded-full bg-[#5B2A0A]"
+            style={{
+              width: "5%",
+              height: "5%",
+              top: "24%",
+              right: "34%",
+            }}
+          />
+          {/* Smile */}
+          <svg
+            aria-hidden="true"
+            className="absolute left-1/2 -translate-x-1/2"
+            style={{ top: "32%", width: "30%", height: "10%", overflow: "visible" }}
+            viewBox="0 0 100 30"
+            fill="none"
           >
-            Exhala
-          </div>
+            <path
+              d="M8 6 Q50 36 92 6"
+              stroke="#5B2A0A"
+              strokeWidth="6"
+              strokeLinecap="round"
+              fill="none"
+            />
+          </svg>
+          {/* Soft cheeks */}
+          <div
+            aria-hidden="true"
+            className="absolute rounded-full"
+            style={{
+              width: "7%",
+              height: "4%",
+              top: "31%",
+              left: "24%",
+              background: "rgba(239,68,68,0.25)",
+              filter: "blur(3px)",
+            }}
+          />
+          <div
+            aria-hidden="true"
+            className="absolute rounded-full"
+            style={{
+              width: "7%",
+              height: "4%",
+              top: "31%",
+              right: "24%",
+              background: "rgba(239,68,68,0.25)",
+              filter: "blur(3px)",
+            }}
+          />
         </div>
       </div>
     </div>
   );
+
+  return createPortal(scene, document.body);
 }
