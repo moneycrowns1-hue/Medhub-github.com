@@ -45,32 +45,15 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/settings", label: "Ajustes", icon: <Settings className="h-4 w-4" /> },
 ];
 
-const PRIMARY_HREFS = new Set(["/", "/day", "/space", "/biblioteca", "/stats"]);
-
-function PillNavLinks({ items }: { items: NavItem[] }) {
-  const pathname = usePathname();
-  return (
-    <nav className="flex items-center gap-0.5">
-      {items.map((item) => {
-        const active = pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
-              active
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-            )}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </Link>
-        );
-      })}
-    </nav>
+function getRouteTitle(pathname: string | null): { label: string; icon: React.ReactNode } {
+  if (!pathname) return { label: "Somagnus", icon: <Zap className="h-4 w-4" /> };
+  const exact = NAV_ITEMS.find((i) => i.href === pathname);
+  if (exact) return { label: exact.label, icon: exact.icon };
+  const prefix = NAV_ITEMS.find(
+    (i) => i.href !== "/" && pathname.startsWith(i.href + "/"),
   );
+  if (prefix) return { label: prefix.label, icon: prefix.icon };
+  return { label: "Somagnus", icon: <Zap className="h-4 w-4" /> };
 }
 
 function GlobalHeaderMenu({
@@ -235,7 +218,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setHeaderMenuOpen(false);
   }, [pathname]);
 
-  const primaryItems = NAV_ITEMS.filter((i) => PRIMARY_HREFS.has(i.href));
+  const routeTitle = getRouteTitle(pathname);
 
   const [spaceMode, setSpaceMode] = useState<SpaceMode>("day");
   useEffect(() => {
@@ -272,11 +255,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!isImmersiveReaderRoute ? <RabbitGuidePanel /> : null}
       {!isImmersiveReaderRoute && !isSpaceRoute ? (
         <>
-          <div className="fixed left-1/2 top-3 z-40 w-[min(96vw,920px)] -translate-x-1/2">
+          <div className="fixed left-1/2 top-3 z-40 w-[min(94vw,560px)] -translate-x-1/2">
             <div
               ref={pillRef}
               className={cn(
-                "flex h-14 items-center gap-2 rounded-full border px-2.5 backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-300 sm:px-3",
+                "flex h-14 items-center justify-between gap-2 rounded-full border px-2.5 backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-300 sm:px-3",
                 stickyHeaderSolid
                   ? "border-border/70 bg-background/85 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.25)]"
                   : integratedAtTop
@@ -286,14 +269,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Link
                 href="/"
-                className="flex shrink-0 items-center gap-2 rounded-full px-2 py-1.5 text-sm font-bold tracking-tight text-foreground transition-colors hover:bg-muted/60"
+                aria-label="Ir a inicio"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80 text-foreground transition-colors hover:bg-background"
               >
                 <Zap className="h-5 w-5 text-primary" />
-                <span className="hidden sm:inline">Somagnus</span>
               </Link>
 
-              <div className="ml-auto hidden md:block">
-                <PillNavLinks items={primaryItems} />
+              <div className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 text-base font-semibold tracking-tight text-foreground sm:text-lg">
+                <span className="text-primary [&>svg]:h-[18px] [&>svg]:w-[18px]">
+                  {routeTitle.icon}
+                </span>
+                <span className="truncate">{routeTitle.label}</span>
               </div>
 
               <button
@@ -304,7 +290,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 aria-haspopup="menu"
                 aria-label="Secciones"
                 className={cn(
-                  "ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-[background-color,box-shadow] active:scale-95 md:ml-1",
+                  "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-[background-color,box-shadow] active:scale-95",
                   headerMenuOpen
                     ? "border-border bg-background text-foreground shadow-[0_6px_18px_-8px_rgba(0,0,0,0.25)]"
                     : "border-border/70 bg-background/80 text-foreground hover:bg-background",
