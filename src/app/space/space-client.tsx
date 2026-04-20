@@ -1104,9 +1104,8 @@ export function SpaceClient() {
             }`}
           >
             <span className="truncate">
-              Entra en{" "}
-              <span className={`${cinzelDisplay} font-bold tracking-[0.08em] text-[#6FB08A]`}>
-                FLOW
+              <span className={`${cinzelDisplay} font-bold tracking-[0.08em] ${isNight ? "text-white" : "text-[#1B2B44]"}`}>
+                En calma
               </span>
             </span>
           </div>
@@ -1157,18 +1156,28 @@ export function SpaceClient() {
               <div
                 ref={menuCardRef}
                 role="menu"
-                className="fixed z-[61] w-[min(92vw,320px)] overflow-hidden rounded-3xl border border-white/80 bg-white p-3 shadow-[0_28px_70px_-22px_rgba(27,43,68,0.45)]"
+                className={`fixed z-[61] w-[min(92vw,320px)] overflow-hidden rounded-3xl border p-3 shadow-[0_28px_70px_-22px_rgba(27,43,68,0.45)] ${
+                  isNight
+                    ? "border-white/15 bg-[#12204A]/95 text-white backdrop-blur-md"
+                    : "border-white/80 bg-white"
+                }`}
                 style={{ top: menuPos.top, right: menuPos.right, willChange: "transform, opacity" }}
               >
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-gradient-to-br from-[#CFE6FF] to-[#C8E6D2] opacity-70 blur-2xl"
+                  className={`pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full blur-2xl ${
+                    isNight
+                      ? "bg-gradient-to-br from-[#2B3B7A] to-[#1B2B5C] opacity-60"
+                      : "bg-gradient-to-br from-[#CFE6FF] to-[#C8E6D2] opacity-70"
+                  }`}
                 />
                 <div className="relative flex items-center justify-between px-2 pb-2 pt-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5B6B86]">
+                  <span className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${isNight ? "text-white/70" : "text-[#5B6B86]"}`}>
                     Navega
                   </span>
-                  <span className="inline-flex h-6 items-center rounded-full bg-[#6FB08A]/15 px-2 text-[10px] font-semibold uppercase tracking-widest text-[#3F8A60]">
+                  <span className={`inline-flex h-6 items-center rounded-full px-2 text-[10px] font-semibold uppercase tracking-widest ${
+                    isNight ? "bg-[#6FB08A]/25 text-[#B7E4C6]" : "bg-[#6FB08A]/15 text-[#3F8A60]"
+                  }`}>
                     {SPACE_SECTIONS.length}
                   </span>
                 </div>
@@ -1182,16 +1191,28 @@ export function SpaceClient() {
                         type="button"
                         role="menuitem"
                         onClick={() => scrollToSection(s.id)}
-                        className="group flex w-full items-center gap-3 rounded-2xl border border-transparent bg-white px-3 py-3 text-left text-base font-medium text-[#1B2B44] transition-colors [@media(hover:hover)]:hover:bg-[#F4F7FB]"
+                        className={`group flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-3 text-left text-base font-medium transition-colors ${
+                          isNight
+                            ? "bg-white/5 text-white [@media(hover:hover)]:hover:bg-white/10"
+                            : "bg-white text-[#1B2B44] [@media(hover:hover)]:hover:bg-[#F4F7FB]"
+                        }`}
                         style={{ willChange: "transform, opacity" }}
                       >
-                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-white to-[#EAF4FF] text-[#1B2B44] ring-1 ring-white/80">
-                          <span className="text-xs font-bold tracking-widest text-[#5B6B86]">
+                        <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${
+                          isNight
+                            ? "bg-gradient-to-br from-white/10 to-white/5 text-white ring-white/20"
+                            : "bg-gradient-to-br from-white to-[#EAF4FF] text-[#1B2B44] ring-white/80"
+                        }`}>
+                          <span className={`text-xs font-bold tracking-widest ${isNight ? "text-white/80" : "text-[#5B6B86]"}`}>
                             {String(idx + 1).padStart(2, "0")}
                           </span>
                         </span>
                         <span className="flex-1 truncate">{s.label}</span>
-                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#EAF4FF] text-[#5B6B86] transition-colors [@media(hover:hover)]:group-hover:bg-[#6FB08A] [@media(hover:hover)]:group-hover:text-white">
+                        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
+                          isNight
+                            ? "bg-white/10 text-white/70 [@media(hover:hover)]:group-hover:bg-[#6FB08A] [@media(hover:hover)]:group-hover:text-white"
+                            : "bg-[#EAF4FF] text-[#5B6B86] [@media(hover:hover)]:group-hover:bg-[#6FB08A] [@media(hover:hover)]:group-hover:text-white"
+                        }`}>
                           <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
                         </span>
                       </button>
@@ -1262,7 +1283,7 @@ export function SpaceClient() {
           <Sparkles className="h-5 w-5 text-white" />
           Elige cómo te sientes hoy
         </div>
-        <MoodAuroraGrid selectedMood={selectedMood} setSelectedMood={setSelectedMood} />
+        <MoodAuroraGrid selectedMood={selectedMood} setSelectedMood={setSelectedMood} isNight={isNight} />
       </section>
 
       <section
@@ -1654,9 +1675,11 @@ const MOOD_THEMES: MoodTheme[] = [
 function MoodAuroraGrid({
   selectedMood,
   setSelectedMood,
+  isNight,
 }: {
   selectedMood: string;
   setSelectedMood: (id: string) => void;
+  isNight: boolean;
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1668,43 +1691,53 @@ function MoodAuroraGrid({
             type="button"
             onClick={() => setSelectedMood(m.id)}
             aria-pressed={active}
-            className={`group relative isolate overflow-hidden rounded-3xl p-6 text-left transition-all duration-300 ${
-              active
+            className={`group relative isolate overflow-hidden rounded-3xl p-6 text-left transition-all duration-300 backdrop-blur-md ${
+              isNight
+                ? active
+                  ? "border border-white/30 bg-white/10 ring-2 ring-[#8B82C9]/60 shadow-[0_18px_50px_-24px_rgba(139,130,201,0.5)]"
+                  : "border border-white/15 bg-white/5 ring-1 ring-white/10 hover:ring-white/30"
+                : active
                 ? "ring-2 ring-[#8B82C9]/60 shadow-[0_18px_50px_-24px_rgba(139,130,201,0.35)]"
                 : "ring-1 ring-white/50 hover:ring-[#8B82C9]/40"
             }`}
             style={{ minHeight: 180 }}
           >
-            {/* Watercolor layer */}
+            {/* Watercolor layer (softer in night) */}
             <span
               aria-hidden="true"
-              className={`pointer-events-none absolute inset-0 -z-10 ${m.aurora}`}
+              className={`pointer-events-none absolute inset-0 -z-10 ${m.aurora} ${isNight ? "opacity-40" : ""}`}
             />
             {/* Soft orb */}
             <span
               aria-hidden="true"
-              className={`pointer-events-none absolute -right-10 -bottom-10 -z-10 h-32 w-32 rounded-full bg-gradient-to-br ${m.ringFrom} ${m.ringTo} blur-2xl opacity-60 transition-opacity duration-300 group-hover:opacity-90`}
+              className={`pointer-events-none absolute -right-10 -bottom-10 -z-10 h-32 w-32 rounded-full bg-gradient-to-br ${m.ringFrom} ${m.ringTo} blur-2xl transition-opacity duration-300 ${
+                isNight ? "opacity-30 group-hover:opacity-50" : "opacity-60 group-hover:opacity-90"
+              }`}
             />
 
             {/* Content */}
             <div className="flex items-start justify-between gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/70 text-[#1B2B44] ring-1 ring-white/60">
+              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ring-1 ${
+                isNight ? "bg-white/15 text-white ring-white/20" : "bg-white/70 text-[#1B2B44] ring-white/60"
+              }`}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                   <path d={m.iconPath} />
                 </svg>
               </div>
               {active ? (
-                <span className="inline-flex h-6 items-center rounded-full bg-white/70 px-2 text-[10px] font-semibold uppercase tracking-widest text-[#1B2B44] ring-1 ring-white/60">
+                <span className={`inline-flex h-6 items-center rounded-full px-2 text-[10px] font-semibold uppercase tracking-widest ring-1 ${
+                  isNight ? "bg-white/15 text-white ring-white/25" : "bg-white/70 text-[#1B2B44] ring-white/60"
+                }`}>
                   En foco
                 </span>
               ) : null}
             </div>
 
             <div className="mt-10">
-              <div className="text-2xl font-semibold leading-tight text-[#1B2B44] sm:text-[26px]">
+              <div className={`text-2xl font-semibold leading-tight sm:text-[26px] ${isNight ? "text-white" : "text-[#1B2B44]"}`}>
                 {m.title}
               </div>
-              <div className="mt-1 text-sm text-[#5B6B86] sm:text-[15px]">{m.subtitle}</div>
+              <div className={`mt-1 text-sm sm:text-[15px] ${isNight ? "text-white/70" : "text-[#5B6B86]"}`}>{m.subtitle}</div>
             </div>
           </button>
         );
