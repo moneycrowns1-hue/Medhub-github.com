@@ -1,4 +1,3 @@
-import { HomeNextEvalCard } from "@/app/home-next-eval-card";
 import { HomeMotion } from "@/app/home-motion";
 import { HomeHero } from "@/app/home-hero";
 import { HomeTabsSection } from "@/app/home-tabs-section";
@@ -25,10 +24,7 @@ export default function Home() {
         reading={summary.reading}
       />
 
-      {/* ── PRÓXIMA EVALUACIÓN (compacta, inline) ── */}
-      <HomeNextEvalCard />
-
-      {/* ── Tabs principales (Resumen · Herramientas · Atajos) ── */}
+      {/* ── Tabs principales (Resumen · Herramientas · Atajos) — la agenda ahora es un popover dentro del topbar ── */}
       <div id="hoy-tabs" className="scroll-mt-24" />
       <HomeTabsSection
         todayIso={todayIso}

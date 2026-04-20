@@ -23,6 +23,7 @@ import {
   useHomeTodayData,
   type ModulesProps,
 } from "@/app/home-today-dashboard";
+import { HomeNextEvalPopover } from "@/app/home-next-eval-card";
 
 type HomeTab = "resumen" | "herramientas" | "atajos";
 
@@ -117,6 +118,7 @@ export function HomeTabsSection({ todayIso, ...modules }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <HomeNextEvalPopover />
             <Link
               href="/day"
               title="Abrir plan del día"
