@@ -1105,34 +1105,7 @@ export function SpaceClient() {
           <Sparkles className="h-4 w-4" />
           Elige cómo te sientes hoy
         </div>
-        <div className="grid gap-3 sm:grid-cols-4">
-          <button
-            type="button"
-            onClick={() => setSelectedMood("all")}
-            className={`rounded-2xl border p-4 text-left transition ${
-              selectedMood === "all" ? `${modeStyle.borderStrong} ${modeStyle.softSurfaceAlt}` : `${modeStyle.border} ${modeStyle.softSurface}`
-            }`}
-          >
-            <div className="text-sm font-semibold">Todo</div>
-            <div className={`text-xs ${modeStyle.textSoft}`}>Todas las sesiones</div>
-          </button>
-          {moods.map((mood) => (
-            <button
-              key={mood.id}
-              type="button"
-              onClick={() => setSelectedMood(mood.id)}
-              className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition ${
-                selectedMood === mood.id ? `${modeStyle.borderStrong} ${modeStyle.softSurfaceAlt}` : `${modeStyle.border} ${modeStyle.softSurface}`
-              }`}
-            >
-              <div className={`pointer-events-none absolute inset-0 ${mood.tone}`} />
-              <div className="relative z-10 space-y-1">
-                <div className="text-sm font-semibold">{mood.title}</div>
-                <div className={`text-xs ${modeStyle.textSoft}`}>{mood.subtitle}</div>
-              </div>
-            </button>
-          ))}
-        </div>
+        <MoodAuroraGrid selectedMood={selectedMood} setSelectedMood={setSelectedMood} />
       </section>
 
       <section
@@ -1183,46 +1156,45 @@ export function SpaceClient() {
                   const isFav = favoriteIds.includes(session.id);
                   const isAvailable = isSessionAvailable(session.id);
 
-                  const coverGradient = coverGradientForMood(session.moodId);
                   return (
                     <article
                       key={session.id}
-                      className="group/card relative flex min-h-[260px] min-w-[220px] flex-col overflow-hidden rounded-3xl bg-white/[0.04] ring-1 ring-inset ring-white/10 transition-all hover:ring-white/20"
+                      className={`relative min-w-[220px] overflow-hidden rounded-3xl ${modeStyle.softSurface}`}
                     >
-                      {/* Cover */}
-                      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${coverGradient}`} />
-                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.12),transparent_60%)]" />
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-950/95 via-slate-950/55 to-transparent" />
-                      <div className="pointer-events-none absolute inset-0 flex items-start justify-center pt-10 opacity-50 transition-transform duration-500 group-hover/card:scale-110">
-                        <Music2 className="h-14 w-14 text-white/70" />
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.24),transparent_58%)]" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Music2 className="h-16 w-16 text-cyan-50/45" />
                       </div>
 
-                      {/* Top actions */}
                       <div className="relative z-10 flex items-start justify-between p-3">
-                        {isAvailable ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-medium text-white/80 backdrop-blur-sm">
-                            {displayDurationForSession(session)}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-medium text-white/70 backdrop-blur-sm">
-                            Próximamente
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {isAvailable ? (
+                            <button
+                              type="button"
+                              onClick={() => startSession(session.id, { autoplay: true })}
+                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${modeStyle.primaryButton}`}
+                            >
+                              <Play className="h-3 w-3" />
+                              Play
+                            </button>
+                          ) : (
+                            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
+                              Próximamente
+                            </span>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => toggleFavorite(session.id)}
-                          className={`relative z-20 inline-flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-sm transition-colors ${
-                            isFav
-                              ? "bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
-                              : "bg-black/35 text-white/70 hover:bg-black/50 hover:text-white"
+                          className={`rounded-full border p-2 transition ${
+                            isFav ? "border-rose-300/70 bg-rose-300/20 text-rose-100" : `${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`
                           }`}
                           aria-label="Favorito"
                         >
-                          <Heart className={`h-3.5 w-3.5 ${isFav ? "fill-current" : ""}`} />
+                          <Heart className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
                         </button>
                       </div>
 
-                      {/* Click overlay for card-wide selection */}
                       <button
                         type="button"
                         onClick={() => startSession(session.id)}
@@ -1231,25 +1203,10 @@ export function SpaceClient() {
                         aria-label={`Seleccionar ${session.title}`}
                       />
 
-                      {/* Bottom info + play CTA */}
-                      <div className="relative z-10 mt-auto flex items-end justify-between gap-3 p-4">
-                        <div className="min-w-0">
-                          <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">{session.type}</div>
-                          <div className="mt-0.5 line-clamp-2 text-[17px] font-semibold leading-snug text-white">{session.title}</div>
-                        </div>
-                        {isAvailable ? (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startSession(session.id, { autoplay: true });
-                            }}
-                            className="relative z-20 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-[0_6px_20px_-6px_rgba(0,0,0,0.6)] transition-transform hover:scale-105"
-                            aria-label={`Reproducir ${session.title}`}
-                          >
-                            <Play className="h-4 w-4 fill-current" />
-                          </button>
-                        ) : null}
+                      <div className="relative z-10 mt-24 bg-gradient-to-t from-slate-950/95 via-slate-950/72 to-transparent p-4">
+                        <div className="text-[11px] uppercase tracking-wide text-cyan-50/70">{session.type}</div>
+                        <div className="mt-1 text-xl font-semibold leading-tight">{session.title}</div>
+                        <div className="mt-1 text-xs text-cyan-50/75">{displayDurationForSession(session)}</div>
                       </div>
                     </article>
                   );
@@ -1458,17 +1415,159 @@ export function SpaceClient() {
   );
 }
 
-/* ──────────────────────────── Headspace-style breath intro ──────────────────────────── */
+/* ──────────────────────────── Mood selector (aurora cards) ──────────────────────────── */
+
+type MoodTheme = {
+  id: string;
+  title: string;
+  subtitle: string;
+  iconPath: string;
+  aurora: string;
+  ringFrom: string;
+  ringTo: string;
+};
+
+const MOOD_THEMES: MoodTheme[] = [
+  {
+    id: "all",
+    title: "Todo",
+    subtitle: "Todas las sesiones",
+    iconPath: "M12 3v3M12 18v3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M3 12h3M18 12h3M5.64 18.36l2.12-2.12M16.24 7.76l2.12-2.12",
+    aurora:
+      "bg-[conic-gradient(from_200deg_at_50%_50%,rgba(16,185,129,0.35),rgba(59,130,246,0.35),rgba(168,85,247,0.35),rgba(236,72,153,0.3),rgba(16,185,129,0.35))]",
+    ringFrom: "from-emerald-300/30",
+    ringTo: "to-fuchsia-300/30",
+  },
+  {
+    id: "respira",
+    title: "Respira",
+    subtitle: "2 min para volver al centro",
+    iconPath: "M12 2v20M2 12h20M4 12a8 8 0 0 1 16 0M4 12a8 8 0 0 0 16 0",
+    aurora:
+      "bg-[radial-gradient(ellipse_at_30%_20%,rgba(45,212,191,0.5),transparent_55%),radial-gradient(ellipse_at_70%_90%,rgba(16,185,129,0.4),transparent_55%),linear-gradient(135deg,rgba(14,165,233,0.25),rgba(20,184,166,0.25))]",
+    ringFrom: "from-teal-300/40",
+    ringTo: "to-emerald-300/30",
+  },
+  {
+    id: "enfocate",
+    title: "Enfócate",
+    subtitle: "Prep mental antes de estudiar",
+    iconPath: "M12 2L4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4zM9 12l2 2 4-4",
+    aurora:
+      "bg-[radial-gradient(ellipse_at_20%_80%,rgba(99,102,241,0.5),transparent_55%),radial-gradient(ellipse_at_80%_20%,rgba(59,130,246,0.45),transparent_55%),linear-gradient(135deg,rgba(79,70,229,0.25),rgba(14,165,233,0.2))]",
+    ringFrom: "from-indigo-300/40",
+    ringTo: "to-sky-300/30",
+  },
+  {
+    id: "descarga",
+    title: "Descarga",
+    subtitle: "Cerrar el día sin ruido mental",
+    iconPath: "M12 3a6 6 0 0 0-6 6c0 2 1 3 1 5h10c0-2 1-3 1-5a6 6 0 0 0-6-6zM9 18h6M10 21h4",
+    aurora:
+      "bg-[radial-gradient(ellipse_at_30%_30%,rgba(236,72,153,0.45),transparent_55%),radial-gradient(ellipse_at_70%_70%,rgba(168,85,247,0.5),transparent_55%),linear-gradient(135deg,rgba(147,51,234,0.3),rgba(219,39,119,0.2))]",
+    ringFrom: "from-fuchsia-300/40",
+    ringTo: "to-violet-300/30",
+  },
+];
+
+function MoodAuroraGrid({
+  selectedMood,
+  setSelectedMood,
+}: {
+  selectedMood: string;
+  setSelectedMood: (id: string) => void;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {MOOD_THEMES.map((m) => {
+        const active = selectedMood === m.id;
+        return (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => setSelectedMood(m.id)}
+            aria-pressed={active}
+            className={`group relative isolate overflow-hidden rounded-3xl p-5 text-left transition-all duration-500 ${
+              active
+                ? "ring-2 ring-white/40 shadow-[0_20px_60px_-20px_rgba(125,211,252,0.35)]"
+                : "ring-1 ring-white/10 hover:ring-white/25"
+            }`}
+            style={{ minHeight: 150 }}
+          >
+            {/* Aurora layer (animated) */}
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-0 -z-10 ${m.aurora} opacity-80 transition-opacity duration-500 group-hover:opacity-100`}
+              style={{ animation: "auroraShift 14s ease-in-out infinite alternate", filter: "blur(2px)" }}
+            />
+            {/* Dark scrim for readability */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-slate-950/55 via-slate-950/35 to-slate-950/60"
+            />
+            {/* Soft orbs */}
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none absolute -left-6 -top-8 -z-10 h-28 w-28 rounded-full bg-gradient-to-br ${m.ringFrom} ${m.ringTo} blur-2xl opacity-70`}
+            />
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none absolute -right-10 -bottom-10 -z-10 h-32 w-32 rounded-full bg-gradient-to-br ${m.ringTo} ${m.ringFrom} blur-3xl opacity-60`}
+            />
+            {/* Grain-like shimmer on top */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_55%)] opacity-70"
+            />
+
+            {/* Content */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.12] text-white/90 backdrop-blur-sm ring-1 ring-white/15">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <path d={m.iconPath} />
+                </svg>
+              </div>
+              {active ? (
+                <span className="inline-flex h-6 items-center rounded-full bg-white/15 px-2 text-[10px] font-semibold uppercase tracking-widest text-white/90 backdrop-blur-sm ring-1 ring-white/20">
+                  En foco
+                </span>
+              ) : null}
+            </div>
+
+            <div className="mt-8">
+              <div className="text-[17px] font-semibold leading-tight text-white drop-shadow-[0_1px_12px_rgba(0,0,0,0.35)]">
+                {m.title}
+              </div>
+              <div className="mt-0.5 text-[12px] text-white/75">{m.subtitle}</div>
+            </div>
+          </button>
+        );
+      })}
+      <style jsx>{`
+        @keyframes auroraShift {
+          0% { transform: translate3d(0, 0, 0) scale(1); }
+          50% { transform: translate3d(-6%, 3%, 0) scale(1.12); }
+          100% { transform: translate3d(4%, -4%, 0) scale(1.08); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/* ──────────────────────────── Immersive breath intro (aurora) ──────────────────────────── */
 
 const BREATH_INTRO_SESSION_KEY = "somagnus:space:breath-intro:v1";
 
 function BreathIntro() {
   const overlayRef = useRef<HTMLDivElement | null>(null);
-  const circleRef = useRef<HTMLDivElement | null>(null);
-  const ringRef = useRef<HTMLDivElement | null>(null);
+  const auroraRef = useRef<HTMLDivElement | null>(null);
+  const coreRef = useRef<HTMLDivElement | null>(null);
+  const glowRef = useRef<HTMLDivElement | null>(null);
+  const ring1Ref = useRef<HTMLDivElement | null>(null);
+  const ring2Ref = useRef<HTMLDivElement | null>(null);
   const inhaleRef = useRef<HTMLDivElement | null>(null);
+  const holdRef = useRef<HTMLDivElement | null>(null);
   const exhaleRef = useRef<HTMLDivElement | null>(null);
-  const hintRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
   const [visible, setVisible] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -1495,7 +1594,7 @@ function BreathIntro() {
     timelineRef.current?.kill();
     gsap.to(overlay, {
       opacity: 0,
-      duration: 0.5,
+      duration: 0.6,
       ease: "power2.out",
       onComplete: () => setVisible(false),
     });
@@ -1504,21 +1603,26 @@ function BreathIntro() {
   useEffect(() => {
     if (!visible) return;
     const overlay = overlayRef.current;
-    const circle = circleRef.current;
-    const ring = ringRef.current;
+    const aurora = auroraRef.current;
+    const core = coreRef.current;
+    const glow = glowRef.current;
+    const ring1 = ring1Ref.current;
+    const ring2 = ring2Ref.current;
     const inhale = inhaleRef.current;
+    const hold = holdRef.current;
     const exhale = exhaleRef.current;
-    const hint = hintRef.current;
-    if (!overlay || !circle || !ring || !inhale || !exhale || !hint) return;
+    if (!overlay || !aurora || !core || !glow || !ring1 || !ring2 || !inhale || !hold || !exhale) return;
 
     gsap.set(overlay, { opacity: 0 });
-    gsap.set(circle, { scale: 0.55, opacity: 0 });
-    gsap.set(ring, { scale: 0.55, opacity: 0 });
-    gsap.set([inhale, exhale], { opacity: 0, y: 8 });
-    gsap.set(hint, { opacity: 0 });
+    gsap.set(aurora, { opacity: 0, scale: 1.1 });
+    gsap.set(core, { scale: 0.55, opacity: 0 });
+    gsap.set(glow, { scale: 0.55, opacity: 0 });
+    gsap.set(ring1, { scale: 0.5, opacity: 0 });
+    gsap.set(ring2, { scale: 0.5, opacity: 0 });
+    gsap.set([inhale, hold, exhale], { opacity: 0, y: 10 });
 
     const tl = gsap.timeline({
-      defaults: { ease: "power2.inOut" },
+      defaults: { ease: "sine.inOut" },
       onComplete: () => {
         try {
           window.sessionStorage.setItem(BREATH_INTRO_SESSION_KEY, "done");
@@ -1527,7 +1631,7 @@ function BreathIntro() {
         }
         gsap.to(overlay, {
           opacity: 0,
-          duration: 0.8,
+          duration: 1.2,
           ease: "power2.out",
           onComplete: () => setVisible(false),
         });
@@ -1535,23 +1639,46 @@ function BreathIntro() {
     });
     timelineRef.current = tl;
 
-    tl.to(overlay, { opacity: 1, duration: 0.6 })
-      .to(circle, { scale: 0.55, opacity: 0.9, duration: 0.6 }, "-=0.3")
-      .to(ring, { scale: 0.55, opacity: 0.4, duration: 0.6 }, "<")
-      .to(hint, { opacity: 1, duration: 0.8 }, "-=0.2")
-      // Inhale (4s)
-      .to(inhale, { opacity: 1, y: 0, duration: 0.6 }, "+=0.1")
-      .to(circle, { scale: 1.15, duration: 4, ease: "sine.inOut" }, "<")
-      .to(ring, { scale: 1.35, opacity: 0.25, duration: 4, ease: "sine.inOut" }, "<")
-      .to(inhale, { opacity: 0, y: -8, duration: 0.5 })
-      // Hold (1s)
-      .to({}, { duration: 0.8 })
-      // Exhale (4s)
-      .to(exhale, { opacity: 1, y: 0, duration: 0.6 })
-      .to(circle, { scale: 0.55, duration: 4, ease: "sine.inOut" }, "<")
-      .to(ring, { scale: 0.55, opacity: 0.4, duration: 4, ease: "sine.inOut" }, "<")
-      .to(exhale, { opacity: 0, y: -8, duration: 0.5 });
+    // Aurora parallax idle loop
+    gsap.to(aurora, {
+      backgroundPositionX: "100%",
+      duration: 22,
+      ease: "sine.inOut",
+      repeat: -1,
+      yoyo: true,
+    });
 
+    tl
+      // Fade in scene
+      .to(overlay, { opacity: 1, duration: 0.9, ease: "power2.out" })
+      .to(aurora, { opacity: 1, scale: 1, duration: 1.6, ease: "power2.out" }, "<")
+      .to(glow, { scale: 0.6, opacity: 0.55, duration: 1.1 }, "-=0.9")
+      .to(core, { scale: 0.55, opacity: 0.95, duration: 1.1 }, "<")
+      .to(ring1, { scale: 0.58, opacity: 0.35, duration: 1.1 }, "<")
+      .to(ring2, { scale: 0.58, opacity: 0.2, duration: 1.1 }, "<")
+
+      // Inhale (5s)
+      .to(inhale, { opacity: 1, y: 0, duration: 0.7 }, "+=0.2")
+      .to(core, { scale: 1.2, duration: 5 }, "<")
+      .to(glow, { scale: 1.45, opacity: 0.9, duration: 5 }, "<")
+      .to(ring1, { scale: 1.35, opacity: 0.25, duration: 5 }, "<")
+      .to(ring2, { scale: 1.65, opacity: 0.12, duration: 5 }, "<")
+      .to(inhale, { opacity: 0, y: -10, duration: 0.6 })
+
+      // Hold (2s)
+      .to(hold, { opacity: 1, y: 0, duration: 0.5 }, "-=0.2")
+      .to({}, { duration: 1.4 })
+      .to(hold, { opacity: 0, y: -10, duration: 0.5 })
+
+      // Exhale (6s)
+      .to(exhale, { opacity: 1, y: 0, duration: 0.6 })
+      .to(core, { scale: 0.55, duration: 6 }, "<")
+      .to(glow, { scale: 0.6, opacity: 0.55, duration: 6 }, "<")
+      .to(ring1, { scale: 0.58, opacity: 0.35, duration: 6 }, "<")
+      .to(ring2, { scale: 0.58, opacity: 0.2, duration: 6 }, "<")
+      .to(exhale, { opacity: 0, y: -10, duration: 0.6 });
+
+    // Silent ESC dismiss for accessibility (no visible hint)
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") dismiss();
     };
@@ -1569,54 +1696,119 @@ function BreathIntro() {
   return (
     <div
       ref={overlayRef}
-      onClick={dismiss}
       role="presentation"
-      className="fixed inset-0 z-[100] flex cursor-pointer items-center justify-center overflow-hidden bg-[#050a14]"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#030613]"
       style={{ opacity: 0 }}
     >
-      {/* Ambient backdrop */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(96,165,250,0.18),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(45,212,191,0.12),transparent_60%)]" />
+      {/* Aurora backdrop (drifting) */}
+      <div
+        ref={auroraRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            "radial-gradient(ellipse 70% 50% at 20% 30%, rgba(45,212,191,0.35), transparent 60%), radial-gradient(ellipse 60% 45% at 80% 20%, rgba(59,130,246,0.38), transparent 60%), radial-gradient(ellipse 70% 55% at 50% 90%, rgba(168,85,247,0.32), transparent 60%), radial-gradient(ellipse 50% 40% at 90% 70%, rgba(236,72,153,0.22), transparent 60%)",
+          backgroundSize: "200% 200%",
+          backgroundPosition: "0% 50%",
+          filter: "blur(12px) saturate(115%)",
+        }}
+      />
+      {/* Deep vignette */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(2,4,10,0.85)_100%)]"
+      />
+      {/* Stars */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        {Array.from({ length: 40 }).map((_, i) => {
+          const top = (i * 37) % 100;
+          const left = (i * 83) % 100;
+          const size = (i % 3) + 1;
+          const opacity = 0.25 + ((i * 13) % 60) / 100;
+          const delay = (i % 10) * 0.3;
+          return (
+            <span
+              key={i}
+              className="absolute rounded-full bg-white"
+              style={{
+                top: `${top}%`,
+                left: `${left}%`,
+                width: size,
+                height: size,
+                opacity,
+                animation: `twinkle 4s ease-in-out ${delay}s infinite alternate`,
+              }}
+            />
+          );
+        })}
+      </div>
 
-      {/* Breath visuals */}
-      <div className="relative flex h-72 w-72 items-center justify-center">
+      {/* Breath core */}
+      <div className="relative flex h-[22rem] w-[22rem] items-center justify-center md:h-[28rem] md:w-[28rem]">
+        {/* Outer ring (largest) */}
         <div
-          ref={ringRef}
-          className="absolute inset-0 rounded-full border border-white/15"
-          style={{ boxShadow: "0 0 80px 10px rgba(125,211,252,0.15)" }}
+          ref={ring2Ref}
+          className="absolute inset-0 rounded-full border border-white/10"
+          style={{ boxShadow: "0 0 140px 20px rgba(125,211,252,0.12) inset" }}
         />
+        {/* Mid ring */}
         <div
-          ref={circleRef}
-          className="h-56 w-56 rounded-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.85),rgba(125,211,252,0.55)_45%,rgba(59,130,246,0.35)_75%,transparent)]"
-          style={{ filter: "blur(0.5px)" }}
+          ref={ring1Ref}
+          className="absolute inset-6 rounded-full border border-white/15"
+        />
+        {/* Glow halo */}
+        <div
+          ref={glowRef}
+          className="absolute h-72 w-72 rounded-full md:h-[22rem] md:w-[22rem]"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(165,243,252,0.45) 0%, rgba(99,102,241,0.28) 40%, rgba(168,85,247,0.14) 70%, transparent 80%)",
+            filter: "blur(12px)",
+          }}
+        />
+        {/* Core orb */}
+        <div
+          ref={coreRef}
+          className="h-48 w-48 rounded-full md:h-60 md:w-60"
+          style={{
+            background:
+              "radial-gradient(circle at 32% 30%, rgba(255,255,255,0.95) 0%, rgba(186,230,253,0.75) 30%, rgba(129,140,248,0.45) 60%, rgba(79,70,229,0.25) 85%, transparent 100%)",
+            boxShadow: "0 0 60px rgba(165,243,252,0.35), 0 0 120px rgba(99,102,241,0.25)",
+          }}
         />
 
-        {/* Breath labels */}
+        {/* Breath labels (centered) */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div
             ref={inhaleRef}
-            className="text-3xl font-light tracking-[0.3em] text-white/95 md:text-4xl"
-            style={{ opacity: 0 }}
+            className="absolute text-[28px] font-light tracking-[0.4em] text-white/95 md:text-[36px]"
+            style={{ opacity: 0, textShadow: "0 2px 24px rgba(0,0,0,0.4)" }}
           >
             Inhala
           </div>
           <div
+            ref={holdRef}
+            className="absolute text-[22px] font-light tracking-[0.5em] text-white/80 md:text-[28px]"
+            style={{ opacity: 0, textShadow: "0 2px 24px rgba(0,0,0,0.4)" }}
+          >
+            Sostén
+          </div>
+          <div
             ref={exhaleRef}
-            className="absolute text-3xl font-light tracking-[0.3em] text-white/95 md:text-4xl"
-            style={{ opacity: 0 }}
+            className="absolute text-[28px] font-light tracking-[0.4em] text-white/95 md:text-[36px]"
+            style={{ opacity: 0, textShadow: "0 2px 24px rgba(0,0,0,0.4)" }}
           >
             Exhala
           </div>
         </div>
       </div>
 
-      {/* Hint */}
-      <div
-        ref={hintRef}
-        className="absolute bottom-10 text-center text-[11px] uppercase tracking-[0.4em] text-white/45"
-        style={{ opacity: 0 }}
-      >
-        Toca para continuar
-      </div>
+      <style jsx>{`
+        @keyframes twinkle {
+          0% { opacity: 0.15; }
+          100% { opacity: 0.9; }
+        }
+      `}</style>
     </div>
   );
 }
