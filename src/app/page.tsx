@@ -24,7 +24,7 @@ export default function Home() {
   const summary = formatPlanSummary(plan);
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       <HomeMotion />
       {/* ── HERO full-screen video (no inner container) ── */}
       <section className="font-general-sans relative -mx-6 -mt-8 min-h-screen overflow-hidden bg-black text-white">
@@ -94,11 +94,8 @@ export default function Home() {
       {/* ── PRÓXIMA EVALUACIÓN + QUIZ RÁPIDO ── */}
       <section className="space-y-4">
         <div className="space-y-1">
-          <div className="text-xs font-medium uppercase tracking-widest text-white/70">Agenda</div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">Próxima evaluación</h2>
-          <p className="text-sm text-muted-foreground">
-            Lo que se viene y una vía rápida para auto-evaluarte.
-          </p>
+          <div className="text-xs font-medium uppercase tracking-widest text-primary">Agenda</div>
+          <h2 className="text-xl font-bold tracking-tight">Próxima evaluación</h2>
         </div>
         <HomeNextEvalCard />
       </section>
@@ -114,19 +111,27 @@ export default function Home() {
       />
 
       {/* ── TABLERO + POMODORO ── */}
-      <section id="pomodoro" className="grid gap-6 lg:grid-cols-[1fr,340px]">
-        <div className="space-y-6">
-          <ClinicalBoard date={todayIso} />
+      <section id="pomodoro" className="space-y-4">
+        <div className="space-y-1">
+          <div className="text-xs font-medium uppercase tracking-widest text-primary">Ahora</div>
+          <h2 className="text-xl font-bold tracking-tight">Tablero & Pomodoro</h2>
         </div>
-
-        <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <PomodoroControls />
+        <div className="grid gap-6 lg:grid-cols-[1fr,340px]">
+          <div className="space-y-6">
+            <ClinicalBoard date={todayIso} />
+          </div>
+          <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+            <PomodoroControls />
+          </div>
         </div>
       </section>
 
       {/* ── ACCESO RÁPIDO ── */}
       <section className="space-y-4">
-        <h3 className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Acceso rápido</h3>
+        <div className="space-y-1">
+          <div className="text-xs font-medium uppercase tracking-widest text-primary">Atajos</div>
+          <h2 className="text-xl font-bold tracking-tight">Acceso rápido</h2>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { icon: <Brain className="h-4 w-4" />, label: "Empezar SRS", href: "/srs" },
