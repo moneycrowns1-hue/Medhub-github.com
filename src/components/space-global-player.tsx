@@ -305,7 +305,7 @@ export function SpaceGlobalPlayer() {
         onPointerDown={onMiniPointerDown}
         onPointerMove={onMiniPointerMove}
         onPointerUp={onMiniPointerUp}
-        className="fixed z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-black/65 text-white shadow-[0_14px_34px_-18px_rgba(0,0,0,0.95)] backdrop-blur-2xl"
+        className="fixed z-50 inline-flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1B2B44] shadow-[0_14px_34px_-18px_rgba(27,43,68,0.35)]"
         style={{ left: miniPosition.x, top: miniPosition.y }}
       >
         <Music2 className="h-5 w-5" />
@@ -316,23 +316,23 @@ export function SpaceGlobalPlayer() {
   return (
     <section className="fixed inset-x-0 bottom-0 z-50 px-3 pb-2 sm:px-6 sm:pb-3">
       <div className="mx-auto w-full max-w-3xl">
-        <div className="relative overflow-hidden rounded-[24px] bg-black/60 shadow-[0_18px_60px_-34px_rgba(0,0,0,0.96)] backdrop-blur-2xl">
+        <div className="relative overflow-hidden rounded-[24px] border border-slate-200 bg-white text-[#1B2B44] shadow-[0_18px_60px_-28px_rgba(27,43,68,0.35)]">
 
           <div className="px-3 pt-2.5 sm:px-4 sm:pt-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-white/15">
-              <div className="h-full rounded-full bg-white/85 transition-all" style={{ width: `${progress}%` }} />
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-[#6FB08A] transition-all" style={{ width: `${progress}%` }} />
             </div>
           </div>
 
           <div className="flex items-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3">
-            <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl bg-white/10 px-2.5 py-2 text-left transition">
-              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10">
-                <span className={`absolute inset-0 bg-gradient-to-br from-white/25 via-white/10 to-transparent ${playing ? "animate-pulse" : ""}`} />
-                <Music2 className="relative z-10 h-4.5 w-4.5 text-white" />
+            <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-left">
+              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <span className={`absolute inset-0 bg-gradient-to-br from-[#CFE6FF] via-[#EAF4FF] to-transparent ${playing ? "animate-pulse" : ""}`} />
+                <Music2 className="relative z-10 h-4.5 w-4.5 text-[#1B2B44]" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-white">{activeMeta?.title ?? "Space"}</span>
-                <span className="block truncate text-xs text-white/75">{activeMeta?.type ?? "Audio en reproducción"}</span>
+                <span className="block truncate text-sm font-semibold text-[#1B2B44]">{activeMeta?.title ?? "Space"}</span>
+                <span className="block truncate text-xs text-[#5B6B86]">{activeMeta?.type ?? "Audio en reproducción"}</span>
               </span>
             </div>
 
@@ -340,18 +340,16 @@ export function SpaceGlobalPlayer() {
               type="button"
               onClick={() => setExpanded((prev) => !prev)}
               aria-expanded={expanded}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/15"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1B2B44] transition hover:bg-slate-100"
               aria-label={expanded ? "Contraer" : "Expandir"}
             >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white">
-                {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-              </span>
+              {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
             </button>
 
             <button
               type="button"
               onClick={() => setMinimized(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/15"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1B2B44] transition hover:bg-slate-100"
               aria-label="Minimizar"
             >
               <Minus className="h-4.5 w-4.5" />
@@ -360,7 +358,7 @@ export function SpaceGlobalPlayer() {
             <button
               type="button"
               onClick={togglePlayback}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-950 transition hover:bg-white/90"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#6FB08A] text-white shadow-[0_8px_20px_-10px_rgba(111,176,138,0.7)] transition hover:bg-[#5FA079]"
               aria-label={playing ? "Pausar" : "Reproducir"}
             >
               {playing ? <Pause className="h-4.5 w-4.5" /> : <Play className="h-4.5 w-4.5" />}
@@ -368,7 +366,7 @@ export function SpaceGlobalPlayer() {
           </div>
 
           <div
-            className={`overflow-hidden transition-all duration-300 ease-out ${
+            className={`overflow-hidden border-t border-slate-200 transition-all duration-300 ease-out ${
               expanded ? "max-h-[250px] translate-y-0 opacity-100" : "max-h-0 -translate-y-1 opacity-0"
             }`}
             aria-hidden={!expanded}
@@ -386,13 +384,13 @@ export function SpaceGlobalPlayer() {
                 />
               </label>
 
-              <div className="flex items-center justify-between text-xs text-white/75">
+              <div className="flex items-center justify-between text-xs text-[#5B6B86]">
                 <span>{fmt(elapsedSec)}</span>
                 <span>{fmt(durationSec)}</span>
               </div>
 
               <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-                <label className="space-y-1 rounded-xl bg-white/10 px-2.5 py-2 text-xs text-white/80">
+                <label className="space-y-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-[#5B6B86]">
                   <span className="inline-flex items-center gap-1">
                     <Volume2 className="h-3.5 w-3.5" />
                     Volumen ({Math.round(volume * 100)}%)
@@ -407,7 +405,7 @@ export function SpaceGlobalPlayer() {
                   />
                 </label>
 
-                <label className="space-y-1 rounded-xl bg-white/10 px-2.5 py-2 text-xs text-white/80">
+                <label className="space-y-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-[#5B6B86]">
                   <span className="inline-flex items-center gap-1">
                     <SlidersHorizontal className="h-3.5 w-3.5" />
                     Velocidad
@@ -415,7 +413,7 @@ export function SpaceGlobalPlayer() {
                   <select
                     value={String(playbackRate)}
                     onChange={(event) => setPlaybackRate(Number(event.target.value))}
-                    className="w-full rounded-xl bg-white/10 px-3 py-2 text-xs text-white outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-[#1B2B44] outline-none"
                   >
                     <option value="0.8">0.8x</option>
                     <option value="1">1.0x</option>

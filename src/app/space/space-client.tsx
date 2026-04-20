@@ -457,13 +457,14 @@ export function SpaceClient() {
   });
   const [playerExpanded, setPlayerExpanded] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [menuRendered, setMenuRendered] = useState(false);
   const menuCardRef = useRef<HTMLDivElement | null>(null);
   const menuItemsRef = useRef<Array<HTMLButtonElement | null>>([]);
   const menuBtnRef = useRef<HTMLButtonElement | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
 
   useEffect(() => {
-    if (!headerMenuOpen) {
+    if (!menuRendered) {
       setMenuPos(null);
       return;
     }
@@ -480,10 +481,48 @@ export function SpaceClient() {
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update);
     };
-  }, [headerMenuOpen]);
+  }, [menuRendered]);
 
   useEffect(() => {
-    if (!headerMenuOpen) return;
+    // Open: mount then animate in
+    if (headerMenuOpen && !menuRendered) {
+      setMenuRendered(true);
+      return;
+    }
+    // Close: animate out then unmount
+    if (!headerMenuOpen && menuRendered) {
+      const card = menuCardRef.current;
+      const items = menuItemsRef.current.filter(Boolean) as HTMLButtonElement[];
+      if (!card) {
+        setMenuRendered(false);
+        return;
+      }
+      const tl = gsap.timeline({
+        defaults: { force3D: true },
+        onComplete: () => setMenuRendered(false),
+      });
+      if (items.length) {
+        tl.to(items, {
+          y: 4,
+          opacity: 0,
+          duration: 0.22,
+          stagger: { each: 0.03, from: "end" },
+          ease: "power2.in",
+        });
+      }
+      tl.to(
+        card,
+        { y: -6, opacity: 0, duration: 0.22, ease: "power2.in" },
+        items.length ? "-=0.12" : 0,
+      );
+      return () => {
+        tl.kill();
+      };
+    }
+  }, [headerMenuOpen, menuRendered]);
+
+  useEffect(() => {
+    if (!menuRendered || !menuPos) return;
     const card = menuCardRef.current;
     const items = menuItemsRef.current.filter(Boolean) as HTMLButtonElement[];
     if (!card) return;
@@ -511,7 +550,9 @@ export function SpaceClient() {
     return () => {
       tl.kill();
     };
-  }, [headerMenuOpen]);
+    // Only run when the menu first mounts and has a position
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuRendered, Boolean(menuPos)]);
 
   const SPACE_SECTIONS: { id: string; label: string }[] = useMemo(
     () => [
@@ -1030,7 +1071,7 @@ export function SpaceClient() {
       </div>
       <div className="fixed left-1/2 top-3 z-30 w-[min(94vw,550px)] -translate-x-1/2">
         <div
-          className={`flex items-center justify-between gap-3 rounded-full px-4 py-3 transition-[background-color,box-shadow] duration-300 sm:px-5 ${
+          className={`flex items-center justify-between gap-3 rounded-full px-4 py-2 transition-[background-color,box-shadow] duration-300 sm:px-5 sm:py-2.5 ${
             stickyHeaderSolid
               ? "border border-white/70 bg-white/75 shadow-[0_10px_30px_-18px_rgba(27,43,68,0.35)] backdrop-blur-md"
               : "border border-white/50 bg-white/50 backdrop-blur-md"
@@ -1069,7 +1110,7 @@ export function SpaceClient() {
         </div>
       </div>
 
-      {headerMenuOpen && menuPos && typeof document !== "undefined"
+      {menuRendered && menuPos && typeof document !== "undefined"
         ? createPortal(
             <>
               <button
