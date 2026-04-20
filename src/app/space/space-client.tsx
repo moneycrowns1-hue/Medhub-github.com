@@ -1011,16 +1011,18 @@ export function SpaceClient() {
 
   return (
     <div
-      className={`${outfit.className} relative space-y-10 overflow-x-hidden pb-44 md:pb-52 ${modeStyle.pageText}`}
-      style={{
-        background:
-          "linear-gradient(180deg, #9FD3FF 0%, #6AB7F2 35%, #3C8CE0 70%, #1E5DB0 100%)",
-        minHeight: "100vh",
-      }}
+      className={`${outfit.className} relative isolate space-y-10 overflow-x-hidden pb-44 md:pb-52 ${modeStyle.pageText}`}
     >
       <BreathIntro />
-      {/* Sparse sky clouds (decorative, page-wide) */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[560px] overflow-hidden">
+      {/* Full-viewport sky background (escapes main's max-width/padding) */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{
+          background:
+            "linear-gradient(180deg, #9FD3FF 0%, #6AB7F2 35%, #3C8CE0 70%, #1E5DB0 100%)",
+        }}
+      >
         <Cloud className="absolute left-[4%] top-[90px]" size={140} opacity={0.85} />
         <Cloud className="absolute right-[6%] top-[140px]" size={170} opacity={0.85} />
         <Cloud className="absolute left-[42%] top-[220px]" size={90} opacity={0.55} />
