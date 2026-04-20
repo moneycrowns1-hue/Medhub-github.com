@@ -474,16 +474,15 @@ export function SpaceClient() {
     if (items.length) {
       tl.fromTo(
         items,
-        { x: 22, opacity: 0, filter: "blur(6px)" },
+        { x: 18, opacity: 0 },
         {
           x: 0,
           opacity: 1,
-          filter: "blur(0px)",
-          duration: 0.32,
-          stagger: 0.06,
-          ease: "power3.out",
+          duration: 0.28,
+          stagger: 0.05,
+          ease: "power2.out",
         },
-        "-=0.2",
+        "-=0.18",
       );
     }
     return () => {
@@ -999,15 +998,8 @@ export function SpaceClient() {
       className={`${outfit.className} relative isolate space-y-10 overflow-x-hidden pb-44 md:pb-52 ${modeStyle.pageText}`}
     >
       <BreathIntro />
-      {/* Full-viewport sky background (escapes main's max-width/padding) */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(180deg, #9FD3FF 0%, #6AB7F2 35%, #3C8CE0 70%, #1E5DB0 100%)",
-        }}
-      >
+      {/* Decorative clouds over the shared sky bg (rendered by AppShell) */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-40">
         <Cloud className="absolute left-[4%] top-[90px]" size={140} opacity={0.85} />
         <Cloud className="absolute right-[6%] top-[140px]" size={170} opacity={0.85} />
         <Cloud className="absolute left-[42%] top-[220px]" size={90} opacity={0.55} />
@@ -1064,7 +1056,7 @@ export function SpaceClient() {
                 <div
                   ref={menuCardRef}
                   role="menu"
-                  className="absolute right-0 top-full z-40 mt-3 w-[min(92vw,320px)] overflow-hidden rounded-3xl border border-white/80 bg-white/95 p-3 shadow-[0_28px_70px_-22px_rgba(27,43,68,0.45)] backdrop-blur-xl"
+                  className="absolute right-0 top-full z-40 mt-3 w-[min(92vw,320px)] overflow-hidden rounded-3xl border border-white/80 bg-white/95 p-3 shadow-[0_28px_70px_-22px_rgba(27,43,68,0.45)]"
                 >
                   {/* decorative gradient orb */}
                   <span
@@ -1111,8 +1103,8 @@ export function SpaceClient() {
         </div>
       </div>
 
-      {/* Spacer replacing the removed hero video */}
-      <div id="space-top" data-reveal-id="hero" className="h-[140px] md:h-[180px]" />
+      {/* Minimal spacer so search sits right under the floating header */}
+      <div id="space-top" data-reveal-id="hero" className="h-12 md:h-14" />
 
       <section
         id="space-mood"
@@ -1180,7 +1172,7 @@ export function SpaceClient() {
                 onClick={() => startSession(session.id, { autoplay: true })}
                 className="group min-w-[88px] text-center"
               >
-                <span className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full border border-white/40 bg-white/15 text-white/90 backdrop-blur-md transition group-hover:border-white/70 group-hover:bg-white/25 group-hover:text-white">
+                <span className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full border border-white/70 bg-white/65 text-[#5B6B86] backdrop-blur-md transition group-hover:border-[#6FB08A]/60 group-hover:text-[#6FB08A]">
                   <Music2 className="h-6 w-6" />
                 </span>
                 <span className="mt-2 line-clamp-2 block text-xs leading-tight text-white drop-shadow-[0_1px_6px_rgba(10,30,70,0.45)]">{session.title}</span>
@@ -1213,11 +1205,11 @@ export function SpaceClient() {
                   return (
                     <article
                       key={session.id}
-                      className="relative min-w-[240px] overflow-hidden rounded-2xl border border-white/30 bg-white/15 shadow-[0_14px_40px_-26px_rgba(10,30,70,0.45)] backdrop-blur-md"
+                      className="relative min-w-[240px] overflow-hidden rounded-2xl border border-white/60 bg-white/65 shadow-[0_14px_40px_-26px_rgba(27,43,68,0.35)] backdrop-blur-md"
                     >
-                      <div className="absolute inset-x-0 top-0 h-[90px] bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.4),transparent_70%)]" />
+                      <div className="absolute inset-x-0 top-0 h-[90px] bg-[radial-gradient(ellipse_at_50%_0%,rgba(159,211,255,0.55),transparent_70%)]" />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Music2 className="h-16 w-16 text-white/20" />
+                        <Music2 className="h-16 w-16 text-[#1B2B44]/10" />
                       </div>
 
                       <div className="relative z-10 flex items-start justify-between p-3">
@@ -1232,7 +1224,7 @@ export function SpaceClient() {
                               Play
                             </button>
                           ) : (
-                            <span className="inline-flex items-center rounded-full border border-white/40 bg-white/15 px-2.5 py-1 text-[10px] font-semibold text-white/90">
+                            <span className="inline-flex items-center rounded-full border border-white/70 bg-white/60 px-2.5 py-1 text-[10px] font-semibold text-[#5B6B86]">
                               Próximamente
                             </span>
                           )}
@@ -1242,8 +1234,8 @@ export function SpaceClient() {
                           onClick={() => toggleFavorite(session.id)}
                           className={`rounded-full border p-2 transition ${
                             isFav
-                              ? "border-[#E8A583]/70 bg-[#E8A583]/30 text-white"
-                              : "border-white/40 bg-white/15 text-white/90 hover:bg-white/25"
+                              ? "border-[#E8A583]/60 bg-[#F7D9C4]/60 text-[#8C4A2A]"
+                              : "border-white/70 bg-white/55 text-[#5B6B86] hover:bg-white/75"
                           }`}
                           aria-label="Favorito"
                         >
@@ -1259,10 +1251,10 @@ export function SpaceClient() {
                         aria-label={`Seleccionar ${session.title}`}
                       />
 
-                      <div className="relative z-10 mt-24 border-t border-white/25 bg-gradient-to-t from-[rgba(10,30,70,0.55)] via-[rgba(10,30,70,0.3)] to-transparent p-4 backdrop-blur-md">
-                        <div className="text-[11px] uppercase tracking-[0.14em] text-white/75">{session.type}</div>
-                        <div className="mt-1 text-lg font-semibold leading-tight text-white drop-shadow-[0_1px_6px_rgba(10,30,70,0.45)]">{session.title}</div>
-                        <div className="mt-1 text-xs text-white/80">{displayDurationForSession(session)}</div>
+                      <div className="relative z-10 mt-24 border-t border-white/60 bg-white/70 p-4 backdrop-blur-md">
+                        <div className="text-[11px] uppercase tracking-[0.14em] text-[#5B6B86]">{session.type}</div>
+                        <div className="mt-1 text-lg font-semibold leading-tight text-[#1B2B44]">{session.title}</div>
+                        <div className="mt-1 text-xs text-[#5B6B86]">{displayDurationForSession(session)}</div>
                       </div>
                     </article>
                   );
