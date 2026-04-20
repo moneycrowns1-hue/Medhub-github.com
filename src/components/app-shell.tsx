@@ -45,17 +45,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/settings", label: "Ajustes", icon: <Settings className="h-4 w-4" /> },
 ];
 
-function getRouteTitle(pathname: string | null): { label: string; icon: React.ReactNode } {
-  if (!pathname) return { label: "Somagnus", icon: <Zap className="h-4 w-4" /> };
-  const exact = NAV_ITEMS.find((i) => i.href === pathname);
-  if (exact) return { label: exact.label, icon: exact.icon };
-  const prefix = NAV_ITEMS.find(
-    (i) => i.href !== "/" && pathname.startsWith(i.href + "/"),
-  );
-  if (prefix) return { label: prefix.label, icon: prefix.icon };
-  return { label: "Somagnus", icon: <Zap className="h-4 w-4" /> };
-}
-
 function GlobalHeaderMenu({
   open,
   setOpen,
@@ -218,8 +207,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setHeaderMenuOpen(false);
   }, [pathname]);
 
-  const routeTitle = getRouteTitle(pathname);
-
   const [spaceMode, setSpaceMode] = useState<SpaceMode>("day");
   useEffect(() => {
     if (!isSpaceRoute) return;
@@ -255,11 +242,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!isImmersiveReaderRoute ? <RabbitGuidePanel /> : null}
       {!isImmersiveReaderRoute && !isSpaceRoute ? (
         <>
-          <div className="fixed left-1/2 top-3 z-40 w-[min(94vw,560px)] -translate-x-1/2">
+          <div className="fixed left-1/2 top-3 z-40 w-[min(94vw,460px)] -translate-x-1/2">
             <div
               ref={pillRef}
               className={cn(
-                "flex h-14 items-center justify-between gap-2 rounded-full border px-2.5 backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-300 sm:px-3",
+                "flex h-14 items-center justify-between gap-2 rounded-full border px-3 backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-300 sm:px-4",
                 stickyHeaderSolid
                   ? "border-border/70 bg-background/85 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.25)]"
                   : integratedAtTop
@@ -269,18 +256,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Link
                 href="/"
-                aria-label="Ir a inicio"
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80 text-foreground transition-colors hover:bg-background"
+                className="flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1 pr-3 text-base font-bold tracking-tight text-foreground transition-colors hover:text-primary"
               >
-                <Zap className="h-5 w-5 text-primary" />
-              </Link>
-
-              <div className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 text-base font-semibold tracking-tight text-foreground sm:text-lg">
-                <span className="text-primary [&>svg]:h-[18px] [&>svg]:w-[18px]">
-                  {routeTitle.icon}
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Zap className="h-5 w-5" />
                 </span>
-                <span className="truncate">{routeTitle.label}</span>
-              </div>
+                <span>Somagnus</span>
+              </Link>
 
               <button
                 ref={menuBtnRef}
