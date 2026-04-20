@@ -129,7 +129,7 @@ export function DayClient({ plan }: Props) {
   const secondaryDef = SUBJECTS[plan.secondary as SubjectSlug];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Day label chip */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-3 py-1 text-xs font-medium text-white">
@@ -142,8 +142,8 @@ export function DayClient({ plan }: Props) {
       </div>
 
       {/* Materias */}
-      <section className="space-y-4">
-        <div className="space-y-1">
+      <section className="space-y-3 -mt-4">
+        <div className="space-y-0.5">
           <div className="text-xs font-medium uppercase tracking-widest text-foreground/70">
             Materias
           </div>
