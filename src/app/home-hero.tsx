@@ -70,16 +70,8 @@ export function HomeHero({
 
   return (
     <section className="font-general-sans relative -mx-6 -mt-8 overflow-hidden bg-black text-white">
-      {/* Ambient video background (compact, no min-h-screen) */}
-      <video
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-70"
-        src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260217_030345_246c0224-10a4-422c-b324-070b7c0eceda.mp4"
-        autoPlay
-        loop
-        muted
-        playsInline
-      />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/60 to-black/85" />
+      {/* Subtle static ambient: soft radial glow, no motion */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.05),transparent_60%)]" />
 
       <div className="relative z-10 flex flex-col px-6 py-10 md:px-[120px] md:py-14">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-7">
