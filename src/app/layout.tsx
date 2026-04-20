@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Outfit, Pixelify_Sans } from "next/font/google";
+import { Outfit, Pixelify_Sans, Cinzel_Decorative } from "next/font/google";
 import "./globals.css";
 
 import { AppShell } from "@/components/app-shell";
@@ -18,6 +18,12 @@ const pixelify = Pixelify_Sans({
   weight: ["400", "500", "600", "700"],
 });
 
+const cinzelDecorative = Cinzel_Decorative({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["400", "700", "900"],
+});
+
 export const metadata: Metadata = {
   title: "Somagnus",
   description: "Segundo cerebro y productividad para medicina",
@@ -32,7 +38,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${outfit.variable} ${pixelify.variable} dark h-full antialiased`}
+      className={`${outfit.variable} ${pixelify.variable} ${cinzelDecorative.variable} dark h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>

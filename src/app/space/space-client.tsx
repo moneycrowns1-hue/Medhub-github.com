@@ -1694,13 +1694,14 @@ function BreathIntro() {
   if (!visible || !mounted || typeof document === "undefined") return null;
 
   const labelClass =
-    "absolute whitespace-nowrap font-extrabold uppercase tracking-[0.28em] text-[#2B1810] text-5xl sm:text-7xl md:text-8xl lg:text-9xl";
+    "absolute whitespace-nowrap uppercase tracking-[0.22em] text-white text-5xl sm:text-7xl md:text-8xl lg:text-9xl";
   const labelStyle: React.CSSProperties = {
     opacity: 0,
     fontFamily:
-      '"Nunito", "Quicksand", ui-rounded, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    fontWeight: 900,
-    textShadow: "0 2px 0 rgba(0,0,0,0.04)",
+      'var(--font-display), "Cinzel Decorative", serif',
+    fontWeight: 700,
+    letterSpacing: "0.22em",
+    textShadow: "0 6px 24px rgba(10,30,70,0.35)",
   };
 
   const scene = (
@@ -1712,10 +1713,11 @@ function BreathIntro() {
         opacity: 0,
         width: "100vw",
         height: "100vh",
-        background: "linear-gradient(180deg, #FFF6DC 0%, #FDE7B3 55%, #FBD38D 100%)",
+        background:
+          "linear-gradient(180deg, #9FD3FF 0%, #4DA8F0 40%, #1E73D9 78%, #0E3B8C 100%)",
       }}
     >
-      {/* TOP HALF — breath label */}
+      {/* TOP HALF — breath label (white over sky) */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 flex items-center justify-center">
         <div ref={inhaleRef} className={labelClass} style={labelStyle}>
           Inhala
@@ -1728,67 +1730,51 @@ function BreathIntro() {
         </div>
       </div>
 
-      {/* BOTTOM HALF — sun dome + clouds */}
-      <div className="absolute inset-x-0 bottom-0 h-1/2">
-        {/* Clouds */}
-        <Cloud className="absolute left-[6%] top-[10%]" size={90} opacity={0.95} />
-        <Cloud className="absolute right-[8%] top-[22%]" size={75} opacity={0.9} />
-        <Cloud className="absolute left-[22%] top-[2%]" size={60} opacity={0.85} />
-        <Cloud className="absolute right-[26%] top-[6%]" size={70} opacity={0.9} />
+      {/* Small drifting clouds across the sky */}
+      <Cloud className="absolute left-[4%] top-[12%]" size={140} opacity={0.95} />
+      <Cloud className="absolute right-[-2%] top-[8%]" size={170} opacity={0.95} />
+      <Cloud className="absolute left-[38%] top-[6%]" size={60} opacity={0.55} />
+      <Cloud className="absolute right-[34%] top-[18%]" size={50} opacity={0.45} />
+      <Cloud className="absolute left-[18%] top-[28%]" size={45} opacity={0.4} />
+      <Cloud className="absolute right-[14%] top-[36%]" size={70} opacity={0.55} />
 
-        {/* Sun dome — semicircle anchored to bottom edge */}
+      {/* BOTTOM HALF — dark earth horizon (breathing) */}
+      <div
+        ref={sunRef}
+        className="absolute inset-x-0 bottom-0 h-1/2"
+        style={{
+          transformOrigin: "50% 100%",
+          transform: "scale(0.97)",
+          willChange: "transform",
+        }}
+      >
+        {/* Soft glow on the horizon */}
         <div
-          ref={sunRef}
+          className="absolute inset-x-0"
+          style={{
+            top: "-40px",
+            height: "80px",
+            background:
+              "radial-gradient(ellipse 60% 100% at 50% 100%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 70%)",
+            pointerEvents: "none",
+          }}
+        />
+        {/* Dark earth dome anchored to bottom edge */}
+        <div
           className="absolute inset-0"
           style={{
-            transformOrigin: "50% 100%",
-            transform: "scale(0.97)",
-            willChange: "transform",
+            background:
+              "linear-gradient(180deg, #0B1A3A 0%, #050B1F 60%, #020616 100%)",
+            borderRadius: "50% 50% 0 0 / 22% 22% 0 0",
+            boxShadow: "0 -2px 0 rgba(255,255,255,0.08), 0 -24px 60px rgba(0,0,0,0.25)",
           }}
-        >
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(ellipse 70% 90% at 50% 100%, #FFD28A 0%, #FFB266 40%, #FF8A3D 75%, #F97316 100%)",
-              borderRadius: "50% 50% 0 0 / 100% 100% 0 0",
-              boxShadow: "0 -20px 60px rgba(249,115,22,0.25)",
-            }}
-          />
-          {/* Face — eyes + smile near the dome peak */}
-          <svg
-            aria-hidden="true"
-            className="absolute left-1/2 -translate-x-1/2"
-            style={{ top: "20%", width: "min(42vw, 420px)", height: "auto", overflow: "visible" }}
-            viewBox="0 0 400 140"
-            fill="none"
-          >
-            {/* Left eye (sleepy arc) */}
-            <path
-              d="M70 50 Q110 18 150 50"
-              stroke="#2B1810"
-              strokeWidth="10"
-              strokeLinecap="round"
-              fill="none"
-            />
-            {/* Right eye */}
-            <path
-              d="M250 50 Q290 18 330 50"
-              stroke="#2B1810"
-              strokeWidth="10"
-              strokeLinecap="round"
-              fill="none"
-            />
-            {/* Smile */}
-            <path
-              d="M150 95 Q200 130 250 95"
-              stroke="#2B1810"
-              strokeWidth="10"
-              strokeLinecap="round"
-              fill="none"
-            />
-          </svg>
-        </div>
+        />
+      </div>
+
+      {/* Foreground clouds near the horizon (like reference) */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-[42%]">
+        <Cloud className="absolute left-[-3%] bottom-0" size={220} opacity={1} />
+        <Cloud className="absolute right-[-4%] bottom-0" size={240} opacity={1} />
       </div>
     </div>
   );
