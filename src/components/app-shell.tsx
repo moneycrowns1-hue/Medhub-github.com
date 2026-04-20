@@ -79,6 +79,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isScrolledOnHome, setIsScrolledOnHome] = useState(false);
   const isImmersiveReaderRoute = pathname === "/lector" || (pathname?.startsWith("/lector/") ?? false);
+  const isSpaceRoute = pathname === "/space" || (pathname?.startsWith("/space/") ?? false);
 
   useEffect(() => {
     if (pathname !== "/") return;
@@ -102,7 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <PomodoroOverlay />
       <GlobalRabbitMascot compact={isImmersiveReaderRoute} suppressSpeech={isImmersiveReaderRoute} />
       {!isImmersiveReaderRoute ? <RabbitGuidePanel /> : null}
-      {!isImmersiveReaderRoute ? (
+      {!isImmersiveReaderRoute && !isSpaceRoute ? (
         <header
           className={cn(
             "inset-x-0 top-0 z-40 transition-all duration-500",
@@ -154,7 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           isImmersiveReaderRoute
             ? "w-full"
             : "mx-auto w-full max-w-7xl px-6",
-          pathname === "/" ? "py-8" : isImmersiveReaderRoute ? "p-0" : "pb-8 pt-24",
+          pathname === "/" ? "py-8" : isImmersiveReaderRoute ? "p-0" : isSpaceRoute ? "pb-8 pt-4" : "pb-8 pt-24",
         )}
       >
         {children}

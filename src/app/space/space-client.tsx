@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Outfit } from "next/font/google";
-import { ChevronDown, ChevronUp, Headphones, Heart, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Volume2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Headphones, Heart, Menu, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Volume2, X } from "lucide-react";
+import Link from "next/link";
 import gsap from "gsap";
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
 
@@ -455,6 +456,26 @@ export function SpaceClient() {
     return !audio.paused || Math.floor(audio.currentTime || 0) > 0;
   });
   const [playerExpanded, setPlayerExpanded] = useState(false);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+
+  const SPACE_SECTIONS: { id: string; label: string }[] = useMemo(
+    () => [
+      { id: "space-top", label: "Inicio" },
+      { id: "space-mood", label: "Moods" },
+      { id: "space-recientes", label: "Recientes" },
+      { id: "space-sesiones", label: "Todas las sesiones" },
+    ],
+    [],
+  );
+
+  const scrollToSection = (id: string) => {
+    if (typeof document === "undefined") return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    const y = el.getBoundingClientRect().top + window.scrollY - 80;
+    window.scrollTo({ top: y, behavior: "smooth" });
+    setHeaderMenuOpen(false);
+  };
 
   // Cielo Calma — paleta única (baja saturación, azul cielo + salvia + lavanda + durazno)
   // ink #1B2B44, ink-soft #5B6B86, sage #6FB08A, lavender #8B82C9, peach #E8A583
@@ -961,34 +982,93 @@ export function SpaceClient() {
       </div>
       <div className="fixed left-1/2 top-3 z-30 w-[min(96vw,1200px)] -translate-x-1/2">
         <div
-          className={`flex items-center justify-between gap-4 rounded-full px-5 py-2.5 transition-all duration-300 ${
+          className={`flex items-center justify-between gap-3 rounded-full px-3 py-2 transition-all duration-300 sm:px-4 ${
             stickyHeaderSolid
-              ? "border border-white/70 bg-white/70 shadow-[0_10px_30px_-18px_rgba(27,43,68,0.35)] backdrop-blur-md"
-              : "border border-white/50 bg-white/45 backdrop-blur-md"
+              ? "border border-white/70 bg-white/75 shadow-[0_10px_30px_-18px_rgba(27,43,68,0.35)] backdrop-blur-md"
+              : "border border-white/50 bg-white/50 backdrop-blur-md"
           }`}
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-medium text-[#1B2B44]">
-            <Sparkles className="h-3.5 w-3.5 text-[#8B82C9]" />
-            Hoy en Space
-          </div>
-          <div className="text-lg font-semibold tracking-tight text-[#1B2B44] sm:text-xl md:text-2xl">
-            Entra en{" "}
-            <span className={`${cinzelDisplay} font-bold tracking-[0.08em] text-[#6FB08A]`}>
-              FLOW
+          <Link
+            href="/"
+            aria-label="Volver a inicio"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/70 text-[#1B2B44] transition hover:border-[#8B82C9]/50 hover:bg-white/90"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 text-base font-semibold tracking-tight text-[#1B2B44] sm:text-lg md:text-xl">
+            <Sparkles className="hidden h-4 w-4 text-[#8B82C9] sm:inline-block" />
+            <span className="truncate">
+              Entra en{" "}
+              <span className={`${cinzelDisplay} font-bold tracking-[0.08em] text-[#6FB08A]`}>
+                FLOW
+              </span>
             </span>
           </div>
-          <span className="hidden h-7 w-7 items-center justify-center rounded-full bg-white/60 md:inline-flex">
-            <Music2 className="h-3.5 w-3.5 text-[#5B6B86]" />
-          </span>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setHeaderMenuOpen((prev) => !prev)}
+              aria-expanded={headerMenuOpen}
+              aria-haspopup="menu"
+              aria-label="Secciones"
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                headerMenuOpen
+                  ? "border-[#8B82C9]/60 bg-[#D9D4F2]/60 text-[#1B2B44]"
+                  : "border-white/70 bg-white/70 text-[#1B2B44] hover:border-[#8B82C9]/50 hover:bg-white/90"
+              }`}
+            >
+              {headerMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </button>
+
+            {headerMenuOpen ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="Cerrar menú"
+                  onClick={() => setHeaderMenuOpen(false)}
+                  className="fixed inset-0 -z-10 cursor-default"
+                />
+                {/* Speech-bubble pointer */}
+                <span
+                  aria-hidden="true"
+                  className="absolute right-3 top-full h-3 w-3 translate-y-[-6px] rotate-45 border border-white/70 bg-white/85 backdrop-blur-md"
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full z-40 mt-3 w-[min(88vw,280px)] overflow-hidden rounded-2xl border border-white/70 bg-white/85 shadow-[0_20px_60px_-24px_rgba(27,43,68,0.4)] backdrop-blur-md"
+                >
+                  <div className="border-b border-white/60 bg-white/50 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5B6B86]">
+                    Secciones
+                  </div>
+                  <ul className="divide-y divide-white/60">
+                    {SPACE_SECTIONS.map((s) => (
+                      <li key={s.id}>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => scrollToSection(s.id)}
+                          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium text-[#1B2B44] transition hover:bg-[#CFE6FF]/50"
+                        >
+                          <span>{s.label}</span>
+                          <ArrowLeft className="h-3.5 w-3.5 rotate-180 text-[#8B82C9]" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
 
       {/* Spacer replacing the removed hero video */}
-      <div data-reveal-id="hero" className="h-[180px] md:h-[220px]" />
+      <div id="space-top" data-reveal-id="hero" className="h-[140px] md:h-[180px]" />
 
       <section
+        id="space-mood"
         data-reveal-id="mood"
-        className={`space-y-4 transition-all duration-700 ease-out ${revealClass("mood")}`}
+        className={`scroll-mt-24 space-y-4 transition-all duration-700 ease-out ${revealClass("mood")}`}
         style={{ transitionDelay: "70ms" }}
       >
         <div className="grid gap-3 md:grid-cols-[1fr_220px_170px]">
@@ -1032,8 +1112,9 @@ export function SpaceClient() {
       </section>
 
       <section
+        id="space-recientes"
         data-reveal-id="favorites"
-        className={`space-y-3 transition-all duration-700 ease-out ${revealClass("favorites")}`}
+        className={`scroll-mt-24 space-y-3 transition-all duration-700 ease-out ${revealClass("favorites")}`}
         style={{ transitionDelay: "95ms" }}
       >
         <h3 className="text-xl font-semibold text-[#1B2B44]">Recientes</h3>
@@ -1061,8 +1142,9 @@ export function SpaceClient() {
       </section>
 
       <section
+        id="space-sesiones"
         data-reveal-id="carousel"
-        className={`space-y-4 transition-all duration-700 ease-out ${revealClass("carousel")}`}
+        className={`scroll-mt-24 space-y-4 transition-all duration-700 ease-out ${revealClass("carousel")}`}
         style={{ transitionDelay: "120ms" }}
       >
         {groupedVisibleSessions.length === 0 ? (
