@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Outfit, Pixelify_Sans } from "next/font/google";
 import { ChevronDown, ChevronUp, Headphones, Heart, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Volume2 } from "lucide-react";
+import gsap from "gsap";
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
 
 type Mood = {
@@ -1012,6 +1013,7 @@ export function SpaceClient() {
 
   return (
     <div className={`${outfit.className} relative space-y-10 overflow-x-hidden pb-44 md:pb-52 ${modeStyle.pageText}`}>
+      <BreathIntro />
       <div className="fixed left-1/2 top-3 z-30 w-[min(96vw,1200px)] -translate-x-1/2">
         <div
           className={`space-y-2 rounded-3xl p-4 transition-all duration-300 ${
@@ -1026,7 +1028,7 @@ export function SpaceClient() {
           </div>
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Sigue al conejo blanco</h1>
+              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Tu espacio</h1>
               <p className="text-xs text-foreground/75 sm:text-sm">Respira, entra en foco y reproduce en un toque.</p>
             </div>
             <div className={`text-xs ${pixelify.className} text-cyan-100`}>MODO FLOW</div>
@@ -1181,45 +1183,46 @@ export function SpaceClient() {
                   const isFav = favoriteIds.includes(session.id);
                   const isAvailable = isSessionAvailable(session.id);
 
+                  const coverGradient = coverGradientForMood(session.moodId);
                   return (
                     <article
                       key={session.id}
-                      className={`relative min-w-[220px] overflow-hidden rounded-3xl ${modeStyle.softSurface}`}
+                      className="group/card relative flex min-h-[260px] min-w-[220px] flex-col overflow-hidden rounded-3xl bg-white/[0.04] ring-1 ring-inset ring-white/10 transition-all hover:ring-white/20"
                     >
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.24),transparent_58%)]" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Music2 className="h-16 w-16 text-cyan-50/45" />
+                      {/* Cover */}
+                      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${coverGradient}`} />
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.12),transparent_60%)]" />
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-950/95 via-slate-950/55 to-transparent" />
+                      <div className="pointer-events-none absolute inset-0 flex items-start justify-center pt-10 opacity-50 transition-transform duration-500 group-hover/card:scale-110">
+                        <Music2 className="h-14 w-14 text-white/70" />
                       </div>
 
+                      {/* Top actions */}
                       <div className="relative z-10 flex items-start justify-between p-3">
-                        <div className="flex items-center gap-2">
-                          {isAvailable ? (
-                            <button
-                              type="button"
-                              onClick={() => startSession(session.id, { autoplay: true })}
-                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${modeStyle.primaryButton}`}
-                            >
-                              <Play className="h-3 w-3" />
-                              Play
-                            </button>
-                          ) : (
-                            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textSoft}`}>
-                              Próximamente
-                            </span>
-                          )}
-                        </div>
+                        {isAvailable ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-medium text-white/80 backdrop-blur-sm">
+                            {displayDurationForSession(session)}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-medium text-white/70 backdrop-blur-sm">
+                            Próximamente
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={() => toggleFavorite(session.id)}
-                          className={`rounded-full border p-2 transition ${
-                            isFav ? "border-rose-300/70 bg-rose-300/20 text-rose-100" : `${modeStyle.border} ${modeStyle.softSurfaceAlt} ${modeStyle.textMuted}`
+                          className={`relative z-20 inline-flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-sm transition-colors ${
+                            isFav
+                              ? "bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
+                              : "bg-black/35 text-white/70 hover:bg-black/50 hover:text-white"
                           }`}
                           aria-label="Favorito"
                         >
-                          <Heart className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
+                          <Heart className={`h-3.5 w-3.5 ${isFav ? "fill-current" : ""}`} />
                         </button>
                       </div>
 
+                      {/* Click overlay for card-wide selection */}
                       <button
                         type="button"
                         onClick={() => startSession(session.id)}
@@ -1228,10 +1231,25 @@ export function SpaceClient() {
                         aria-label={`Seleccionar ${session.title}`}
                       />
 
-                      <div className="relative z-10 mt-24 bg-gradient-to-t from-slate-950/95 via-slate-950/72 to-transparent p-4">
-                        <div className="text-[11px] uppercase tracking-wide text-cyan-50/70">{session.type}</div>
-                        <div className="mt-1 text-xl font-semibold leading-tight">{session.title}</div>
-                        <div className="mt-1 text-xs text-cyan-50/75">{displayDurationForSession(session)}</div>
+                      {/* Bottom info + play CTA */}
+                      <div className="relative z-10 mt-auto flex items-end justify-between gap-3 p-4">
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">{session.type}</div>
+                          <div className="mt-0.5 line-clamp-2 text-[17px] font-semibold leading-snug text-white">{session.title}</div>
+                        </div>
+                        {isAvailable ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startSession(session.id, { autoplay: true });
+                            }}
+                            className="relative z-20 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-[0_6px_20px_-6px_rgba(0,0,0,0.6)] transition-transform hover:scale-105"
+                            aria-label={`Reproducir ${session.title}`}
+                          >
+                            <Play className="h-4 w-4 fill-current" />
+                          </button>
+                        ) : null}
                       </div>
                     </article>
                   );
@@ -1436,6 +1454,169 @@ export function SpaceClient() {
         </section>
       ) : null}
 
+    </div>
+  );
+}
+
+/* ──────────────────────────── Headspace-style breath intro ──────────────────────────── */
+
+const BREATH_INTRO_SESSION_KEY = "somagnus:space:breath-intro:v1";
+
+function BreathIntro() {
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const circleRef = useRef<HTMLDivElement | null>(null);
+  const ringRef = useRef<HTMLDivElement | null>(null);
+  const inhaleRef = useRef<HTMLDivElement | null>(null);
+  const exhaleRef = useRef<HTMLDivElement | null>(null);
+  const hintRef = useRef<HTMLDivElement | null>(null);
+  const timelineRef = useRef<gsap.core.Timeline | null>(null);
+  const [visible, setVisible] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      if (window.sessionStorage.getItem(BREATH_INTRO_SESSION_KEY) === "done") return false;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+    } catch {
+      // ignore
+    }
+    return true;
+  });
+
+  const dismiss = () => {
+    try {
+      window.sessionStorage.setItem(BREATH_INTRO_SESSION_KEY, "done");
+    } catch {
+      // ignore
+    }
+    const overlay = overlayRef.current;
+    if (!overlay) {
+      setVisible(false);
+      return;
+    }
+    timelineRef.current?.kill();
+    gsap.to(overlay, {
+      opacity: 0,
+      duration: 0.5,
+      ease: "power2.out",
+      onComplete: () => setVisible(false),
+    });
+  };
+
+  useEffect(() => {
+    if (!visible) return;
+    const overlay = overlayRef.current;
+    const circle = circleRef.current;
+    const ring = ringRef.current;
+    const inhale = inhaleRef.current;
+    const exhale = exhaleRef.current;
+    const hint = hintRef.current;
+    if (!overlay || !circle || !ring || !inhale || !exhale || !hint) return;
+
+    gsap.set(overlay, { opacity: 0 });
+    gsap.set(circle, { scale: 0.55, opacity: 0 });
+    gsap.set(ring, { scale: 0.55, opacity: 0 });
+    gsap.set([inhale, exhale], { opacity: 0, y: 8 });
+    gsap.set(hint, { opacity: 0 });
+
+    const tl = gsap.timeline({
+      defaults: { ease: "power2.inOut" },
+      onComplete: () => {
+        try {
+          window.sessionStorage.setItem(BREATH_INTRO_SESSION_KEY, "done");
+        } catch {
+          // ignore
+        }
+        gsap.to(overlay, {
+          opacity: 0,
+          duration: 0.8,
+          ease: "power2.out",
+          onComplete: () => setVisible(false),
+        });
+      },
+    });
+    timelineRef.current = tl;
+
+    tl.to(overlay, { opacity: 1, duration: 0.6 })
+      .to(circle, { scale: 0.55, opacity: 0.9, duration: 0.6 }, "-=0.3")
+      .to(ring, { scale: 0.55, opacity: 0.4, duration: 0.6 }, "<")
+      .to(hint, { opacity: 1, duration: 0.8 }, "-=0.2")
+      // Inhale (4s)
+      .to(inhale, { opacity: 1, y: 0, duration: 0.6 }, "+=0.1")
+      .to(circle, { scale: 1.15, duration: 4, ease: "sine.inOut" }, "<")
+      .to(ring, { scale: 1.35, opacity: 0.25, duration: 4, ease: "sine.inOut" }, "<")
+      .to(inhale, { opacity: 0, y: -8, duration: 0.5 })
+      // Hold (1s)
+      .to({}, { duration: 0.8 })
+      // Exhale (4s)
+      .to(exhale, { opacity: 1, y: 0, duration: 0.6 })
+      .to(circle, { scale: 0.55, duration: 4, ease: "sine.inOut" }, "<")
+      .to(ring, { scale: 0.55, opacity: 0.4, duration: 4, ease: "sine.inOut" }, "<")
+      .to(exhale, { opacity: 0, y: -8, duration: 0.5 });
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dismiss();
+    };
+    window.addEventListener("keydown", onKey);
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      tl.kill();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      ref={overlayRef}
+      onClick={dismiss}
+      role="presentation"
+      className="fixed inset-0 z-[100] flex cursor-pointer items-center justify-center overflow-hidden bg-[#050a14]"
+      style={{ opacity: 0 }}
+    >
+      {/* Ambient backdrop */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(96,165,250,0.18),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(45,212,191,0.12),transparent_60%)]" />
+
+      {/* Breath visuals */}
+      <div className="relative flex h-72 w-72 items-center justify-center">
+        <div
+          ref={ringRef}
+          className="absolute inset-0 rounded-full border border-white/15"
+          style={{ boxShadow: "0 0 80px 10px rgba(125,211,252,0.15)" }}
+        />
+        <div
+          ref={circleRef}
+          className="h-56 w-56 rounded-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.85),rgba(125,211,252,0.55)_45%,rgba(59,130,246,0.35)_75%,transparent)]"
+          style={{ filter: "blur(0.5px)" }}
+        />
+
+        {/* Breath labels */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div
+            ref={inhaleRef}
+            className="text-3xl font-light tracking-[0.3em] text-white/95 md:text-4xl"
+            style={{ opacity: 0 }}
+          >
+            Inhala
+          </div>
+          <div
+            ref={exhaleRef}
+            className="absolute text-3xl font-light tracking-[0.3em] text-white/95 md:text-4xl"
+            style={{ opacity: 0 }}
+          >
+            Exhala
+          </div>
+        </div>
+      </div>
+
+      {/* Hint */}
+      <div
+        ref={hintRef}
+        className="absolute bottom-10 text-center text-[11px] uppercase tracking-[0.4em] text-white/45"
+        style={{ opacity: 0 }}
+      >
+        Toca para continuar
+      </div>
     </div>
   );
 }
