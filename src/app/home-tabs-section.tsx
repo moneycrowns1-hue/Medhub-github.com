@@ -8,6 +8,7 @@ import {
   BookOpen,
   Brain,
   CalendarDays,
+  ChevronLeft,
   ChevronRight,
   ClipboardList,
   Flame,
@@ -37,6 +38,11 @@ import { HomeNextEvalPopover } from "@/app/home-next-eval-card";
 import { getCurrentStreak, getTodayStats, STATS_UPDATED_EVENT } from "@/lib/stats-store";
 import { loadSrsLibrary, SRS_UPDATED_EVENT } from "@/lib/srs-storage";
 import { algoStats } from "@/lib/srs-algo";
+import {
+  ACADEMIC_UPDATED_EVENT,
+  listUpcomingEvaluations,
+  type UpcomingEvaluation,
+} from "@/lib/academic-store";
 import type { SubjectSlug } from "@/lib/subjects";
 
 type HomeTab = "inicio" | "resumen" | "herramientas" | "atajos";
@@ -122,7 +128,7 @@ export function HomeTabsSection({
       className="w-full space-y-6"
     >
       {/* Topbar: context + icon-only actions · big animated title · tabs */}
-      <div className="space-y-3">
+      <div className="space-y-3 pt-3 md:pt-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
@@ -341,11 +347,12 @@ function InicioPanel({
   const greeting = useMemo(() => (hour == null ? null : getGreeting(hour)), [hour]);
 
   return (
-    <div className="relative isolate overflow-hidden rounded-3xl bg-white/[0.02] px-6 py-10 md:px-14 md:py-16">
+    <div className="relative isolate overflow-hidden rounded-3xl bg-black px-6 py-10 md:px-14 md:py-14">
       {/* Soft ambient glows */}
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.06),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(120,119,198,0.08),transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.04),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(120,119,198,0.06),transparent_60%)]" />
 
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 text-center">
+      <div className="mx-auto grid w-full max-w-6xl items-start gap-8 lg:grid-cols-[minmax(0,3fr),minmax(0,2fr)]">
+      <div className="flex w-full flex-col items-center gap-7 text-center lg:items-start lg:text-left">
         {/* Greeting + day pills */}
         <div className="flex flex-wrap items-center justify-center gap-2">
           {greeting ? (
@@ -431,9 +438,15 @@ function InicioPanel({
         </div>
 
         {/* Stats redesign: 3 centered elevated cards */}
-        <div ref={statsRef} className="w-full pt-4">
+        <div ref={statsRef} className="w-full pt-2">
           <InicioStatsRow />
         </div>
+      </div>
+
+      {/* Right column: mini calendar */}
+      <div className="w-full">
+        <MiniCalendar />
+      </div>
       </div>
     </div>
   );
@@ -557,6 +570,187 @@ function InicioStatsRow() {
           ) : null}
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ──────────────────────────── Mini calendar (month view + eval dots) ──────────────────────────── */
+
+const MONTH_LABELS = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+const WEEK_LABELS = ["L", "M", "X", "J", "V", "S", "D"]; // Monday-first
+
+function ymd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function MiniCalendar() {
+  const today = useMemo(() => new Date(), []);
+  const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [evals, setEvals] = useState<UpcomingEvaluation[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  // Subscribe to academic updates to refresh dots.
+  useEffect(() => {
+    setMounted(true);
+    const refresh = () => {
+      setEvals(listUpcomingEvaluations({ horizonDays: 120 }));
+    };
+    refresh();
+    window.addEventListener(ACADEMIC_UPDATED_EVENT, refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener(ACADEMIC_UPDATED_EVENT, refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+
+  const { cells, evalMap } = useMemo(() => {
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
+    const first = new Date(year, month, 1);
+    const startWeekday = (first.getDay() + 6) % 7; // Monday = 0
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevDays = new Date(year, month, 0).getDate();
+
+    const cells: Array<{ day: number; inMonth: boolean; date: Date }> = [];
+    // Leading prev-month days
+    for (let i = startWeekday - 1; i >= 0; i--) {
+      const d = new Date(year, month - 1, prevDays - i);
+      cells.push({ day: d.getDate(), inMonth: false, date: d });
+    }
+    // Current month
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push({ day: d, inMonth: true, date: new Date(year, month, d) });
+    }
+    // Trailing next-month to fill 6 rows (42 cells)
+    while (cells.length < 42) {
+      const nextIdx = cells.length - (startWeekday + daysInMonth);
+      const d = new Date(year, month + 1, nextIdx + 1);
+      cells.push({ day: d.getDate(), inMonth: false, date: d });
+    }
+
+    const evalMap = new Map<string, number>();
+    for (const e of evals) {
+      const k = e.record.date;
+      evalMap.set(k, (evalMap.get(k) ?? 0) + 1);
+    }
+
+    return { cells, evalMap };
+  }, [cursor, evals]);
+
+  const todayKey = ymd(today);
+  const monthLabel = `${MONTH_LABELS[cursor.getMonth()]} ${cursor.getFullYear()}`;
+  const prev = () => setCursor((c) => new Date(c.getFullYear(), c.getMonth() - 1, 1));
+  const next = () => setCursor((c) => new Date(c.getFullYear(), c.getMonth() + 1, 1));
+  const goToday = () => setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
+
+  const todayFmt = useMemo(
+    () =>
+      new Intl.DateTimeFormat("es-AR", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }),
+    [],
+  );
+  const todayLabel = mounted ? todayFmt.format(today) : "";
+
+  return (
+    <div className="rounded-2xl bg-white/[0.04] p-4">
+      {/* Today row */}
+      <div className="flex items-center justify-between gap-2 pb-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium uppercase tracking-widest text-white/50">Hoy</div>
+          <div className="truncate text-sm font-semibold capitalize text-white/90">{todayLabel}</div>
+        </div>
+        <button
+          type="button"
+          onClick={goToday}
+          className="inline-flex h-7 items-center rounded-lg bg-white/[0.06] px-2.5 text-[11px] font-medium text-white/80 transition-colors hover:bg-white/[0.12] hover:text-white"
+        >
+          Hoy
+        </button>
+      </div>
+
+      {/* Month header */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={prev}
+          aria-label="Mes anterior"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.06] text-white/75 transition-colors hover:bg-white/[0.12] hover:text-white"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </button>
+        <div className="text-[13px] font-semibold capitalize text-white/90">{monthLabel}</div>
+        <button
+          type="button"
+          onClick={next}
+          aria-label="Mes siguiente"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.06] text-white/75 transition-colors hover:bg-white/[0.12] hover:text-white"
+        >
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Weekdays */}
+      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-medium uppercase tracking-wider text-white/45">
+        {WEEK_LABELS.map((w) => (
+          <div key={w}>{w}</div>
+        ))}
+      </div>
+
+      {/* Days grid */}
+      <div className="mt-1 grid grid-cols-7 gap-1">
+        {cells.map((c, idx) => {
+          const key = ymd(c.date);
+          const isToday = key === todayKey;
+          const count = evalMap.get(key) ?? 0;
+          return (
+            <div
+              key={`${key}-${idx}`}
+              className={`relative flex aspect-square flex-col items-center justify-center rounded-lg text-[12px] transition-colors ${
+                isToday
+                  ? "bg-white text-black font-semibold"
+                  : c.inMonth
+                    ? "text-white/85 hover:bg-white/[0.05]"
+                    : "text-white/25"
+              }`}
+              title={count > 0 ? `${count} evaluación${count === 1 ? "" : "es"}` : undefined}
+            >
+              <span>{c.day}</span>
+              {count > 0 ? (
+                <span
+                  className={`absolute bottom-1 h-1 w-1 rounded-full ${
+                    isToday ? "bg-black/60" : "bg-violet-400"
+                  }`}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer link */}
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
+        <div className="flex items-center gap-1.5 text-[10px] text-white/50">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-violet-400" />
+          Evaluación
+        </div>
+        <Link
+          href="/academico"
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-white/70 transition-colors hover:text-white"
+        >
+          Ver agenda
+          <ChevronRight className="h-3 w-3" />
+        </Link>
+      </div>
     </div>
   );
 }
