@@ -1560,11 +1560,7 @@ const BREATH_INTRO_SESSION_KEY = "somagnus:space:breath-intro:v1";
 
 function BreathIntro() {
   const overlayRef = useRef<HTMLDivElement | null>(null);
-  const auroraRef = useRef<HTMLDivElement | null>(null);
   const coreRef = useRef<HTMLDivElement | null>(null);
-  const glowRef = useRef<HTMLDivElement | null>(null);
-  const ring1Ref = useRef<HTMLDivElement | null>(null);
-  const ring2Ref = useRef<HTMLDivElement | null>(null);
   const inhaleRef = useRef<HTMLDivElement | null>(null);
   const holdRef = useRef<HTMLDivElement | null>(null);
   const exhaleRef = useRef<HTMLDivElement | null>(null);
@@ -1594,7 +1590,7 @@ function BreathIntro() {
     timelineRef.current?.kill();
     gsap.to(overlay, {
       opacity: 0,
-      duration: 0.6,
+      duration: 0.5,
       ease: "power2.out",
       onComplete: () => setVisible(false),
     });
@@ -1603,23 +1599,15 @@ function BreathIntro() {
   useEffect(() => {
     if (!visible) return;
     const overlay = overlayRef.current;
-    const aurora = auroraRef.current;
     const core = coreRef.current;
-    const glow = glowRef.current;
-    const ring1 = ring1Ref.current;
-    const ring2 = ring2Ref.current;
     const inhale = inhaleRef.current;
     const hold = holdRef.current;
     const exhale = exhaleRef.current;
-    if (!overlay || !aurora || !core || !glow || !ring1 || !ring2 || !inhale || !hold || !exhale) return;
+    if (!overlay || !core || !inhale || !hold || !exhale) return;
 
     gsap.set(overlay, { opacity: 0 });
-    gsap.set(aurora, { opacity: 0, scale: 1.1 });
-    gsap.set(core, { scale: 0.55, opacity: 0 });
-    gsap.set(glow, { scale: 0.55, opacity: 0 });
-    gsap.set(ring1, { scale: 0.5, opacity: 0 });
-    gsap.set(ring2, { scale: 0.5, opacity: 0 });
-    gsap.set([inhale, hold, exhale], { opacity: 0, y: 10 });
+    gsap.set(core, { scale: 0.6, opacity: 0 });
+    gsap.set([inhale, hold, exhale], { opacity: 0, y: 8 });
 
     const tl = gsap.timeline({
       defaults: { ease: "sine.inOut" },
@@ -1631,7 +1619,7 @@ function BreathIntro() {
         }
         gsap.to(overlay, {
           opacity: 0,
-          duration: 1.2,
+          duration: 1,
           ease: "power2.out",
           onComplete: () => setVisible(false),
         });
@@ -1639,46 +1627,27 @@ function BreathIntro() {
     });
     timelineRef.current = tl;
 
-    // Aurora parallax idle loop
-    gsap.to(aurora, {
-      backgroundPositionX: "100%",
-      duration: 22,
-      ease: "sine.inOut",
-      repeat: -1,
-      yoyo: true,
-    });
-
     tl
-      // Fade in scene
-      .to(overlay, { opacity: 1, duration: 0.9, ease: "power2.out" })
-      .to(aurora, { opacity: 1, scale: 1, duration: 1.6, ease: "power2.out" }, "<")
-      .to(glow, { scale: 0.6, opacity: 0.55, duration: 1.1 }, "-=0.9")
-      .to(core, { scale: 0.55, opacity: 0.95, duration: 1.1 }, "<")
-      .to(ring1, { scale: 0.58, opacity: 0.35, duration: 1.1 }, "<")
-      .to(ring2, { scale: 0.58, opacity: 0.2, duration: 1.1 }, "<")
+      // Fade in
+      .to(overlay, { opacity: 1, duration: 0.8, ease: "power2.out" })
+      .to(core, { scale: 0.6, opacity: 1, duration: 0.8 }, "-=0.4")
 
-      // Inhale (5s)
-      .to(inhale, { opacity: 1, y: 0, duration: 0.7 }, "+=0.2")
-      .to(core, { scale: 1.2, duration: 5 }, "<")
-      .to(glow, { scale: 1.45, opacity: 0.9, duration: 5 }, "<")
-      .to(ring1, { scale: 1.35, opacity: 0.25, duration: 5 }, "<")
-      .to(ring2, { scale: 1.65, opacity: 0.12, duration: 5 }, "<")
-      .to(inhale, { opacity: 0, y: -10, duration: 0.6 })
+      // Inhale (4s)
+      .to(inhale, { opacity: 1, y: 0, duration: 0.5 }, "+=0.2")
+      .to(core, { scale: 1.2, duration: 4 }, "<")
+      .to(inhale, { opacity: 0, y: -8, duration: 0.5 })
 
-      // Hold (2s)
-      .to(hold, { opacity: 1, y: 0, duration: 0.5 }, "-=0.2")
-      .to({}, { duration: 1.4 })
-      .to(hold, { opacity: 0, y: -10, duration: 0.5 })
+      // Hold (1.5s)
+      .to(hold, { opacity: 1, y: 0, duration: 0.4 }, "-=0.2")
+      .to({}, { duration: 1 })
+      .to(hold, { opacity: 0, y: -8, duration: 0.4 })
 
-      // Exhale (6s)
-      .to(exhale, { opacity: 1, y: 0, duration: 0.6 })
-      .to(core, { scale: 0.55, duration: 6 }, "<")
-      .to(glow, { scale: 0.6, opacity: 0.55, duration: 6 }, "<")
-      .to(ring1, { scale: 0.58, opacity: 0.35, duration: 6 }, "<")
-      .to(ring2, { scale: 0.58, opacity: 0.2, duration: 6 }, "<")
-      .to(exhale, { opacity: 0, y: -10, duration: 0.6 });
+      // Exhale (5s)
+      .to(exhale, { opacity: 1, y: 0, duration: 0.5 })
+      .to(core, { scale: 0.6, duration: 5 }, "<")
+      .to(exhale, { opacity: 0, y: -8, duration: 0.5 });
 
-    // Silent ESC dismiss for accessibility (no visible hint)
+    // Silent ESC dismiss for a11y
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") dismiss();
     };
@@ -1697,118 +1666,45 @@ function BreathIntro() {
     <div
       ref={overlayRef}
       role="presentation"
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#030613]"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#0a0f1a]"
       style={{ opacity: 0 }}
     >
-      {/* Aurora backdrop (drifting) */}
-      <div
-        ref={auroraRef}
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            "radial-gradient(ellipse 70% 50% at 20% 30%, rgba(45,212,191,0.35), transparent 60%), radial-gradient(ellipse 60% 45% at 80% 20%, rgba(59,130,246,0.38), transparent 60%), radial-gradient(ellipse 70% 55% at 50% 90%, rgba(168,85,247,0.32), transparent 60%), radial-gradient(ellipse 50% 40% at 90% 70%, rgba(236,72,153,0.22), transparent 60%)",
-          backgroundSize: "200% 200%",
-          backgroundPosition: "0% 50%",
-          filter: "blur(12px) saturate(115%)",
-        }}
-      />
-      {/* Deep vignette */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(2,4,10,0.85)_100%)]"
-      />
-      {/* Stars */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        {Array.from({ length: 40 }).map((_, i) => {
-          const top = (i * 37) % 100;
-          const left = (i * 83) % 100;
-          const size = (i % 3) + 1;
-          const opacity = 0.25 + ((i * 13) % 60) / 100;
-          const delay = (i % 10) * 0.3;
-          return (
-            <span
-              key={i}
-              className="absolute rounded-full bg-white"
-              style={{
-                top: `${top}%`,
-                left: `${left}%`,
-                width: size,
-                height: size,
-                opacity,
-                animation: `twinkle 4s ease-in-out ${delay}s infinite alternate`,
-              }}
-            />
-          );
-        })}
-      </div>
-
-      {/* Breath core */}
-      <div className="relative flex h-[22rem] w-[22rem] items-center justify-center md:h-[28rem] md:w-[28rem]">
-        {/* Outer ring (largest) */}
-        <div
-          ref={ring2Ref}
-          className="absolute inset-0 rounded-full border border-white/10"
-          style={{ boxShadow: "0 0 140px 20px rgba(125,211,252,0.12) inset" }}
-        />
-        {/* Mid ring */}
-        <div
-          ref={ring1Ref}
-          className="absolute inset-6 rounded-full border border-white/15"
-        />
-        {/* Glow halo */}
-        <div
-          ref={glowRef}
-          className="absolute h-72 w-72 rounded-full md:h-[22rem] md:w-[22rem]"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(165,243,252,0.45) 0%, rgba(99,102,241,0.28) 40%, rgba(168,85,247,0.14) 70%, transparent 80%)",
-            filter: "blur(12px)",
-          }}
-        />
-        {/* Core orb */}
+      {/* Soft single breath orb */}
+      <div className="relative flex h-80 w-80 items-center justify-center">
         <div
           ref={coreRef}
-          className="h-48 w-48 rounded-full md:h-60 md:w-60"
+          className="h-56 w-56 rounded-full bg-white/90"
           style={{
-            background:
-              "radial-gradient(circle at 32% 30%, rgba(255,255,255,0.95) 0%, rgba(186,230,253,0.75) 30%, rgba(129,140,248,0.45) 60%, rgba(79,70,229,0.25) 85%, transparent 100%)",
-            boxShadow: "0 0 60px rgba(165,243,252,0.35), 0 0 120px rgba(99,102,241,0.25)",
+            boxShadow: "0 0 60px rgba(255,255,255,0.25)",
+            willChange: "transform, opacity",
           }}
         />
 
-        {/* Breath labels (centered) */}
+        {/* Breath labels */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div
             ref={inhaleRef}
-            className="absolute text-[28px] font-light tracking-[0.4em] text-white/95 md:text-[36px]"
-            style={{ opacity: 0, textShadow: "0 2px 24px rgba(0,0,0,0.4)" }}
+            className="absolute text-[22px] font-light tracking-[0.35em] text-slate-900/80 md:text-[26px]"
+            style={{ opacity: 0 }}
           >
             Inhala
           </div>
           <div
             ref={holdRef}
-            className="absolute text-[22px] font-light tracking-[0.5em] text-white/80 md:text-[28px]"
-            style={{ opacity: 0, textShadow: "0 2px 24px rgba(0,0,0,0.4)" }}
+            className="absolute text-[20px] font-light tracking-[0.4em] text-slate-900/70 md:text-[22px]"
+            style={{ opacity: 0 }}
           >
             Sostén
           </div>
           <div
             ref={exhaleRef}
-            className="absolute text-[28px] font-light tracking-[0.4em] text-white/95 md:text-[36px]"
-            style={{ opacity: 0, textShadow: "0 2px 24px rgba(0,0,0,0.4)" }}
+            className="absolute text-[22px] font-light tracking-[0.35em] text-slate-900/80 md:text-[26px]"
+            style={{ opacity: 0 }}
           >
             Exhala
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes twinkle {
-          0% { opacity: 0.15; }
-          100% { opacity: 0.9; }
-        }
-      `}</style>
     </div>
   );
 }
