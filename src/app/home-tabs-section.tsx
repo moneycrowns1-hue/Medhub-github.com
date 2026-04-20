@@ -20,7 +20,6 @@ import {
   Sun,
   Sunrise,
   Timer,
-  Wrench,
   Zap,
 } from "lucide-react";
 
@@ -234,79 +233,13 @@ export function HomeTabsSection({
       </TabsContent>
 
       {/* ── Herramientas: Tablero + Pomodoro ── */}
-      <TabsContent value="herramientas" className="focus-visible:outline-none">
-        <div className="relative isolate overflow-hidden rounded-3xl bg-black px-5 py-8 md:px-10 md:py-10">
-          {/* Soft ambient glows (matching Inicio) */}
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,rgba(244,63,94,0.08),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(59,130,246,0.06),transparent_60%)]" />
-
-          {/* Header */}
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4 md:mb-8">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-300">
-                <Wrench className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">Ahora</div>
-                <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                  <span className="bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
-                    Herramientas
-                  </span>
-                </h2>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <a
-                href="#tools-board"
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1.5 text-[11px] font-medium text-white/80 transition-colors hover:bg-white/[0.12] hover:text-white"
-              >
-                <ClipboardList className="h-3.5 w-3.5" />
-                Tablero
-              </a>
-              <a
-                href="#pomodoro"
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1.5 text-[11px] font-medium text-white/80 transition-colors hover:bg-white/[0.12] hover:text-white"
-              >
-                <Timer className="h-3.5 w-3.5" />
-                Pomodoro
-              </a>
-            </div>
+      <TabsContent value="herramientas" className="space-y-6">
+        <div id="pomodoro" className="grid gap-6 lg:grid-cols-[1fr,340px]">
+          <div className="space-y-6">
+            <ClinicalBoard date={todayIso} />
           </div>
-
-          {/* Two-column layout: board + sticky pomodoro */}
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr),340px]">
-            {/* Tablero card */}
-            <section
-              id="tools-board"
-              className="scroll-mt-24 rounded-2xl bg-white/[0.03] p-4 md:p-5"
-            >
-              <div className="mb-3 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-300">
-                  <ClipboardList className="h-3.5 w-3.5" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">Hoy</div>
-                  <div className="text-sm font-semibold text-white/90">Tablero clínico</div>
-                </div>
-              </div>
-              <ClinicalBoard date={todayIso} />
-            </section>
-
-            {/* Pomodoro card (sticky on desktop) */}
-            <aside
-              id="pomodoro"
-              className="scroll-mt-24 self-start rounded-2xl bg-white/[0.03] p-4 md:p-5 lg:sticky lg:top-24"
-            >
-              <div className="mb-3 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/10 text-rose-300">
-                  <Timer className="h-3.5 w-3.5" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-medium uppercase tracking-widest text-white/55">Foco</div>
-                  <div className="text-sm font-semibold text-white/90">Pomodoro</div>
-                </div>
-              </div>
-              <PomodoroControls />
-            </aside>
+          <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+            <PomodoroControls />
           </div>
         </div>
       </TabsContent>
