@@ -99,7 +99,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const integratedAtTop = pathname === "/" && !isScrolledOnHome;
 
   return (
-    <div className="min-h-dvh bg-background">
+    <div
+      className={cn("min-h-dvh", isSpaceRoute ? "" : "bg-background")}
+      style={
+        isSpaceRoute
+          ? {
+              background:
+                "linear-gradient(180deg, #9FD3FF 0%, #6AB7F2 35%, #3C8CE0 70%, #1E5DB0 100%)",
+            }
+          : undefined
+      }
+    >
       <PomodoroOverlay />
       <GlobalRabbitMascot compact={isImmersiveReaderRoute} suppressSpeech={isImmersiveReaderRoute} />
       {!isImmersiveReaderRoute ? <RabbitGuidePanel /> : null}

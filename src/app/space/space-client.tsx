@@ -1028,34 +1028,44 @@ export function SpaceClient() {
                   onClick={() => setHeaderMenuOpen(false)}
                   className="fixed inset-0 -z-10 cursor-default"
                 />
-                {/* Speech-bubble pointer */}
+                {/* Speech-bubble tail */}
                 <span
                   aria-hidden="true"
-                  className="absolute right-3 top-full h-3 w-3 translate-y-[-6px] rotate-45 border border-white/70 bg-white/85 backdrop-blur-md"
+                  className="absolute right-4 top-full h-4 w-4 translate-y-[-8px] rotate-45 rounded-[6px] border border-white/80 bg-white/90 shadow-[0_4px_14px_-6px_rgba(27,43,68,0.25)] backdrop-blur-md"
                 />
                 <div
                   role="menu"
-                  className="absolute right-0 top-full z-40 mt-3 w-[min(88vw,280px)] overflow-hidden rounded-2xl border border-white/70 bg-white/85 shadow-[0_20px_60px_-24px_rgba(27,43,68,0.4)] backdrop-blur-md"
+                  className="absolute right-0 top-full z-40 mt-3 w-[min(88vw,300px)] origin-top-right overflow-hidden rounded-[28px] border border-white/80 bg-white/90 p-2 shadow-[0_24px_60px_-18px_rgba(27,43,68,0.35),inset_0_1px_0_0_rgba(255,255,255,0.9)] backdrop-blur-md"
+                  style={{ animation: "headerMenuPop 260ms cubic-bezier(0.22,1.6,0.36,1)" }}
                 >
-                  <div className="border-b border-white/60 bg-white/50 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5B6B86]">
+                  <div className="px-4 pb-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5B6B86]">
                     Secciones
                   </div>
-                  <ul className="divide-y divide-white/60">
+                  <ul className="space-y-1">
                     {SPACE_SECTIONS.map((s) => (
                       <li key={s.id}>
                         <button
                           type="button"
                           role="menuitem"
                           onClick={() => scrollToSection(s.id)}
-                          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium text-[#1B2B44] transition hover:bg-[#CFE6FF]/50"
+                          className="group flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-base font-medium text-[#1B2B44] transition hover:bg-[#CFE6FF]/70 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)]"
                         >
                           <span>{s.label}</span>
-                          <ArrowLeft className="h-3.5 w-3.5 rotate-180 text-[#8B82C9]" />
+                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/70 text-[#8B82C9] transition group-hover:bg-[#D9D4F2]/70">
+                            <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
+                          </span>
                         </button>
                       </li>
                     ))}
                   </ul>
                 </div>
+                <style jsx>{`
+                  @keyframes headerMenuPop {
+                    0% { transform: translateY(-6px) scale(0.92); opacity: 0; }
+                    60% { transform: translateY(0) scale(1.02); opacity: 1; }
+                    100% { transform: translateY(0) scale(1); opacity: 1; }
+                  }
+                `}</style>
               </>
             ) : null}
           </div>
@@ -1104,8 +1114,8 @@ export function SpaceClient() {
             Favoritos
           </button>
         </div>
-        <div className={`flex items-center gap-2 text-lg font-semibold ${modeStyle.textMuted}`}>
-          <Sparkles className="h-4 w-4" />
+        <div className="flex items-center gap-2 text-2xl font-semibold text-white drop-shadow-[0_2px_12px_rgba(10,30,70,0.35)] sm:text-3xl">
+          <Sparkles className="h-5 w-5 text-white" />
           Elige cómo te sientes hoy
         </div>
         <MoodAuroraGrid selectedMood={selectedMood} setSelectedMood={setSelectedMood} />
@@ -1117,7 +1127,7 @@ export function SpaceClient() {
         className={`scroll-mt-24 space-y-3 transition-all duration-700 ease-out ${revealClass("favorites")}`}
         style={{ transitionDelay: "95ms" }}
       >
-        <h3 className="text-xl font-semibold text-[#1B2B44]">Recientes</h3>
+        <h3 className="text-2xl font-semibold text-white drop-shadow-[0_2px_12px_rgba(10,30,70,0.35)] sm:text-3xl">Recientes</h3>
         {recentSessions.length === 0 ? (
           <div className="rounded-2xl border border-white/60 bg-white/55 px-4 py-3 text-sm text-[#5B6B86] backdrop-blur-md">
             Todavía no hay sesiones recientes.
@@ -1155,7 +1165,7 @@ export function SpaceClient() {
         <div className="space-y-6">
           {groupedVisibleSessions.map((group) => (
             <div key={group.id} className="space-y-3">
-              <h3 className={`text-2xl font-semibold text-[#1B2B44] ${cinzelDisplay}`}>{group.title}</h3>
+              <h3 className={`text-3xl font-semibold text-white drop-shadow-[0_2px_12px_rgba(10,30,70,0.35)] sm:text-4xl ${cinzelDisplay}`}>{group.title}</h3>
               <div className="flex gap-4 overflow-x-auto pb-2">
                 {group.items.map((session) => {
                   const isFav = favoriteIds.includes(session.id);
@@ -1494,12 +1504,12 @@ function MoodAuroraGrid({
             type="button"
             onClick={() => setSelectedMood(m.id)}
             aria-pressed={active}
-            className={`group relative isolate overflow-hidden rounded-3xl p-5 text-left transition-all duration-300 ${
+            className={`group relative isolate overflow-hidden rounded-3xl p-6 text-left transition-all duration-300 ${
               active
                 ? "ring-2 ring-[#8B82C9]/60 shadow-[0_18px_50px_-24px_rgba(139,130,201,0.35)]"
                 : "ring-1 ring-white/50 hover:ring-[#8B82C9]/40"
             }`}
-            style={{ minHeight: 150 }}
+            style={{ minHeight: 180 }}
           >
             {/* Watercolor layer */}
             <span
@@ -1526,11 +1536,11 @@ function MoodAuroraGrid({
               ) : null}
             </div>
 
-            <div className="mt-8">
-              <div className="text-[17px] font-semibold leading-tight text-[#1B2B44]">
+            <div className="mt-10">
+              <div className="text-2xl font-semibold leading-tight text-[#1B2B44] sm:text-[26px]">
                 {m.title}
               </div>
-              <div className="mt-0.5 text-[12px] text-[#5B6B86]">{m.subtitle}</div>
+              <div className="mt-1 text-sm text-[#5B6B86] sm:text-[15px]">{m.subtitle}</div>
             </div>
           </button>
         );
