@@ -1555,9 +1555,36 @@ function MoodAuroraGrid({
   );
 }
 
-/* ──────────────────────────── Immersive breath intro (aurora) ──────────────────────────── */
+/* ──────────────────────────── Sunrise breath intro ──────────────────────────── */
 
 const BREATH_INTRO_SESSION_KEY = "somagnus:space:breath-intro:v1";
+
+function Cloud({
+  className = "",
+  size = 100,
+  opacity = 1,
+}: {
+  className?: string;
+  size?: number;
+  opacity?: number;
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      width={size}
+      height={size * 0.62}
+      viewBox="0 0 160 100"
+      fill="none"
+      style={{ opacity, filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.05))" }}
+    >
+      <path
+        d="M40 80 Q10 80 14 58 Q8 38 34 36 Q40 16 62 22 Q74 6 96 16 Q120 10 126 36 Q150 38 148 60 Q154 82 124 80 Z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
 
 function BreathIntro() {
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -1678,126 +1705,107 @@ function BreathIntro() {
         background: "linear-gradient(180deg, #FFF6DC 0%, #FDE7B3 55%, #FBD38D 100%)",
       }}
     >
-      {/* Breath label */}
-      <div className="pointer-events-none absolute inset-x-0 top-[16%] flex items-center justify-center">
+      {/* Breath label (big & bold) */}
+      <div className="pointer-events-none absolute inset-x-0 top-[10%] flex items-center justify-center">
         <div
           ref={inhaleRef}
-          className="absolute text-5xl font-light tracking-[0.3em] text-amber-900/85 sm:text-6xl md:text-7xl"
+          className="absolute whitespace-nowrap text-6xl font-bold tracking-[0.12em] text-[#5B2A0A] sm:text-7xl md:text-8xl"
           style={{ opacity: 0 }}
         >
           Inhala
         </div>
         <div
           ref={holdRef}
-          className="absolute text-5xl font-light tracking-[0.35em] text-amber-900/75 sm:text-6xl md:text-7xl"
+          className="absolute whitespace-nowrap text-6xl font-bold tracking-[0.12em] text-[#5B2A0A] sm:text-7xl md:text-8xl"
           style={{ opacity: 0 }}
         >
           Sostén
         </div>
         <div
           ref={exhaleRef}
-          className="absolute text-5xl font-light tracking-[0.3em] text-amber-900/85 sm:text-6xl md:text-7xl"
+          className="absolute whitespace-nowrap text-6xl font-bold tracking-[0.12em] text-[#5B2A0A] sm:text-7xl md:text-8xl"
           style={{ opacity: 0 }}
         >
           Exhala
         </div>
       </div>
 
-      {/* Half-sun rising from bottom */}
+      {/* Floating clouds */}
+      <Cloud className="absolute left-[6%] bottom-[22%]" size={90} opacity={0.95} />
+      <Cloud className="absolute right-[8%] bottom-[30%]" size={70} opacity={0.9} />
+      <Cloud className="absolute left-[20%] bottom-[6%]" size={110} opacity={1} />
+      <Cloud className="absolute right-[4%] bottom-[10%]" size={95} opacity={1} />
+
+      {/* Big sun anchored at the base (≈80% visible) */}
       <div
         ref={sunRef}
         className="absolute left-1/2"
         style={{
           bottom: 0,
-          width: "min(90vmin, 780px)",
-          height: "min(90vmin, 780px)",
-          transform: "translate(-50%, 50%) scale(0.95)",
+          width: "min(140vmin, 1100px)",
+          height: "min(140vmin, 1100px)",
+          transform: "translate(-50%, 20%) scale(0.95)",
           transformOrigin: "50% 50%",
           willChange: "transform",
         }}
       >
         <div className="relative h-full w-full">
-          {/* Soft outer glow */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-[-6%] rounded-full"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(251,146,60,0.35) 0%, rgba(251,146,60,0) 65%)",
-            }}
-          />
           {/* Sun body */}
           <div
             className="absolute inset-0 rounded-full"
             style={{
               background:
-                "radial-gradient(circle at 50% 40%, #FFD27F 0%, #FFA94D 45%, #F97316 90%)",
-              boxShadow: "0 -18px 60px rgba(249,115,22,0.35)",
+                "radial-gradient(circle at 50% 45%, #FFB266 0%, #FF8A3D 55%, #F97316 92%)",
+              boxShadow: "0 -24px 80px rgba(249,115,22,0.3)",
             }}
           />
-          {/* Happy face (centered on the visible top-half) */}
-          {/* Eyes */}
-          <div
-            aria-hidden="true"
-            className="absolute rounded-full bg-[#5B2A0A]"
-            style={{
-              width: "5%",
-              height: "5%",
-              top: "24%",
-              left: "34%",
-            }}
-          />
-          <div
-            aria-hidden="true"
-            className="absolute rounded-full bg-[#5B2A0A]"
-            style={{
-              width: "5%",
-              height: "5%",
-              top: "24%",
-              right: "34%",
-            }}
-          />
-          {/* Smile */}
+          {/* Sleepy closed eyes (two downward arcs) */}
           <svg
             aria-hidden="true"
-            className="absolute left-1/2 -translate-x-1/2"
-            style={{ top: "32%", width: "30%", height: "10%", overflow: "visible" }}
-            viewBox="0 0 100 30"
+            className="absolute"
+            style={{ top: "14%", left: "32%", width: "10%", height: "6%", overflow: "visible" }}
+            viewBox="0 0 100 40"
             fill="none"
           >
             <path
-              d="M8 6 Q50 36 92 6"
+              d="M8 28 Q50 -6 92 28"
               stroke="#5B2A0A"
-              strokeWidth="6"
+              strokeWidth="10"
               strokeLinecap="round"
               fill="none"
             />
           </svg>
-          {/* Soft cheeks */}
-          <div
+          <svg
             aria-hidden="true"
-            className="absolute rounded-full"
-            style={{
-              width: "7%",
-              height: "4%",
-              top: "31%",
-              left: "24%",
-              background: "rgba(239,68,68,0.25)",
-              filter: "blur(3px)",
-            }}
-          />
-          <div
+            className="absolute"
+            style={{ top: "14%", right: "32%", width: "10%", height: "6%", overflow: "visible" }}
+            viewBox="0 0 100 40"
+            fill="none"
+          >
+            <path
+              d="M8 28 Q50 -6 92 28"
+              stroke="#5B2A0A"
+              strokeWidth="10"
+              strokeLinecap="round"
+              fill="none"
+            />
+          </svg>
+          {/* Smile */}
+          <svg
             aria-hidden="true"
-            className="absolute rounded-full"
-            style={{
-              width: "7%",
-              height: "4%",
-              top: "31%",
-              right: "24%",
-              background: "rgba(239,68,68,0.25)",
-              filter: "blur(3px)",
-            }}
-          />
+            className="absolute left-1/2 -translate-x-1/2"
+            style={{ top: "20%", width: "32%", height: "10%", overflow: "visible" }}
+            viewBox="0 0 100 30"
+            fill="none"
+          >
+            <path
+              d="M6 4 Q50 38 94 4"
+              stroke="#5B2A0A"
+              strokeWidth="7"
+              strokeLinecap="round"
+              fill="none"
+            />
+          </svg>
         </div>
       </div>
     </div>
