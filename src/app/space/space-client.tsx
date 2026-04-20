@@ -59,9 +59,6 @@ const visualModes: VisualMode[] = [
 const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
 const pixelify = Pixelify_Sans({ subsets: ["latin"], weight: ["500", "700"] });
 
-const HERO_VIDEO_URL =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260325_120549_0cd82c36-56b3-4dd9-b190-069cfc3a623f.mp4";
-
 const moods: Mood[] = [
   {
     id: "respira",
@@ -1013,8 +1010,22 @@ export function SpaceClient() {
   };
 
   return (
-    <div className={`${outfit.className} relative space-y-10 overflow-x-hidden pb-44 md:pb-52 ${modeStyle.pageText}`}>
+    <div
+      className={`${outfit.className} relative space-y-10 overflow-x-hidden pb-44 md:pb-52 ${modeStyle.pageText}`}
+      style={{
+        background:
+          "linear-gradient(180deg, #9FD3FF 0%, #6AB7F2 35%, #3C8CE0 70%, #1E5DB0 100%)",
+        minHeight: "100vh",
+      }}
+    >
       <BreathIntro />
+      {/* Sparse sky clouds (decorative, page-wide) */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[560px] overflow-hidden">
+        <Cloud className="absolute left-[4%] top-[90px]" size={140} opacity={0.85} />
+        <Cloud className="absolute right-[6%] top-[140px]" size={170} opacity={0.85} />
+        <Cloud className="absolute left-[42%] top-[220px]" size={90} opacity={0.55} />
+        <Cloud className="absolute right-[30%] top-[380px]" size={110} opacity={0.6} />
+      </div>
       <div className="fixed left-1/2 top-3 z-30 w-[min(96vw,1200px)] -translate-x-1/2">
         <div
           className={`space-y-2 rounded-3xl p-4 transition-all duration-300 ${
@@ -1023,48 +1034,19 @@ export function SpaceClient() {
               : "border border-transparent bg-transparent"
           }`}
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-medium text-foreground">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-medium text-white">
             <Sparkles className="h-3.5 w-3.5" />
             Hoy en Space
           </div>
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Tu espacio</h1>
-              <p className="text-xs text-foreground/75 sm:text-sm">Respira, entra en foco y reproduce en un toque.</p>
-            </div>
-            <div className={`text-xs ${pixelify.className} text-cyan-100`}>MODO FLOW</div>
+          <div className="text-3xl font-extrabold leading-[0.95] tracking-tight text-white drop-shadow-[0_2px_14px_rgba(10,30,70,0.35)] sm:text-4xl md:text-5xl">
+            Entra en
+            <span className={`${pixelify.className} ml-3 text-cyan-50`}>MODO FLOW</span>
           </div>
         </div>
       </div>
 
-      <section
-        data-reveal-id="hero"
-        className={`relative left-1/2 z-10 w-screen -translate-x-1/2 overflow-hidden transition-all duration-700 ease-out ${modeStyle.heroShadow} ${revealClass("hero")}`}
-      >
-        <video
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-        >
-          <source src={HERO_VIDEO_URL} type="video/mp4" />
-        </video>
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(4,11,20,0.12)_0%,rgba(4,11,20,0.55)_62%,rgba(4,11,20,0.8)_100%)]" />
-        <div className="pointer-events-none absolute inset-x-0 -bottom-1 h-28 bg-[linear-gradient(180deg,rgba(5,10,18,0)_0%,rgba(5,10,18,0.58)_52%,rgba(5,10,18,0.98)_100%)]" />
-
-        <div className="relative z-10 mx-auto flex min-h-[500px] w-full max-w-6xl flex-col justify-end gap-6 px-6 pb-10 pt-24 md:min-h-[680px] md:px-10 md:pb-14 md:pt-28">
-
-          <div className="max-w-4xl space-y-2">
-            <div className="text-4xl font-extrabold leading-[0.95] tracking-tight sm:text-5xl md:text-6xl">
-              Entra en
-              <span className={`${pixelify.className} ml-3 text-cyan-100`}>MODO FLOW</span>
-            </div>
-            <p className="max-w-2xl text-sm text-cyan-50/85 md:text-base">Video ambiente + audio guiado para arrancar estudio sin saturarte.</p>
-          </div>
-        </div>
-      </section>
+      {/* Spacer replacing the removed hero video */}
+      <div data-reveal-id="hero" className="h-[180px] md:h-[220px]" />
 
       <section
         data-reveal-id="mood"
