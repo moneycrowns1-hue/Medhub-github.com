@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { ChevronDown, ChevronUp, Minus, Music2, Pause, Play, SlidersHorizontal, Volume2 } from "lucide-react";
 
+import { usePathname } from "next/navigation";
+
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
+import { readSpacePreference, resolveSpaceMode } from "@/lib/space-theme-resolver";
+import { SPACE_THEME_STORAGE_KEY, type SpaceMode } from "@/lib/space-theme-tokens";
 
 type SpaceSessionMeta = {
   id: string;
@@ -91,6 +95,30 @@ function loadInitialPlaybackRate() {
 }
 
 export function SpaceGlobalPlayer() {
+  const pathname = usePathname();
+  const onSpaceRoute = pathname?.startsWith("/space") ?? false;
+  const [spaceMode, setSpaceMode] = useState<SpaceMode>("day");
+  useEffect(() => {
+    if (!onSpaceRoute) {
+      setSpaceMode("day");
+      return;
+    }
+    const recompute = () => setSpaceMode(resolveSpaceMode(readSpacePreference()));
+    recompute();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SPACE_THEME_STORAGE_KEY) recompute();
+    };
+    const onCustom = () => recompute();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("somagnus:space-theme-change", onCustom);
+    const id = window.setInterval(recompute, 60_000);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("somagnus:space-theme-change", onCustom);
+      window.clearInterval(id);
+    };
+  }, [onSpaceRoute]);
+  const isNight = spaceMode === "night";
   const audioRef = useRef<HTMLAudioElement | null>(getSpaceSharedAudio());
   const [expanded, setExpanded] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -305,7 +333,11 @@ export function SpaceGlobalPlayer() {
         onPointerDown={onMiniPointerDown}
         onPointerMove={onMiniPointerMove}
         onPointerUp={onMiniPointerUp}
-        className="fixed z-50 inline-flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1B2B44] shadow-[0_14px_34px_-18px_rgba(27,43,68,0.35)]"
+        className={`fixed z-50 inline-flex h-14 w-14 items-center justify-center rounded-full border shadow-[0_14px_34px_-18px_rgba(27,43,68,0.35)] ${
+          isNight
+            ? "border-white/15 bg-[#12204A]/90 text-white backdrop-blur-md"
+            : "border-slate-200 bg-white text-[#1B2B44]"
+        }`}
         style={{ left: miniPosition.x, top: miniPosition.y }}
       >
         <Music2 className="h-5 w-5" />
@@ -316,23 +348,33 @@ export function SpaceGlobalPlayer() {
   return (
     <section className="fixed inset-x-0 bottom-0 z-50 px-3 pb-2 sm:px-6 sm:pb-3">
       <div className="mx-auto w-full max-w-3xl">
-        <div className="relative overflow-hidden rounded-[24px] border border-slate-200 bg-white text-[#1B2B44] shadow-[0_18px_60px_-28px_rgba(27,43,68,0.35)]">
+        <div className={`relative overflow-hidden rounded-[24px] border shadow-[0_18px_60px_-28px_rgba(27,43,68,0.35)] ${
+          isNight
+            ? "border-white/15 bg-[#12204A]/90 text-white backdrop-blur-md"
+            : "border-slate-200 bg-white text-[#1B2B44]"
+        }`}>
 
           <div className="px-3 pt-2.5 sm:px-4 sm:pt-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+            <div className={`h-1.5 overflow-hidden rounded-full ${isNight ? "bg-white/15" : "bg-slate-200"}`}>
               <div className="h-full rounded-full bg-[#6FB08A] transition-all" style={{ width: `${progress}%` }} />
             </div>
           </div>
 
           <div className="flex items-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3">
-            <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-left">
-              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
-                <span className={`absolute inset-0 bg-gradient-to-br from-[#CFE6FF] via-[#EAF4FF] to-transparent ${playing ? "animate-pulse" : ""}`} />
-                <Music2 className="relative z-10 h-4.5 w-4.5 text-[#1B2B44]" />
+            <div className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border px-2.5 py-2 text-left ${
+              isNight ? "border-white/15 bg-white/10" : "border-slate-200 bg-slate-50"
+            }`}>
+              <span className={`relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${
+                isNight ? "border-white/15 bg-white/10" : "border-slate-200 bg-white"
+              }`}>
+                <span className={`absolute inset-0 bg-gradient-to-br ${
+                  isNight ? "from-white/10 via-white/5 to-transparent" : "from-[#CFE6FF] via-[#EAF4FF] to-transparent"
+                } ${playing ? "animate-pulse" : ""}`} />
+                <Music2 className={`relative z-10 h-4.5 w-4.5 ${isNight ? "text-white" : "text-[#1B2B44]"}`} />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-[#1B2B44]">{activeMeta?.title ?? "Space"}</span>
-                <span className="block truncate text-xs text-[#5B6B86]">{activeMeta?.type ?? "Audio en reproducción"}</span>
+                <span className={`block truncate text-sm font-semibold ${isNight ? "text-white" : "text-[#1B2B44]"}`}>{activeMeta?.title ?? "Space"}</span>
+                <span className={`block truncate text-xs ${isNight ? "text-white/70" : "text-[#5B6B86]"}`}>{activeMeta?.type ?? "Audio en reproducción"}</span>
               </span>
             </div>
 
@@ -340,7 +382,9 @@ export function SpaceGlobalPlayer() {
               type="button"
               onClick={() => setExpanded((prev) => !prev)}
               aria-expanded={expanded}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1B2B44] transition hover:bg-slate-100"
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition ${
+                isNight ? "border-white/15 bg-white/10 text-white hover:bg-white/20" : "border-slate-200 bg-white text-[#1B2B44] hover:bg-slate-100"
+              }`}
               aria-label={expanded ? "Contraer" : "Expandir"}
             >
               {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -349,7 +393,9 @@ export function SpaceGlobalPlayer() {
             <button
               type="button"
               onClick={() => setMinimized(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1B2B44] transition hover:bg-slate-100"
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition ${
+                isNight ? "border-white/15 bg-white/10 text-white hover:bg-white/20" : "border-slate-200 bg-white text-[#1B2B44] hover:bg-slate-100"
+              }`}
               aria-label="Minimizar"
             >
               <Minus className="h-4.5 w-4.5" />
@@ -366,7 +412,9 @@ export function SpaceGlobalPlayer() {
           </div>
 
           <div
-            className={`overflow-hidden border-t border-slate-200 transition-all duration-300 ease-out ${
+            className={`overflow-hidden border-t transition-all duration-300 ease-out ${
+              isNight ? "border-white/15" : "border-slate-200"
+            } ${
               expanded ? "max-h-[250px] translate-y-0 opacity-100" : "max-h-0 -translate-y-1 opacity-0"
             }`}
             aria-hidden={!expanded}
@@ -384,13 +432,15 @@ export function SpaceGlobalPlayer() {
                 />
               </label>
 
-              <div className="flex items-center justify-between text-xs text-[#5B6B86]">
+              <div className={`flex items-center justify-between text-xs ${isNight ? "text-white/70" : "text-[#5B6B86]"}`}>
                 <span>{fmt(elapsedSec)}</span>
                 <span>{fmt(durationSec)}</span>
               </div>
 
               <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-                <label className="space-y-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-[#5B6B86]">
+                <label className={`space-y-1 rounded-xl border px-2.5 py-2 text-xs ${
+                  isNight ? "border-white/15 bg-white/10 text-white/80" : "border-slate-200 bg-slate-50 text-[#5B6B86]"
+                }`}>
                   <span className="inline-flex items-center gap-1">
                     <Volume2 className="h-3.5 w-3.5" />
                     Volumen ({Math.round(volume * 100)}%)
@@ -405,7 +455,9 @@ export function SpaceGlobalPlayer() {
                   />
                 </label>
 
-                <label className="space-y-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-[#5B6B86]">
+                <label className={`space-y-1 rounded-xl border px-2.5 py-2 text-xs ${
+                  isNight ? "border-white/15 bg-white/10 text-white/80" : "border-slate-200 bg-slate-50 text-[#5B6B86]"
+                }`}>
                   <span className="inline-flex items-center gap-1">
                     <SlidersHorizontal className="h-3.5 w-3.5" />
                     Velocidad
@@ -413,7 +465,9 @@ export function SpaceGlobalPlayer() {
                   <select
                     value={String(playbackRate)}
                     onChange={(event) => setPlaybackRate(Number(event.target.value))}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-[#1B2B44] outline-none"
+                    className={`w-full rounded-xl border px-3 py-2 text-xs outline-none ${
+                      isNight ? "border-white/15 bg-[#0F1C40] text-white" : "border-slate-200 bg-white text-[#1B2B44]"
+                    }`}
                   >
                     <option value="0.8">0.8x</option>
                     <option value="1">1.0x</option>

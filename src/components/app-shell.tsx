@@ -29,6 +29,9 @@ import { PomodoroOverlay } from "@/components/pomodoro-overlay";
 import { GlobalRabbitMascot } from "@/components/global-rabbit-mascot";
 import { RabbitGuidePanel } from "@/components/rabbit-guide-panel";
 import { SpaceGlobalPlayer } from "@/components/space-global-player";
+import { StarField } from "@/components/star-field";
+import { readSpacePreference, resolveSpaceMode } from "@/lib/space-theme-resolver";
+import { SPACE_SKY, SPACE_THEME_STORAGE_KEY, type SpaceMode } from "@/lib/space-theme-tokens";
 
 export type NavItem = {
   href: string;
@@ -98,17 +101,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const integratedAtTop = pathname === "/" && !isScrolledOnHome;
 
+  const [spaceMode, setSpaceMode] = useState<SpaceMode>("day");
+  useEffect(() => {
+    if (!isSpaceRoute) return;
+    const recompute = () => setSpaceMode(resolveSpaceMode(readSpacePreference()));
+    recompute();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SPACE_THEME_STORAGE_KEY) recompute();
+    };
+    const onCustom = () => recompute();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("somagnus:space-theme-change", onCustom);
+    const id = window.setInterval(recompute, 60_000);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("somagnus:space-theme-change", onCustom);
+      window.clearInterval(id);
+    };
+  }, [isSpaceRoute]);
+
   return (
     <div className={cn("min-h-dvh", isSpaceRoute ? "" : "bg-background")}>
       {isSpaceRoute ? (
         <div
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 -z-50"
-          style={{
-            background:
-              "linear-gradient(180deg, #9FD3FF 0%, #6AB7F2 35%, #3C8CE0 70%, #1E5DB0 100%)",
-          }}
-        />
+          style={{ background: SPACE_SKY[spaceMode] }}
+        >
+          {spaceMode === "night" ? <StarField className="opacity-90" /> : null}
+        </div>
       ) : null}
       <PomodoroOverlay />
       <GlobalRabbitMascot compact={isImmersiveReaderRoute} suppressSpeech={isImmersiveReaderRoute} />

@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Outfit } from "next/font/google";
-import { ArrowLeft, ChevronDown, ChevronUp, Headphones, Heart, Menu, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Volume2, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Headphones, Heart, Menu, Moon, Music2, Pause, Play, Search, SkipBack, SkipForward, Sparkles, Sun, Volume2, X } from "lucide-react";
 import Link from "next/link";
 import gsap from "gsap";
 import { getSpaceSharedAudio } from "@/lib/space-shared-audio";
+import { useSpaceTheme } from "@/components/space-theme";
+import { SPACE_THEME } from "@/lib/space-theme-tokens";
+import { StarField } from "@/components/star-field";
 
 type Mood = {
   id: string;
@@ -418,6 +421,9 @@ function probeAudioMetadata(src: string, timeoutMs = 4000): Promise<{ ok: boolea
 }
 
 export function SpaceClient() {
+  const { mode: spaceMode, preference: spacePref, cyclePreference } = useSpaceTheme();
+  const themeTokens = SPACE_THEME[spaceMode];
+  const isNight = spaceMode === "night";
   const audioRef = useRef<HTMLAudioElement | null>(getSpaceSharedAudio());
   const rabbitCardCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [selectedMood, setSelectedMood] = useState<string>("all");
@@ -1061,30 +1067,42 @@ export function SpaceClient() {
     <div
       className={`${outfit.className} relative isolate space-y-10 overflow-x-hidden pb-44 md:pb-52 ${modeStyle.pageText}`}
     >
-      <BreathIntro />
+      <BreathIntro isNight={isNight} />
       {/* Decorative clouds over the shared sky bg (rendered by AppShell) */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-40">
-        <Cloud className="absolute left-[4%] bottom-[120px]" size={150} opacity={0.85} />
-        <Cloud className="absolute right-[6%] bottom-[60px]" size={180} opacity={0.9} />
-        <Cloud className="absolute left-[38%] bottom-[200px]" size={100} opacity={0.55} />
-        <Cloud className="absolute right-[28%] bottom-[260px]" size={120} opacity={0.6} />
+        <Cloud className="absolute left-[4%] bottom-[120px]" size={150} opacity={themeTokens.cloudOpacity[0]} />
+        <Cloud className="absolute right-[6%] bottom-[60px]" size={180} opacity={themeTokens.cloudOpacity[1]} />
+        <Cloud className="absolute left-[38%] bottom-[200px]" size={100} opacity={themeTokens.cloudOpacity[2]} />
+        <Cloud className="absolute right-[28%] bottom-[260px]" size={120} opacity={themeTokens.cloudOpacity[3]} />
       </div>
       <div className="fixed left-1/2 top-3 z-30 w-[min(94vw,550px)] -translate-x-1/2">
         <div
-          className={`flex items-center justify-between gap-3 rounded-full px-4 py-2 transition-[background-color,box-shadow] duration-300 sm:px-5 sm:py-2.5 ${
-            stickyHeaderSolid
-              ? "border border-white/70 bg-white/75 shadow-[0_10px_30px_-18px_rgba(27,43,68,0.35)] backdrop-blur-md"
-              : "border border-white/50 bg-white/50 backdrop-blur-md"
+          className={`flex items-center justify-between gap-2 rounded-full px-3 py-2 transition-[background-color,box-shadow] duration-300 sm:px-4 sm:py-2.5 ${
+            isNight
+              ? stickyHeaderSolid
+                ? "border border-white/20 bg-[#0F1C40]/70 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.6)] backdrop-blur-md"
+                : "border border-white/15 bg-[#0F1C40]/50 backdrop-blur-md"
+              : stickyHeaderSolid
+                ? "border border-white/70 bg-white/75 shadow-[0_10px_30px_-18px_rgba(27,43,68,0.35)] backdrop-blur-md"
+                : "border border-white/50 bg-white/50 backdrop-blur-md"
           }`}
         >
           <Link
             href="/"
             aria-label="Volver a inicio"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/70 text-[#1B2B44] transition hover:bg-white"
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition ${
+              isNight
+                ? "border-white/20 bg-white/10 text-white hover:bg-white/20"
+                : "border-white/70 bg-white/70 text-[#1B2B44] hover:bg-white"
+            }`}
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div className="inline-flex min-w-0 flex-1 items-center justify-center text-xl font-semibold tracking-tight text-[#1B2B44] sm:text-2xl">
+          <div
+            className={`inline-flex min-w-0 flex-1 items-center justify-center text-xl font-semibold tracking-tight sm:text-2xl ${
+              isNight ? "text-white" : "text-[#1B2B44]"
+            }`}
+          >
             <span className="truncate">
               Entra en{" "}
               <span className={`${cinzelDisplay} font-bold tracking-[0.08em] text-[#6FB08A]`}>
@@ -1093,6 +1111,19 @@ export function SpaceClient() {
             </span>
           </div>
           <button
+            type="button"
+            onClick={cyclePreference}
+            aria-label={`Modo: ${spacePref} (${spaceMode})`}
+            title={`Tema: ${spacePref === "auto" ? "Auto" : spacePref === "day" ? "Día" : "Noche"}`}
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-[background-color,box-shadow] active:scale-95 ${
+              isNight
+                ? "border-white/20 bg-white/10 text-white hover:bg-white/20"
+                : "border-white/70 bg-white/75 text-[#1B2B44] hover:bg-white"
+            }`}
+          >
+            {isNight ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          </button>
+          <button
             ref={menuBtnRef}
             type="button"
             onClick={() => setHeaderMenuOpen((prev) => !prev)}
@@ -1100,9 +1131,13 @@ export function SpaceClient() {
             aria-haspopup="menu"
             aria-label="Secciones"
             className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-[background-color,box-shadow] active:scale-95 ${
-              headerMenuOpen
-                ? "border-white/90 bg-white text-[#1B2B44] shadow-[0_6px_18px_-8px_rgba(27,43,68,0.35)]"
-                : "border-white/70 bg-white/75 text-[#1B2B44] hover:bg-white"
+              isNight
+                ? headerMenuOpen
+                  ? "border-white/30 bg-white/20 text-white shadow-[0_6px_18px_-8px_rgba(0,0,0,0.5)]"
+                  : "border-white/20 bg-white/10 text-white hover:bg-white/20"
+                : headerMenuOpen
+                  ? "border-white/90 bg-white text-[#1B2B44] shadow-[0_6px_18px_-8px_rgba(27,43,68,0.35)]"
+                  : "border-white/70 bg-white/75 text-[#1B2B44] hover:bg-white"
             }`}
           >
             {headerMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -1179,19 +1214,29 @@ export function SpaceClient() {
         style={{ transitionDelay: "70ms" }}
       >
         <div className="grid gap-3 md:grid-cols-[1fr_220px_170px]">
-          <label className="flex items-center gap-3 rounded-2xl border border-white/60 bg-white/65 px-4 py-3 backdrop-blur-md">
-            <Search className="h-4 w-4 text-[#5B6B86]" />
+          <label className={`flex items-center gap-3 rounded-2xl border px-4 py-3 backdrop-blur-md ${
+            isNight ? "border-white/20 bg-white/10" : "border-white/60 bg-white/65"
+          }`}>
+            <Search className={`h-4 w-4 ${isNight ? "text-white/70" : "text-[#5B6B86]"}`} />
             <input
               value={sessionQuery}
               onChange={(event) => setSessionQuery(event.target.value)}
               placeholder="Buscar sesión..."
-              className="w-full bg-transparent text-base text-[#1B2B44] outline-none placeholder:text-[#5B6B86]/70"
+              className={`w-full bg-transparent text-base outline-none ${
+                isNight
+                  ? "text-white placeholder:text-white/50"
+                  : "text-[#1B2B44] placeholder:text-[#5B6B86]/70"
+              }`}
             />
           </label>
           <select
             value={selectedMood}
             onChange={(event) => setSelectedMood(event.target.value)}
-            className="rounded-2xl border border-white/60 bg-white/65 px-4 py-3 text-base text-[#1B2B44] outline-none backdrop-blur-md"
+            className={`rounded-2xl border px-4 py-3 text-base outline-none backdrop-blur-md ${
+              isNight
+                ? "border-white/20 bg-white/10 text-white"
+                : "border-white/60 bg-white/65 text-[#1B2B44]"
+            }`}
           >
             <option value="all">Todos</option>
             {moods.map((mood) => (
@@ -1204,7 +1249,9 @@ export function SpaceClient() {
             className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-base font-semibold backdrop-blur-md transition ${
               favoritesOnly
                 ? "border-[#E8A583]/60 bg-[#F7D9C4]/60 text-[#8C4A2A]"
-                : "border-white/60 bg-white/55 text-[#1B2B44] hover:bg-white/70"
+                : isNight
+                  ? "border-white/20 bg-white/10 text-white hover:bg-white/20"
+                  : "border-white/60 bg-white/55 text-[#1B2B44] hover:bg-white/70"
             }`}
           >
             <Heart className={`h-4 w-4 ${favoritesOnly ? "fill-[#E8A583] text-[#E8A583]" : ""}`} />
@@ -1238,7 +1285,11 @@ export function SpaceClient() {
                 onClick={() => startSession(session.id, { autoplay: true })}
                 className="group min-w-[88px] text-center"
               >
-                <span className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full border border-white/70 bg-white/65 text-[#5B6B86] backdrop-blur-md transition group-hover:border-[#6FB08A]/60 group-hover:text-[#6FB08A]">
+                <span className={`mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full border backdrop-blur-md transition group-hover:border-[#6FB08A]/60 group-hover:text-[#6FB08A] ${
+                  isNight
+                    ? "border-white/20 bg-white/10 text-white/80"
+                    : "border-white/70 bg-white/65 text-[#5B6B86]"
+                }`}>
                   <Music2 className="h-6 w-6" />
                 </span>
                 <span className="mt-2 line-clamp-2 block text-xs leading-tight text-white drop-shadow-[0_1px_6px_rgba(10,30,70,0.45)]">{session.title}</span>
@@ -1271,11 +1322,19 @@ export function SpaceClient() {
                   return (
                     <article
                       key={session.id}
-                      className="relative min-w-[240px] overflow-hidden rounded-2xl border border-white/60 bg-white/65 shadow-[0_14px_40px_-26px_rgba(27,43,68,0.35)] backdrop-blur-md"
+                      className={`relative min-w-[240px] overflow-hidden rounded-2xl border shadow-[0_14px_40px_-26px_rgba(27,43,68,0.35)] backdrop-blur-md ${
+                        isNight
+                          ? "border-white/15 bg-white/10"
+                          : "border-white/60 bg-white/65"
+                      }`}
                     >
-                      <div className="absolute inset-x-0 top-0 h-[90px] bg-[radial-gradient(ellipse_at_50%_0%,rgba(159,211,255,0.55),transparent_70%)]" />
+                      <div className={`absolute inset-x-0 top-0 h-[90px] ${
+                        isNight
+                          ? "bg-[radial-gradient(ellipse_at_50%_0%,rgba(180,200,255,0.25),transparent_70%)]"
+                          : "bg-[radial-gradient(ellipse_at_50%_0%,rgba(159,211,255,0.55),transparent_70%)]"
+                      }`} />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Music2 className="h-16 w-16 text-[#1B2B44]/10" />
+                        <Music2 className={`h-16 w-16 ${isNight ? "text-white/10" : "text-[#1B2B44]/10"}`} />
                       </div>
 
                       <div className="relative z-10 flex items-start justify-between p-3">
@@ -1290,7 +1349,11 @@ export function SpaceClient() {
                               Play
                             </button>
                           ) : (
-                            <span className="inline-flex items-center rounded-full border border-white/70 bg-white/60 px-2.5 py-1 text-[10px] font-semibold text-[#5B6B86]">
+                            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
+                              isNight
+                                ? "border-white/20 bg-white/10 text-white/80"
+                                : "border-white/70 bg-white/60 text-[#5B6B86]"
+                            }`}>
                               Próximamente
                             </span>
                           )}
@@ -1301,7 +1364,9 @@ export function SpaceClient() {
                           className={`rounded-full border p-2 transition ${
                             isFav
                               ? "border-[#E8A583]/60 bg-[#F7D9C4]/60 text-[#8C4A2A]"
-                              : "border-white/70 bg-white/55 text-[#5B6B86] hover:bg-white/75"
+                              : isNight
+                                ? "border-white/20 bg-white/10 text-white/80 hover:bg-white/20"
+                                : "border-white/70 bg-white/55 text-[#5B6B86] hover:bg-white/75"
                           }`}
                           aria-label="Favorito"
                         >
@@ -1317,10 +1382,14 @@ export function SpaceClient() {
                         aria-label={`Seleccionar ${session.title}`}
                       />
 
-                      <div className="relative z-10 mt-24 border-t border-white/60 bg-white/70 p-4 backdrop-blur-md">
-                        <div className="text-[11px] uppercase tracking-[0.14em] text-[#5B6B86]">{session.type}</div>
-                        <div className="mt-1 text-lg font-semibold leading-tight text-[#1B2B44]">{session.title}</div>
-                        <div className="mt-1 text-xs text-[#5B6B86]">{displayDurationForSession(session)}</div>
+                      <div className={`relative z-10 mt-24 border-t p-4 backdrop-blur-md ${
+                        isNight
+                          ? "border-white/15 bg-[#0F1C40]/40"
+                          : "border-white/60 bg-white/70"
+                      }`}>
+                        <div className={`text-[11px] uppercase tracking-[0.14em] ${isNight ? "text-white/70" : "text-[#5B6B86]"}`}>{session.type}</div>
+                        <div className={`mt-1 text-lg font-semibold leading-tight ${isNight ? "text-white" : "text-[#1B2B44]"}`}>{session.title}</div>
+                        <div className={`mt-1 text-xs ${isNight ? "text-white/70" : "text-[#5B6B86]"}`}>{displayDurationForSession(session)}</div>
                       </div>
                     </article>
                   );
@@ -1682,7 +1751,7 @@ function Cloud({
   );
 }
 
-function BreathIntro() {
+function BreathIntro({ isNight = false }: { isNight?: boolean }) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const sunRef = useRef<HTMLDivElement | null>(null);
   const inhaleRef = useRef<HTMLDivElement | null>(null);
@@ -1800,6 +1869,21 @@ function BreathIntro() {
     textShadow: "0 6px 24px rgba(10,30,70,0.35)",
   };
 
+  const skyBackground = isNight
+    ? "linear-gradient(180deg, #07102B 0%, #0F1D47 45%, #172A5E 78%, #1E3470 100%)"
+    : "linear-gradient(180deg, #9FD3FF 0%, #4DA8F0 40%, #1E73D9 78%, #0E3B8C 100%)";
+  const haloBackground = isNight
+    ? "radial-gradient(ellipse 60% 100% at 50% 100%, rgba(180,200,255,0.4) 0%, rgba(180,200,255,0) 70%)"
+    : "radial-gradient(ellipse 60% 100% at 50% 100%, rgba(255,180,90,0.5) 0%, rgba(255,180,90,0) 70%)";
+  const domeBackground = isNight
+    ? "radial-gradient(ellipse 70% 90% at 50% 100%, #F7F2E4 0%, #E5DFCF 40%, #B9B39E 75%, #8B8673 100%)"
+    : "radial-gradient(ellipse 70% 90% at 50% 100%, #FFD28A 0%, #FFB266 40%, #FF8A3D 75%, #F97316 100%)";
+  const domeShadow = isNight
+    ? "0 -20px 60px rgba(160,190,240,0.35)"
+    : "0 -20px 60px rgba(249,115,22,0.35)";
+  const faceStroke = isNight ? "#1B2B44" : "#2B1810";
+  const cloudOpacityMul = isNight ? 0.55 : 1;
+
   const scene = (
     <div
       ref={overlayRef}
@@ -1809,10 +1893,16 @@ function BreathIntro() {
         opacity: 0,
         width: "100vw",
         height: "100vh",
-        background:
-          "linear-gradient(180deg, #9FD3FF 0%, #4DA8F0 40%, #1E73D9 78%, #0E3B8C 100%)",
+        background: skyBackground,
       }}
     >
+      {/* Night starfield on upper half */}
+      {isNight ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2">
+          <StarField />
+        </div>
+      ) : null}
+
       {/* TOP HALF — breath label (white over sky) */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 flex items-center justify-center">
         <div ref={inhaleRef} className={labelClass} style={labelStyle}>
@@ -1827,14 +1917,14 @@ function BreathIntro() {
       </div>
 
       {/* Small drifting clouds across the sky */}
-      <Cloud className="absolute left-[4%] top-[12%]" size={140} opacity={0.95} />
-      <Cloud className="absolute right-[-2%] top-[8%]" size={170} opacity={0.95} />
-      <Cloud className="absolute left-[38%] top-[6%]" size={60} opacity={0.55} />
-      <Cloud className="absolute right-[34%] top-[18%]" size={50} opacity={0.45} />
-      <Cloud className="absolute left-[18%] top-[28%]" size={45} opacity={0.4} />
-      <Cloud className="absolute right-[14%] top-[36%]" size={70} opacity={0.55} />
+      <Cloud className="absolute left-[4%] top-[12%]" size={140} opacity={0.95 * cloudOpacityMul} />
+      <Cloud className="absolute right-[-2%] top-[8%]" size={170} opacity={0.95 * cloudOpacityMul} />
+      <Cloud className="absolute left-[38%] top-[6%]" size={60} opacity={0.55 * cloudOpacityMul} />
+      <Cloud className="absolute right-[34%] top-[18%]" size={50} opacity={0.45 * cloudOpacityMul} />
+      <Cloud className="absolute left-[18%] top-[28%]" size={45} opacity={0.4 * cloudOpacityMul} />
+      <Cloud className="absolute right-[14%] top-[36%]" size={70} opacity={0.55 * cloudOpacityMul} />
 
-      {/* BOTTOM HALF — orange sun dome (breathing) with face */}
+      {/* BOTTOM HALF — sun (day) / moon (night) dome with face */}
       <div
         ref={sunRef}
         className="absolute inset-x-0 bottom-0 h-1/2"
@@ -1844,25 +1934,23 @@ function BreathIntro() {
           willChange: "transform",
         }}
       >
-        {/* Warm halo around the dome peak */}
+        {/* Halo around the dome peak */}
         <div
           className="absolute inset-x-0"
           style={{
             top: "-60px",
             height: "120px",
-            background:
-              "radial-gradient(ellipse 60% 100% at 50% 100%, rgba(255,180,90,0.5) 0%, rgba(255,180,90,0) 70%)",
+            background: haloBackground,
             pointerEvents: "none",
           }}
         />
-        {/* Sun dome anchored to bottom edge */}
+        {/* Dome anchored to bottom edge */}
         <div
           className="absolute inset-0"
           style={{
-            background:
-              "radial-gradient(ellipse 70% 90% at 50% 100%, #FFD28A 0%, #FFB266 40%, #FF8A3D 75%, #F97316 100%)",
+            background: domeBackground,
             borderRadius: "50% 50% 0 0 / 100% 100% 0 0",
-            boxShadow: "0 -20px 60px rgba(249,115,22,0.35)",
+            boxShadow: domeShadow,
           }}
         />
         {/* Face near the dome peak */}
@@ -1875,21 +1963,21 @@ function BreathIntro() {
         >
           <path
             d="M70 50 Q110 18 150 50"
-            stroke="#2B1810"
+            stroke={faceStroke}
             strokeWidth="10"
             strokeLinecap="round"
             fill="none"
           />
           <path
             d="M250 50 Q290 18 330 50"
-            stroke="#2B1810"
+            stroke={faceStroke}
             strokeWidth="10"
             strokeLinecap="round"
             fill="none"
           />
           <path
             d="M150 95 Q200 130 250 95"
-            stroke="#2B1810"
+            stroke={faceStroke}
             strokeWidth="10"
             strokeLinecap="round"
             fill="none"
@@ -1899,8 +1987,8 @@ function BreathIntro() {
 
       {/* Foreground clouds flanking the horizon (like reference) */}
       <div className="pointer-events-none absolute inset-x-0" style={{ bottom: "46%" }}>
-        <Cloud className="absolute left-[-3%] bottom-0" size={220} opacity={1} />
-        <Cloud className="absolute right-[-4%] bottom-0" size={240} opacity={1} />
+        <Cloud className="absolute left-[-3%] bottom-0" size={220} opacity={1 * cloudOpacityMul} />
+        <Cloud className="absolute right-[-4%] bottom-0" size={240} opacity={1 * cloudOpacityMul} />
       </div>
     </div>
   );
