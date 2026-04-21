@@ -14,6 +14,7 @@ export default function Home() {
 
       <HomeTabsSection
         todayIso={todayIso}
+        initialPlan={plan}
         dayLabel={summary.dayLabel}
         focusNote={summary.focusNote}
         primarySlug={plan.primary}

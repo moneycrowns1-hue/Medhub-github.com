@@ -43,6 +43,8 @@ import {
   type UpcomingEvaluation,
 } from "@/lib/academic-store";
 import type { SubjectSlug } from "@/lib/subjects";
+import { formatPlanSummary, type DayPlan } from "@/lib/schedule";
+import { useTodayPlan } from "@/lib/use-today-plan";
 
 type HomeTab = "inicio" | "resumen" | "herramientas" | "atajos";
 
@@ -60,16 +62,33 @@ type Props = ModulesProps & {
   dayLabel: string;
   focusNote?: string;
   primarySlug: SubjectSlug;
+  /** Server-rendered plan used as fallback for initial render. */
+  initialPlan: DayPlan;
 };
 
 export function HomeTabsSection({
   todayIso,
-  dayLabel,
-  focusNote,
-  primarySlug,
-  ...modules
+  initialPlan,
+  ...serverFallback
 }: Props) {
   const data = useHomeTodayData();
+
+  // Recompute plan on the client so the cátedra rotation is based on the user's
+  // local timezone (prevents "Principal" on one screen and "Secundaria" on the
+  // next due to SSR/UTC drift, and keeps the plan stable until real midnight).
+  const plan = useTodayPlan(initialPlan);
+  const summary = formatPlanSummary(plan);
+  const dayLabel = summary.dayLabel;
+  const focusNote = summary.focusNote ?? serverFallback.focusNote;
+  const primarySlug: SubjectSlug = plan.primary;
+  const modules: ModulesProps = {
+    primaryHref: `/study/${plan.primary}`,
+    primaryName: summary.primaryName,
+    secondaryHref: `/study/${plan.secondary}`,
+    secondaryName: summary.secondaryName,
+    reading: summary.reading,
+    isRestDay: summary.isRestDay,
+  };
   const titleRef = useRef<HTMLDivElement | null>(null);
 
   const [activeTab, setActiveTab] = useState<HomeTab>("inicio");

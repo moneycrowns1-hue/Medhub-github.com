@@ -27,6 +27,7 @@ import {
 import { isoDate } from "@/lib/dates";
 import type { DayPlan } from "@/lib/schedule";
 import { formatPlanSummary } from "@/lib/schedule";
+import { useTodayPlan } from "@/lib/use-today-plan";
 import { updateTodayStats } from "@/lib/stats-store";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
 import { RABBIT_GUIDE_SPEAK_EVENT, type RabbitGuideSpeechPayload } from "@/lib/rabbit-guide";
@@ -68,7 +69,9 @@ type Props = {
   plan: DayPlan;
 };
 
-export function DayClient({ plan }: Props) {
+export function DayClient({ plan: initialPlan }: Props) {
+  // Use client-local time so the rotation flips exactly at the user's midnight.
+  const plan = useTodayPlan(initialPlan);
   const summary = formatPlanSummary(plan);
   const [checked, setChecked] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set<string>();

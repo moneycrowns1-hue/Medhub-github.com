@@ -31,7 +31,8 @@ import {
 import { algoStats } from "@/lib/srs-algo";
 import { loadSrsLibrary, SRS_UPDATED_EVENT } from "@/lib/srs-storage";
 import type { SubjectDefinition } from "@/lib/subjects";
-import { getPlanForDate, formatPlanSummary } from "@/lib/schedule";
+import { formatPlanSummary } from "@/lib/schedule";
+import { useTodayPlan } from "@/lib/use-today-plan";
 import {
   ACADEMIC_UPDATED_EVENT,
   isMedicalSubjectSlug,
@@ -161,17 +162,16 @@ export function StudyClient({ subject }: Props) {
       .sort((a, b) => b.due - a.due || b.total - a.total);
   }, [srsLib, subjectDecks]);
 
-  // Role of this subject within today's plan
+  // Role of this subject within today's plan (computed with client-local time
+  // so the rotation never flips before the user's real midnight).
+  const todayPlan = useTodayPlan();
+  const todayPlanSummary = useMemo(() => formatPlanSummary(todayPlan), [todayPlan]);
   const todayRole: DayRole = useMemo(() => {
-    const plan = getPlanForDate(new Date());
-    const summary = formatPlanSummary(plan);
-    if (summary.isRestDay) return "rest";
-    if (plan.primary === subject.slug) return "primary";
-    if (plan.secondary === subject.slug) return "secondary";
+    if (todayPlanSummary.isRestDay) return "rest";
+    if (todayPlan.primary === subject.slug) return "primary";
+    if (todayPlan.secondary === subject.slug) return "secondary";
     return "off";
-  }, [subject.slug]);
-
-  const todayPlanSummary = useMemo(() => formatPlanSummary(getPlanForDate(new Date())), []);
+  }, [subject.slug, todayPlan, todayPlanSummary.isRestDay]);
 
   // Next evaluations for this subject (30-day horizon)
   const nextEvals = useMemo<UpcomingEvaluation[]>(() => {
