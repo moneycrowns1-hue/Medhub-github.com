@@ -14,8 +14,6 @@ import {
   ChevronRight,
   Flame,
   GraduationCap,
-  Megaphone,
-  Mic,
   Target,
   Timer,
   TrendingUp,
@@ -41,8 +39,6 @@ import { algoStats } from "@/lib/srs-algo";
 import { listPdfResources, RESOURCES_UPDATED_EVENT } from "@/lib/resources-service";
 import { getFlashcardsArtifactsStats, RESOURCES_AI_ARTIFACTS_UPDATED_EVENT } from "@/lib/resources-ai-artifacts-store";
 import { isoDate, parseIsoDateLocal } from "@/lib/dates";
-
-type TrackSlug = "ingles" | "trabajo-online";
 
 /* ─── Mini SVG chart components ─── */
 
@@ -153,14 +149,10 @@ export function StatsClient() {
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [pdfCount, setPdfCount] = useState(0);
-  const [trackPdfCounts, setTrackPdfCounts] = useState<Record<TrackSlug, number>>({
-    ingles: 0,
-    "trabajo-online": 0,
-  });
   const [aiArtifactCount, setAiArtifactCount] = useState(0);
   const [aiArtifactCardsCount, setAiArtifactCardsCount] = useState(0);
   const [tick, setTick] = useState(0);
-  const [statsTab, setStatsTab] = useState<"resumen" | "actividad" | "tracks">("resumen");
+  const [statsTab, setStatsTab] = useState<"resumen" | "actividad">("resumen");
   const titleRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
@@ -184,7 +176,6 @@ export function StatsClient() {
       if (isTypingTarget(e.target)) return;
       if (e.key === "s" || e.key === "S") setStatsTab("resumen");
       else if (e.key === "a" || e.key === "A") setStatsTab("actividad");
-      else if (e.key === "t" || e.key === "T") setStatsTab("tracks");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -195,13 +186,8 @@ export function StatsClient() {
       try {
         const all = await listPdfResources();
         setPdfCount(all.length);
-        setTrackPdfCounts({
-          ingles: all.filter((r) => r.subjectSlug === "ingles").length,
-          "trabajo-online": all.filter((r) => r.subjectSlug === "trabajo-online").length,
-        });
       } catch {
         setPdfCount(0);
-        setTrackPdfCounts({ ingles: 0, "trabajo-online": 0 });
       }
       const artifactsStats = getFlashcardsArtifactsStats();
       setAiArtifactCount(artifactsStats.totalArtifacts);
@@ -263,30 +249,6 @@ export function StatsClient() {
     return algoStats(srsLib.cards);
   }, [srsLib]);
 
-  const trackStats = useMemo(() => {
-    if (!srsLib) {
-      return {
-        ingles: { decks: 0, cards: 0, dueToday: 0 },
-        "trabajo-online": { decks: 0, cards: 0, dueToday: 0 },
-      };
-    }
-
-    const englishCards = srsLib.cards.filter((c) => c.subjectSlug === "ingles");
-    const onlineWorkCards = srsLib.cards.filter((c) => c.subjectSlug === "trabajo-online");
-
-    return {
-      ingles: {
-        decks: srsLib.decks.filter((d) => d.subjectSlug === "ingles").length,
-        cards: englishCards.length,
-        dueToday: algoStats(englishCards).dueToday,
-      },
-      "trabajo-online": {
-        decks: srsLib.decks.filter((d) => d.subjectSlug === "trabajo-online").length,
-        cards: onlineWorkCards.length,
-        dueToday: algoStats(onlineWorkCards).dueToday,
-      },
-    };
-  }, [srsLib]);
 
   const totalFocusAll = allDays.reduce((s, d) => s + d.focusMinutes, 0);
   const totalSrsAll = allDays.reduce((s, d) => s + d.srsReviewed, 0);
@@ -350,8 +312,7 @@ export function StatsClient() {
     else setCalMonth((m) => m + 1);
   };
 
-  const tabLabel =
-    statsTab === "resumen" ? "Resumen" : statsTab === "actividad" ? "Actividad" : "Tracks";
+  const tabLabel = statsTab === "resumen" ? "Resumen" : "Actividad";
 
   return (
     <div className="space-y-6">
@@ -362,7 +323,6 @@ export function StatsClient() {
             <TabsList className="bg-white/5">
               <TabsTrigger value="resumen" className="text-xs">Resumen</TabsTrigger>
               <TabsTrigger value="actividad" className="text-xs">Actividad</TabsTrigger>
-              <TabsTrigger value="tracks" className="text-xs">Tracks</TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -685,70 +645,6 @@ export function StatsClient() {
       </section>
       </TabsContent>
 
-      <TabsContent value="tracks" className="space-y-6">
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <div className="text-xs font-medium uppercase tracking-widest text-primary">Tracks</div>
-          <h2 className="text-xl font-bold tracking-tight">Inglés y Trabajo Online</h2>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-300">
-                <Mic className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold">Inglés</div>
-                <div className="text-xs text-foreground/65">Shadowing y speaking</div>
-              </div>
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg bg-white/[0.06] p-2">
-                <div className="text-[10px] uppercase tracking-wider text-foreground/60">Decks</div>
-                <div className="text-lg font-bold tabular-nums">{trackStats.ingles.decks}</div>
-              </div>
-              <div className="rounded-lg bg-white/[0.06] p-2">
-                <div className="text-[10px] uppercase tracking-wider text-foreground/60">Cards</div>
-                <div className="text-lg font-bold tabular-nums">{trackStats.ingles.cards}</div>
-              </div>
-              <div className="rounded-lg bg-white/[0.06] p-2">
-                <div className="text-[10px] uppercase tracking-wider text-foreground/60">PDFs</div>
-                <div className="text-lg font-bold tabular-nums">{trackPdfCounts.ingles}</div>
-              </div>
-            </div>
-            <div className="mt-3 text-xs text-foreground/70">Due hoy: <span className="font-semibold tabular-nums">{trackStats.ingles.dueToday}</span></div>
-          </div>
-
-          <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-300">
-                <Megaphone className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold">Trabajo Online</div>
-                <div className="text-xs text-foreground/65">Publicación y monetización</div>
-              </div>
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg bg-white/[0.06] p-2">
-                <div className="text-[10px] uppercase tracking-wider text-foreground/60">Decks</div>
-                <div className="text-lg font-bold tabular-nums">{trackStats["trabajo-online"].decks}</div>
-              </div>
-              <div className="rounded-lg bg-white/[0.06] p-2">
-                <div className="text-[10px] uppercase tracking-wider text-foreground/60">Cards</div>
-                <div className="text-lg font-bold tabular-nums">{trackStats["trabajo-online"].cards}</div>
-              </div>
-              <div className="rounded-lg bg-white/[0.06] p-2">
-                <div className="text-[10px] uppercase tracking-wider text-foreground/60">PDFs</div>
-                <div className="text-lg font-bold tabular-nums">{trackPdfCounts["trabajo-online"]}</div>
-              </div>
-            </div>
-            <div className="mt-3 text-xs text-foreground/70">Due hoy: <span className="font-semibold tabular-nums">{trackStats["trabajo-online"].dueToday}</span></div>
-          </div>
-        </div>
-      </section>
-      </TabsContent>
       </Tabs>
     </div>
   );

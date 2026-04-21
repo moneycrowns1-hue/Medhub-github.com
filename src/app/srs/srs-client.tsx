@@ -375,9 +375,7 @@ export function SrsClient() {
       selectedDeck.subjectSlug === "anatomia" ||
       selectedDeck.subjectSlug === "histologia" ||
       selectedDeck.subjectSlug === "embriologia" ||
-      selectedDeck.subjectSlug === "biologia-celular" ||
-      selectedDeck.subjectSlug === "ingles" ||
-      selectedDeck.subjectSlug === "trabajo-online"
+      selectedDeck.subjectSlug === "biologia-celular"
         ? selectedDeck.subjectSlug
         : null;
     markSrsDeckVisited({

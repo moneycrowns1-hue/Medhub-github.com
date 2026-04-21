@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import confetti from "canvas-confetti";
 import {
   ArrowRight,
   BookOpen,
@@ -44,7 +43,10 @@ const STEP_ICONS: Record<string, React.ReactNode> = {
   "wind-down": <Moon className="h-4 w-4" />,
 };
 
-function fireConfetti() {
+async function fireConfetti() {
+  // Lazy-load canvas-confetti only when the user actually completes the routine,
+  // so the ~30 kB lib isn't in the initial /day bundle.
+  const { default: confetti } = await import("canvas-confetti");
   const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
   const end = Date.now() + 2500;
 

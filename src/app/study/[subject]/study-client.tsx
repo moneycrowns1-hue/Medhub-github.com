@@ -14,8 +14,6 @@ import {
   Flame,
   GraduationCap,
   Layers,
-  Mic,
-  Megaphone,
   Sparkles,
   Target,
   Timer,
@@ -91,30 +89,12 @@ type Props = {
   subject: SubjectDefinition;
 };
 
-function trackActionBySubject(subject: SubjectDefinition): {
+function trackActionBySubject(_subject: SubjectDefinition): {
   href: string;
   title: string;
   subtitle: string;
   icon: React.ReactNode;
 } {
-  if (subject.slug === "ingles") {
-    return {
-      href: "/biblioteca?subject=ingles",
-      title: "Sprint de shadowing",
-      subtitle: "Audio, repetición y speaking",
-      icon: <Mic className="h-5 w-5" />,
-    };
-  }
-
-  if (subject.slug === "trabajo-online") {
-    return {
-      href: "/biblioteca?subject=trabajo-online",
-      title: "Pipeline de publicación",
-      subtitle: "Crear, publicar y medir",
-      icon: <Megaphone className="h-5 w-5" />,
-    };
-  }
-
   return {
     href: "/",
     title: "Dashboard",

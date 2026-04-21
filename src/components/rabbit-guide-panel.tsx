@@ -53,9 +53,7 @@ function parseStudySubjectFromPath(pathname: string): SubjectSlug | null {
     slug === "anatomia" ||
     slug === "histologia" ||
     slug === "embriologia" ||
-    slug === "biologia-celular" ||
-    slug === "ingles" ||
-    slug === "trabajo-online"
+    slug === "biologia-celular"
   ) {
     return slug;
   }

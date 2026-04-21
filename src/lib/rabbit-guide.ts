@@ -247,9 +247,7 @@ function isSubjectSlug(value: unknown): value is SubjectSlug {
     value === "anatomia" ||
     value === "histologia" ||
     value === "embriologia" ||
-    value === "biologia-celular" ||
-    value === "ingles" ||
-    value === "trabajo-online"
+    value === "biologia-celular"
   );
 }
 

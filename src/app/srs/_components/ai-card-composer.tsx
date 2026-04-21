@@ -95,7 +95,7 @@ export function AiCardComposer({ lib, deckId, subjectSlug, onLibraryChange }: Pr
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 45000);
     try {
-      const language = subjectSlug === "ingles" ? "en" : "es";
+      const language = "es";
       const r = await fetch("/api/ai/flashcards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

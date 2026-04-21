@@ -28,22 +28,6 @@ function normalizeSubjectSlug(slug: string): string {
   return slug;
 }
 
-function defaultAiTagsForSubject(subjectSlug: string): string[] {
-  if (subjectSlug === "ingles") return ["Inglés", "Shadowing", "Speaking"];
-  if (subjectSlug === "trabajo-online") return ["Trabajo Online", "Publicación", "Monetización"];
-  return [];
-}
-
-function templateKeyForSubject(subjectSlug: string, type: "basic" | "cloze"): string {
-  if (subjectSlug === "ingles") {
-    return type === "cloze" ? "english-collocation-cloze" : "english-shadowing-basic";
-  }
-  if (subjectSlug === "trabajo-online") {
-    return type === "cloze" ? "onlinework-framework-cloze" : "onlinework-monetization-basic";
-  }
-  return type;
-}
-
 function normalizeFingerprintText(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -275,30 +259,6 @@ export function defaultSrsLibrary(): SrsLibrary {
       description: "Conceptos esenciales",
     },
     {
-      id: "deck-english",
-      name: "Inglés — Shadowing",
-      subjectSlug: "ingles",
-      description: "Pronunciación, ritmo y frases de uso real",
-    },
-    {
-      id: "deck-english-speaking",
-      name: "Inglés — Speaking Patterns",
-      subjectSlug: "ingles",
-      description: "Estructuras para hablar con fluidez",
-    },
-    {
-      id: "deck-online-work",
-      name: "Trabajo Online — Publicación",
-      subjectSlug: "trabajo-online",
-      description: "Sistemas de contenido, oferta y distribución",
-    },
-    {
-      id: "deck-online-offers",
-      name: "Trabajo Online — Oferta & Ventas",
-      subjectSlug: "trabajo-online",
-      description: "Posicionamiento, propuesta y cierre",
-    },
-    {
       id: "deck-io",
       name: "Image Occlusion — MVP",
       subjectSlug: "histologia",
@@ -350,50 +310,6 @@ export function defaultSrsLibrary(): SrsLibrary {
       front: "¿Qué hace la bomba Na+/K+ ATPasa?",
       back: "3 Na+ salen y 2 K+ entran por ATP; mantiene potencial de membrana.",
       tags: ["Biocel"],
-    },
-    {
-      id: "eng-1",
-      noteId: "note_eng-1",
-      templateKey: "english-shadowing-basic",
-      type: "basic",
-      subjectSlug: "ingles",
-      deckId: "deck-english",
-      front: "Shadowing drill: 'Could you walk me through the main findings?' ¿Qué objetivo técnico tiene esta práctica?",
-      back: "Entrenar ritmo, entonación y chunking para producir inglés natural bajo presión.",
-      tags: ["Inglés", "Shadowing", "Speaking"],
-    },
-    {
-      id: "eng-2",
-      noteId: "note_eng-2",
-      templateKey: "english-collocation-cloze",
-      type: "cloze",
-      subjectSlug: "ingles",
-      deckId: "deck-english-speaking",
-      front: "In meetings: 'Let's {{c1::align on}} the next milestone before publishing.'",
-      back: "Collocation útil para coordinación y decisiones de ejecución.",
-      tags: ["Inglés", "Collocations", "Speaking"],
-    },
-    {
-      id: "ow-1",
-      noteId: "note_ow-1",
-      templateKey: "onlinework-monetization-basic",
-      type: "basic",
-      subjectSlug: "trabajo-online",
-      deckId: "deck-online-work",
-      front: "¿Cuál es la secuencia mínima para monetizar una pieza de contenido?",
-      back: "Contenido útil -> CTA claro -> oferta simple -> seguimiento con métrica principal.",
-      tags: ["Trabajo Online", "Monetización", "Pipeline"],
-    },
-    {
-      id: "ow-2",
-      noteId: "note_ow-2",
-      templateKey: "onlinework-framework-cloze",
-      type: "cloze",
-      subjectSlug: "trabajo-online",
-      deckId: "deck-online-offers",
-      front: "Una oferta fuerte combina {{c1::problema específico}}, {{c2::resultado claro}} y {{c3::prueba de ejecución}}.",
-      back: "Framework base para construir propuestas que conviertan.",
-      tags: ["Trabajo Online", "Oferta", "Ventas"],
     },
     {
       id: "io-1",
@@ -489,7 +405,6 @@ export function importAiNotesToDeck(
 
   const defaultTags = [
     ...(input.defaultTags ?? []).filter((t) => typeof t === "string" && t.trim()),
-    ...defaultAiTagsForSubject(input.subjectSlug),
   ];
 
   const nextCards: SrsCard[] = [];
@@ -524,7 +439,7 @@ export function importAiNotesToDeck(
       });
       if (knownFingerprints.has(fingerprint)) continue;
 
-      const templateKey = templateKeyForSubject(input.subjectSlug, c.type === "cloze" ? "cloze" : "basic");
+      const templateKey: "basic" | "cloze" = c.type === "cloze" ? "cloze" : "basic";
       const tags = [...defaultTags, ...noteTags, ...(Array.isArray(c.tags) ? c.tags : [])]
         .filter((t) => typeof t === "string")
         .map((t) => t.trim())

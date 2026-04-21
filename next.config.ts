@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import withBundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
   // GitHub Pages necesita export estático
@@ -14,4 +15,6 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["http://localhost:3000", "http://192.168.100.13:3000"],
 };
 
-export default nextConfig;
+export default withBundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+})(nextConfig);

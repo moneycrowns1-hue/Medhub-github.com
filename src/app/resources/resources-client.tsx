@@ -8,9 +8,22 @@ import { gsap } from "gsap";
 
 import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileText, Filter, FolderUp, Info, Loader2, MoreHorizontal, PanelRight, RefreshCw, Save, Search, Sparkles, Star, StickyNote, Tags, Trash2, Upload } from "lucide-react";
 import { SUBJECTS, type SubjectSlug } from "@/lib/subjects";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 import { ensurePdfJsWorker, getPdfAssetUrls } from "@/lib/pdfjs-runtime";
+
+// Lazy-load pdfjs-dist (~800 kB) only when the user actually opens/processes a
+// PDF in /resources. This keeps it out of the initial bundle for the page.
+let pdfjsGetDocumentPromise: Promise<
+  typeof import("pdfjs-dist/legacy/build/pdf.mjs")["getDocument"]
+> | null = null;
+function loadPdfGetDocument() {
+  if (!pdfjsGetDocumentPromise) {
+    pdfjsGetDocumentPromise = import("pdfjs-dist/legacy/build/pdf.mjs").then(
+      (m) => m.getDocument,
+    );
+  }
+  return pdfjsGetDocumentPromise;
+}
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -190,6 +203,7 @@ function isValidHttpUrl(value: string) {
 
 async function renderPdfPageAssetFromRemoteUrl(remoteUrl: string, pageNumber: number): Promise<RenderPdfPageAssetResult> {
   ensurePdfWorker();
+  const getDocument = await loadPdfGetDocument();
   const task = getDocument({
     url: remoteUrl,
     disableStream: false,
@@ -415,6 +429,7 @@ function prefersLightPdfRenderProfile() {
 
 async function renderPdfPages(blob: Blob): Promise<{ pages: Array<string | null>; pageCount: number; sourceData: Uint8Array }> {
   ensurePdfWorker();
+  const getDocument = await loadPdfGetDocument();
   const sourceData = new Uint8Array(await blob.arrayBuffer());
   const openData = sourceData.slice();
   const task = getDocument({
@@ -437,6 +452,7 @@ async function renderPdfPages(blob: Blob): Promise<{ pages: Array<string | null>
 
 async function renderPdfPagesFromRemoteUrl(remoteUrl: string): Promise<{ pages: Array<string | null>; pageCount: number }> {
   ensurePdfWorker();
+  const getDocument = await loadPdfGetDocument();
   const task = getDocument({
     url: remoteUrl,
     ...getPdfAssetUrls(),
@@ -521,6 +537,7 @@ function formatPdfSizeLabel(sizeBytes: number) {
 
 async function renderPdfPageAsset(sourceData: Uint8Array, pageNumber: number): Promise<RenderPdfPageAssetResult> {
   ensurePdfWorker();
+  const getDocument = await loadPdfGetDocument();
   const openData = sourceData.slice();
   const task = getDocument({
     data: openData,
@@ -752,9 +769,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     return selected?.subjectSlug === "anatomia" ||
       selected?.subjectSlug === "histologia" ||
       selected?.subjectSlug === "embriologia" ||
-      selected?.subjectSlug === "biologia-celular" ||
-      selected?.subjectSlug === "ingles" ||
-      selected?.subjectSlug === "trabajo-online"
+      selected?.subjectSlug === "biologia-celular"
       ? (selected.subjectSlug as SubjectSlug)
       : null;
   }, [items, selectedId]);
@@ -3159,9 +3174,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
         filterSubject === "anatomia" ||
         filterSubject === "histologia" ||
         filterSubject === "embriologia" ||
-        filterSubject === "biologia-celular" ||
-        filterSubject === "ingles" ||
-        filterSubject === "trabajo-online"
+        filterSubject === "biologia-celular"
           ? filterSubject
           : undefined;
       const created = await putPdfResource({
@@ -3206,7 +3219,7 @@ export function ResourcesClient(props: ResourcesClientProps = {}) {
     setAiError(null);
     const safeMaxCards = clamp(Math.floor(Number(maxCards) || 25), 5, 80);
     const aiSubjectSlug = subject === "all" ? selectedSubjectSlug ?? "histologia" : subject;
-    const aiLanguage = aiSubjectSlug === "ingles" ? "en" : "es";
+    const aiLanguage = "es";
     const sourceDocumentId = selected?.id ?? "";
     const inputHash = hashFlashcardsArtifactInput({
       documentId: sourceDocumentId,

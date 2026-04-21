@@ -114,18 +114,7 @@ Para cloze usa {{c1::...}} y evita cloze largos.`;
   const subjectLine = subjectSlug
     ? `MATERIA OBJETIVO: ${subjectSlug}`
     : "MATERIA OBJETIVO: (general)";
-  const specializationLine =
-    subjectSlug === "ingles"
-      ? `ESPECIALIZACIÓN INGLÉS:
-- Prioriza speaking y shadowing.
-- Incluye collocations, chunks y preguntas/respuestas naturales.
-- Evita traducciones literales; usa frases de uso real.`
-      : subjectSlug === "trabajo-online"
-        ? `ESPECIALIZACIÓN TRABAJO ONLINE:
-- Prioriza frameworks accionables: crear, publicar, distribuir, monetizar.
-- Incluye métricas, CTA y sistemas repetibles.
-- Mantén foco práctico y orientado a ejecución.`
-        : "ESPECIALIZACIÓN: (sin especialización adicional).";
+  const specializationLine = "ESPECIALIZACIÓN: (sin especialización adicional).";
 
   const prompt = `Vas a crear material de estudio a partir de un PDF para un estudiante de medicina.
 

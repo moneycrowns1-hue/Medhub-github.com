@@ -2,9 +2,7 @@ export type SubjectSlug =
   | "anatomia"
   | "histologia"
   | "embriologia"
-  | "biologia-celular"
-  | "ingles"
-  | "trabajo-online";
+  | "biologia-celular";
 
 export type SubjectUiMode = "visual" | "timeline" | "flowcharts" | "redirect";
 
@@ -38,16 +36,6 @@ export const SUBJECTS: Record<SubjectSlug, SubjectDefinition> = {
   "biologia-celular": {
     slug: "biologia-celular",
     name: "Biología Celular",
-    uiMode: "flowcharts",
-  },
-  ingles: {
-    slug: "ingles",
-    name: "Inglés",
-    uiMode: "timeline",
-  },
-  "trabajo-online": {
-    slug: "trabajo-online",
-    name: "Trabajo Online",
     uiMode: "flowcharts",
   },
 };

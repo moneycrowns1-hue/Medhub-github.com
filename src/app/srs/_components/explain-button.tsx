@@ -29,7 +29,7 @@ export function ExplainButton({ front, back, subjectSlug }: Props) {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 30000);
     try {
-      const language = subjectSlug === "ingles" ? "en" : "es";
+      const language = "es";
       const r = await fetch("/api/ai/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
